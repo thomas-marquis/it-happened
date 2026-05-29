@@ -1,0 +1,10 @@
+[project]
+name = "it-happened"
+version = "0.1.0"
+description = "Event management library written in Go simplifying event driven application development"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "mkdocs>=1.6.1",
+    "mkdocs-material>=9.7.6",
+]

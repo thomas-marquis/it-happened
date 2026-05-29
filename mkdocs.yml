@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=https://squidfunk.github.io/mkdocs-material/schema.json
+site_name: it-happened
+site_url: https://thomas-marquis.github.io/it-happened/
+repo_url: https://github.com/thomas-marquis/it-happened
+repo_name: thomas-marquis/it-happened
+site_author: Thomas Marquis
+theme:
+  name: material
+  language: en
+  features:
+    - content.code.copy
+    - content.code.annotate
+    - navigation.instant
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.expand
+    - toc.follow
+    - search
+    - search.suggest
+    - navigation.footer
+    - navigation.top
+  favicon: assets/images/logo-tr.png
+  logo: assets/images/logo-tr.png
+  palette:
+    - scheme: default
+      media: "(prefers-color-scheme: light)"
+      primary: amber
+      accent: deep orange
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      media: "(prefers-color-scheme: dark)"
+      primary: amber
+      accent: deep orange
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - attr_list
+  - md_in_html
+  - pymdownx.blocks.caption
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+
+nav:
+  - Getting started: index.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/thomas-marquis
+    - icon: fontawesome/brands/linkedin
+      link: https://www.linkedin.com/in/thomas-marquis-contact
+plugins:
+  - privacy:
+      links_attr_map:
+        target: _blank
