@@ -1,2 +1,3 @@
 # it-happened
-Event management library written in Go simplifyng event driven application development
+
+Event management library written in Go simplifying event driven application development
