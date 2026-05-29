@@ -17,6 +17,4 @@ type Event struct {
 	Payload Payload
 	Context context.Context
 	Ref     string
-
-	eventType Type
 }
