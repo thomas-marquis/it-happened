@@ -12,7 +12,9 @@ func TestSingleTickGroupRule(t *testing.T) {
 		// Given
 		rule := marble.SingleTickGroupRule{}
 		ops := []marble.Op{
-			marble.OrderedGroupOp{Ops: []marble.Op{marble.WaitOp{}}},
+			marble.OrderedGroupStartOp{EndPos: 2},
+			marble.WaitOp{},
+			marble.OrderedGroupEndOp{StartPos: 0},
 		}
 
 		// When
@@ -27,9 +29,11 @@ func TestSingleTickGroupRule(t *testing.T) {
 		// Given
 		rule := marble.SingleTickGroupRule{}
 		ops := []marble.Op{
-			marble.UnorderedGroupOp{Ops: []marble.Op{
-				marble.OrderedGroupOp{Ops: []marble.Op{marble.WaitOp{}}},
-			}},
+			marble.UnorderedGroupStartOp{EndPos: 4},
+			marble.OrderedGroupStartOp{EndPos: 3},
+			marble.WaitOp{},
+			marble.OrderedGroupEndOp{StartPos: 1},
+			marble.UnorderedGroupEndOp{StartPos: 0},
 		}
 
 		// When
@@ -44,7 +48,9 @@ func TestSingleTickGroupRule(t *testing.T) {
 		rule := marble.SingleTickGroupRule{}
 		ops := []marble.Op{
 			marble.WaitOp{},
-			marble.OrderedGroupOp{Ops: []marble.Op{marble.EventOp{Name: "a"}}},
+			marble.OrderedGroupStartOp{EndPos: 3},
+			marble.EventOp{Name: "a"},
+			marble.OrderedGroupEndOp{StartPos: 1},
 		}
 
 		// When
@@ -100,7 +106,10 @@ func TestStartEventAtBeginningRule(t *testing.T) {
 		// Given
 		rule := marble.StartEventAtBeginningRule{}
 		ops := []marble.Op{
-			marble.OrderedGroupOp{Ops: []marble.Op{marble.StartEventOp{}, marble.StartEventOp{}}},
+			marble.OrderedGroupStartOp{EndPos: 3},
+			marble.StartEventOp{},
+			marble.StartEventOp{},
+			marble.OrderedGroupEndOp{StartPos: 0},
 		}
 
 		// When
@@ -128,6 +137,23 @@ func TestStartEventAtBeginningRule(t *testing.T) {
 		// Given
 		rule := marble.StartEventAtBeginningRule{}
 		ops := []marble.Op{marble.StartEventOp{}, marble.EventOp{Name: "a"}}
+
+		// When
+		err := rule.Validate(ops)
+
+		// Then
+		assert.NoError(t, err)
+	})
+
+	t.Run("should pass if start event is inside a group at the beginning", func(t *testing.T) {
+		// Given
+		rule := marble.StartEventAtBeginningRule{}
+		ops := []marble.Op{
+			marble.OrderedGroupStartOp{EndPos: 2},
+			marble.StartEventOp{},
+			marble.OrderedGroupEndOp{StartPos: 0},
+			marble.EventOp{Name: "a"},
+		}
 
 		// When
 		err := rule.Validate(ops)

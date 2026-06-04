@@ -12,11 +12,6 @@ const (
 	StartEventOpType
 	EventWithFollowupOpType
 
-	// Deprecated
-	OrderedGroupOpType
-	// Deprecated
-	UnorderedGroupOpType
-
 	OrderedGroupStartType
 	OrderedGroupEndType
 	UnorderedGroupStartType
@@ -37,10 +32,6 @@ func (o EventOp) Type() OpType {
 	return EventOpType
 }
 
-func (o UnorderedGroupOp) Type() OpType {
-	return UnorderedGroupOpType
-}
-
 type StartEventOp struct{}
 
 func (o StartEventOp) Type() OpType {
@@ -54,20 +45,6 @@ type EventWithFollowupOp struct {
 
 func (o EventWithFollowupOp) Type() OpType {
 	return EventWithFollowupOpType
-}
-
-// Deprecated
-type OrderedGroupOp struct {
-	Ops []Op
-}
-
-func (o OrderedGroupOp) Type() OpType {
-	return OrderedGroupOpType
-}
-
-// Deprecated
-type UnorderedGroupOp struct {
-	Ops []Op
 }
 
 type OrderedGroupStartOp struct {

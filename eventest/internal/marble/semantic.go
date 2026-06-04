@@ -28,7 +28,7 @@ func (r StartEventAtBeginningRule) Validate(seq []Op) error {
 		return errors.Join(ErrSemantic, errors.New("a timeline can have at most one start event"))
 	}
 
-	if count == 1 && len(seq) > 0 && !isStartEvent(seq[0]) {
+	if count == 1 && len(seq) > 0 && !isStartEvent(seq, 0) {
 		return errors.Join(ErrSemantic, errors.New("the start event must be at the beginning of the timeline"))
 	}
 
@@ -60,49 +60,30 @@ func (r UniqueStartEventRule) Validate(seq []Op) error {
 func countStartEvents(seq []Op) int {
 	count := 0
 	for _, o := range seq {
-		count += countInOp(o)
+		if o.Type() == StartEventOpType {
+			count++
+		}
 	}
 	return count
 }
 
-func countInOp(o Op) int {
-	if o.Type() == StartEventOpType {
-		return 1
-	}
-
-	var subOps []Op
-	if o.Type() == UnorderedGroupOpType {
-		x := o.(UnorderedGroupOp)
-		subOps = x.Ops
-	} else if o.Type() == OrderedGroupOpType {
-		x := o.(OrderedGroupOp)
-		subOps = x.Ops
-	}
-
-	count := 0
-	for _, subOp := range subOps {
-		count += countInOp(subOp)
-	}
-
-	return count
-}
-
-func isStartEvent(o Op) bool {
+func isStartEvent(seq []Op, index int) bool {
+	o := seq[index]
 	if o.Type() == StartEventOpType {
 		return true
 	}
 
-	var subOps []Op
-	if o.Type() == UnorderedGroupOpType {
-		x := o.(UnorderedGroupOp)
-		subOps = x.Ops
-	} else if o.Type() == OrderedGroupOpType {
-		x := o.(OrderedGroupOp)
-		subOps = x.Ops
+	var endPos int
+	if o.Type() == UnorderedGroupStartType {
+		endPos = o.(UnorderedGroupStartOp).EndPos
+	} else if o.Type() == OrderedGroupStartType {
+		endPos = o.(OrderedGroupStartOp).EndPos
+	} else {
+		return false
 	}
 
-	for _, subOp := range subOps {
-		if isStartEvent(subOp) {
+	for i := index + 1; i < endPos; i++ {
+		if seq[i].Type() == StartEventOpType {
 			return true
 		}
 	}
@@ -113,27 +94,22 @@ func isStartEvent(o Op) bool {
 type SingleTickGroupRule struct{}
 
 func (r SingleTickGroupRule) Validate(seq []Op) error {
-	for _, o := range seq {
-		var subOps []Op
-		if o.Type() == UnorderedGroupOpType {
-			x := o.(UnorderedGroupOp)
-			subOps = x.Ops
-		} else if o.Type() == OrderedGroupOpType {
-			x := o.(OrderedGroupOp)
-			subOps = x.Ops
+	for i, o := range seq {
+		var endPos int
+		if o.Type() == UnorderedGroupStartType {
+			endPos = o.(UnorderedGroupStartOp).EndPos
+		} else if o.Type() == OrderedGroupStartType {
+			endPos = o.(OrderedGroupStartOp).EndPos
+		} else {
+			continue
 		}
 
-		for _, subOp := range subOps {
-			if subOp.Type() == WaitOpType {
+		for j := i + 1; j < endPos; j++ {
+			if seq[j].Type() == WaitOpType {
 				return errors.Join(
 					ErrSemantic,
 					errors.New("a group is a single tick operation so a wait operator can't be used here"),
 				)
-			}
-			if subOp.Type() == UnorderedGroupOpType || subOp.Type() == OrderedGroupOpType {
-				if err := r.Validate([]Op{subOp}); err != nil {
-					return err
-				}
 			}
 		}
 	}
