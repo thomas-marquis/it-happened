@@ -1,7 +1,5 @@
 package marble
 
-import "time"
-
 type OpType int
 
 type Op interface {
@@ -12,14 +10,20 @@ const (
 	WaitOpType OpType = iota
 	EventOpType
 	StartEventOpType
-	OrderedGroupOpType
-	UnorderedGroupOpType
 	EventWithFollowupOpType
+
+	// Deprecated
+	OrderedGroupOpType
+	// Deprecated
+	UnorderedGroupOpType
+
+	OrderedGroupStartType
+	OrderedGroupEndType
+	UnorderedGroupStartType
+	UnorderedGroupEndType
 )
 
-type WaitOp struct {
-	Duration time.Duration
-}
+type WaitOp struct{}
 
 func (o WaitOp) Type() OpType {
 	return WaitOpType
@@ -31,18 +35,6 @@ type EventOp struct {
 
 func (o EventOp) Type() OpType {
 	return EventOpType
-}
-
-type OrderedGroupOp struct {
-	Ops []Op
-}
-
-func (o OrderedGroupOp) Type() OpType {
-	return OrderedGroupOpType
-}
-
-type UnorderedGroupOp struct {
-	Ops []Op
 }
 
 func (o UnorderedGroupOp) Type() OpType {
@@ -62,4 +54,50 @@ type EventWithFollowupOp struct {
 
 func (o EventWithFollowupOp) Type() OpType {
 	return EventWithFollowupOpType
+}
+
+// Deprecated
+type OrderedGroupOp struct {
+	Ops []Op
+}
+
+func (o OrderedGroupOp) Type() OpType {
+	return OrderedGroupOpType
+}
+
+// Deprecated
+type UnorderedGroupOp struct {
+	Ops []Op
+}
+
+type OrderedGroupStartOp struct {
+	EndPos int
+}
+
+func (o OrderedGroupStartOp) Type() OpType {
+	return OrderedGroupStartType
+}
+
+type OrderedGroupEndOp struct {
+	StartPos int
+}
+
+func (o OrderedGroupEndOp) Type() OpType {
+	return OrderedGroupEndType
+}
+
+type UnorderedGroupStartOp struct {
+	EndPos int
+}
+
+func (o UnorderedGroupStartOp) Type() OpType {
+	return UnorderedGroupStartType
+}
+
+type UnorderedGroupEndOp struct {
+	StartPos int
+}
+
+func (o UnorderedGroupEndOp) Type() OpType {
+	return UnorderedGroupEndType
 }

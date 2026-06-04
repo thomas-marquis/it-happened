@@ -2,14 +2,9 @@ package marble_test
 
 import (
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/thomas-marquis/it-happened/eventest/internal/marble"
-)
-
-const (
-	fakeDuration = 10 * time.Millisecond
 )
 
 func TestMarbleParser(t *testing.T) {
@@ -20,22 +15,22 @@ func TestMarbleParser(t *testing.T) {
 		{
 			marble: "-",
 			ops: []marble.Op{
-				marble.WaitOp{Duration: fakeDuration},
+				marble.WaitOp{},
 			},
 		},
 		{
 			marble: " -	_________       -",
 			ops: []marble.Op{
-				marble.WaitOp{Duration: fakeDuration},
-				marble.WaitOp{Duration: fakeDuration},
-				marble.WaitOp{Duration: fakeDuration},
+				marble.WaitOp{},
+				marble.WaitOp{},
+				marble.WaitOp{},
 			},
 		},
 		{
 			marble: "____ _____",
 			ops: []marble.Op{
-				marble.WaitOp{Duration: fakeDuration},
-				marble.WaitOp{Duration: fakeDuration},
+				marble.WaitOp{},
+				marble.WaitOp{},
 			},
 		},
 		{
@@ -50,22 +45,22 @@ func TestMarbleParser(t *testing.T) {
 			marble: "a-b/toto/lolo- c",
 			ops: []marble.Op{
 				marble.EventOp{Name: "a"},
-				marble.WaitOp{Duration: fakeDuration},
+				marble.WaitOp{},
 				marble.EventOp{Name: "b"},
 				marble.EventOp{Name: "toto"},
 				marble.EventOp{Name: "lolo"},
-				marble.WaitOp{Duration: fakeDuration},
+				marble.WaitOp{},
 				marble.EventOp{Name: "c"},
 			},
 		},
 		{
 			marble: "(abc)",
 			ops: []marble.Op{
-				marble.UnorderedGroupOp{Ops: []marble.Op{
-					marble.EventOp{Name: "a"},
-					marble.EventOp{Name: "b"},
-					marble.EventOp{Name: "c"},
-				}},
+				marble.UnorderedGroupStartOp{EndPos: 4}, // 0 (
+				marble.EventOp{Name: "a"},               // 1 a
+				marble.EventOp{Name: "b"},               // 2 b
+				marble.EventOp{Name: "c"},               // 3 c
+				marble.UnorderedGroupEndOp{StartPos: 0}, // 4 )
 			},
 		},
 		{
@@ -81,22 +76,22 @@ func TestMarbleParser(t *testing.T) {
 					]
 					/f`,
 			ops: []marble.Op{
-				marble.OrderedGroupOp{Ops: []marble.Op{
-					marble.UnorderedGroupOp{Ops: []marble.Op{
-						marble.UnorderedGroupOp{Ops: []marble.Op{
-							marble.EventOp{Name: "a"},
-							marble.EventOp{Name: "b"},
-							marble.EventOp{Name: "c"},
-							marble.OrderedGroupOp{Ops: []marble.Op{
-								marble.EventOp{Name: "x"},
-								marble.EventOp{Name: "y"},
-							}},
-						}},
-						marble.EventOp{Name: "d"},
-					}},
-					marble.WaitOp{Duration: fakeDuration},
-				}},
-				marble.EventOp{Name: "f"},
+				marble.OrderedGroupStartOp{EndPos: 14},   // 0  [
+				marble.UnorderedGroupStartOp{EndPos: 12}, // 1  (
+				marble.UnorderedGroupStartOp{EndPos: 10}, // 2  (
+				marble.EventOp{Name: "a"},                // 3  a
+				marble.EventOp{Name: "b"},                // 4  b
+				marble.EventOp{Name: "c"},                // 5  c
+				marble.OrderedGroupStartOp{EndPos: 9},    // 6  [
+				marble.EventOp{Name: "x"},                // 7  x
+				marble.EventOp{Name: "y"},                // 8  y
+				marble.OrderedGroupEndOp{StartPos: 6},    // 9  ]
+				marble.UnorderedGroupEndOp{StartPos: 2},  // 10 )
+				marble.EventOp{Name: "d"},                // 11 d
+				marble.UnorderedGroupEndOp{StartPos: 1},  // 12 )
+				marble.WaitOp{},                          // 13 -
+				marble.OrderedGroupEndOp{StartPos: 0},    // 14 ]
+				marble.EventOp{Name: "f"},                // 15 /f
 			},
 		},
 		{
@@ -107,14 +102,14 @@ func TestMarbleParser(t *testing.T) {
 		},
 	} {
 		t.Run(tc.marble, func(t *testing.T) {
-			res, err := marble.Parse(tc.marble, fakeDuration)
+			res, err := marble.Parse(tc.marble)
 			assert.NoError(t, err)
 			assert.Equal(t, tc.ops, res)
 		})
 	}
 
 	t.Run("should return an error when the sequence is empty", func(t *testing.T) {
-		_, err := marble.Parse("", fakeDuration)
+		_, err := marble.Parse("")
 		assert.ErrorIs(t, err, marble.ErrEmptyMarble)
 		assert.ErrorIs(t, err, marble.ErrMarbleSyntax)
 	})

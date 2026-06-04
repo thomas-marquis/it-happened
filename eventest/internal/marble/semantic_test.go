@@ -2,7 +2,6 @@ package marble_test
 
 import (
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/thomas-marquis/it-happened/eventest/internal/marble"
@@ -13,7 +12,7 @@ func TestSingleTickGroupRule(t *testing.T) {
 		// Given
 		rule := marble.SingleTickGroupRule{}
 		ops := []marble.Op{
-			marble.OrderedGroupOp{Ops: []marble.Op{marble.WaitOp{Duration: time.Second}}},
+			marble.OrderedGroupOp{Ops: []marble.Op{marble.WaitOp{}}},
 		}
 
 		// When
@@ -29,7 +28,7 @@ func TestSingleTickGroupRule(t *testing.T) {
 		rule := marble.SingleTickGroupRule{}
 		ops := []marble.Op{
 			marble.UnorderedGroupOp{Ops: []marble.Op{
-				marble.OrderedGroupOp{Ops: []marble.Op{marble.WaitOp{Duration: time.Second}}},
+				marble.OrderedGroupOp{Ops: []marble.Op{marble.WaitOp{}}},
 			}},
 		}
 
@@ -44,7 +43,7 @@ func TestSingleTickGroupRule(t *testing.T) {
 		// Given
 		rule := marble.SingleTickGroupRule{}
 		ops := []marble.Op{
-			marble.WaitOp{Duration: time.Second},
+			marble.WaitOp{},
 			marble.OrderedGroupOp{Ops: []marble.Op{marble.EventOp{Name: "a"}}},
 		}
 
