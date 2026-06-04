@@ -1,4 +1,4 @@
-package eventest
+package marble
 
 import "errors"
 
@@ -6,13 +6,13 @@ var (
 	ErrSemantic = errors.New("semantic error")
 )
 
-type semanticRule interface {
-	Validate(seq []op) error
+type Rule interface {
+	Validate(seq []Op) error
 }
 
-type notEmptyRule struct{}
+type NotEmptyRule struct{}
 
-func (r notEmptyRule) Validate(seq []op) error {
+func (r NotEmptyRule) Validate(seq []Op) error {
 	if len(seq) == 0 {
 		return errors.Join(ErrSemantic, errors.New("a timeline cannot be empty"))
 	}
@@ -20,9 +20,9 @@ func (r notEmptyRule) Validate(seq []op) error {
 	return nil
 }
 
-type startEventAtBeginningRule struct{}
+type StartEventAtBeginningRule struct{}
 
-func (r startEventAtBeginningRule) Validate(seq []op) error {
+func (r StartEventAtBeginningRule) Validate(seq []Op) error {
 	count := countStartEvents(seq)
 	if count > 1 {
 		return errors.Join(ErrSemantic, errors.New("a timeline can have at most one start event"))
@@ -35,9 +35,9 @@ func (r startEventAtBeginningRule) Validate(seq []op) error {
 	return nil
 }
 
-type startEventAnywhereRule struct{}
+type StartEventAnywhereRule struct{}
 
-func (r startEventAnywhereRule) Validate(seq []op) error {
+func (r StartEventAnywhereRule) Validate(seq []Op) error {
 	count := countStartEvents(seq)
 	if count > 1 {
 		return errors.Join(ErrSemantic, errors.New("a timeline can have at most one start event"))
@@ -46,9 +46,9 @@ func (r startEventAnywhereRule) Validate(seq []op) error {
 	return nil
 }
 
-type uniqueStartEventRule struct{}
+type UniqueStartEventRule struct{}
 
-func (r uniqueStartEventRule) Validate(seq []op) error {
+func (r UniqueStartEventRule) Validate(seq []Op) error {
 	count := countStartEvents(seq)
 	if count != 1 {
 		return errors.Join(ErrSemantic, errors.New("a timeline must have exactly one start event"))
@@ -57,7 +57,7 @@ func (r uniqueStartEventRule) Validate(seq []op) error {
 	return nil
 }
 
-func countStartEvents(seq []op) int {
+func countStartEvents(seq []Op) int {
 	count := 0
 	for _, o := range seq {
 		count += countInOp(o)
@@ -65,17 +65,17 @@ func countStartEvents(seq []op) int {
 	return count
 }
 
-func countInOp(o op) int {
-	if o.Type() == startEventOpType {
+func countInOp(o Op) int {
+	if o.Type() == StartEventOpType {
 		return 1
 	}
 
-	var subOps []op
-	if o.Type() == unorderedGroupOpType {
-		x := o.(unorderedGroupOp)
+	var subOps []Op
+	if o.Type() == UnorderedGroupOpType {
+		x := o.(UnorderedGroupOp)
 		subOps = x.Ops
-	} else if o.Type() == orderedGroupOpType {
-		x := o.(orderedGroupOp)
+	} else if o.Type() == OrderedGroupOpType {
+		x := o.(OrderedGroupOp)
 		subOps = x.Ops
 	}
 
@@ -87,17 +87,17 @@ func countInOp(o op) int {
 	return count
 }
 
-func isStartEvent(o op) bool {
-	if o.Type() == startEventOpType {
+func isStartEvent(o Op) bool {
+	if o.Type() == StartEventOpType {
 		return true
 	}
 
-	var subOps []op
-	if o.Type() == unorderedGroupOpType {
-		x := o.(unorderedGroupOp)
+	var subOps []Op
+	if o.Type() == UnorderedGroupOpType {
+		x := o.(UnorderedGroupOp)
 		subOps = x.Ops
-	} else if o.Type() == orderedGroupOpType {
-		x := o.(orderedGroupOp)
+	} else if o.Type() == OrderedGroupOpType {
+		x := o.(OrderedGroupOp)
 		subOps = x.Ops
 	}
 
@@ -110,28 +110,28 @@ func isStartEvent(o op) bool {
 	return false
 }
 
-type singleTickGroupRule struct{}
+type SingleTickGroupRule struct{}
 
-func (r singleTickGroupRule) Validate(seq []op) error {
+func (r SingleTickGroupRule) Validate(seq []Op) error {
 	for _, o := range seq {
-		var subOps []op
-		if o.Type() == unorderedGroupOpType {
-			x := o.(unorderedGroupOp)
+		var subOps []Op
+		if o.Type() == UnorderedGroupOpType {
+			x := o.(UnorderedGroupOp)
 			subOps = x.Ops
-		} else if o.Type() == orderedGroupOpType {
-			x := o.(orderedGroupOp)
+		} else if o.Type() == OrderedGroupOpType {
+			x := o.(OrderedGroupOp)
 			subOps = x.Ops
 		}
 
 		for _, subOp := range subOps {
-			if subOp.Type() == waitOpType {
+			if subOp.Type() == WaitOpType {
 				return errors.Join(
 					ErrSemantic,
 					errors.New("a group is a single tick operation so a wait operator can't be used here"),
 				)
 			}
-			if subOp.Type() == unorderedGroupOpType || subOp.Type() == orderedGroupOpType {
-				if err := r.Validate([]op{subOp}); err != nil {
+			if subOp.Type() == UnorderedGroupOpType || subOp.Type() == OrderedGroupOpType {
+				if err := r.Validate([]Op{subOp}); err != nil {
 					return err
 				}
 			}
@@ -141,7 +141,7 @@ func (r singleTickGroupRule) Validate(seq []op) error {
 	return nil
 }
 
-func validateMarble(ops []op, rules ...semanticRule) error {
+func Validate(ops []Op, rules ...Rule) error {
 	for _, rule := range rules {
 		if err := rule.Validate(ops); err != nil {
 			return err

@@ -1,4 +1,4 @@
-package eventest
+package marble
 
 import (
 	"errors"
@@ -12,8 +12,8 @@ var (
 	ErrEmptyMarble  = errors.Join(ErrMarbleSyntax, errors.New("empty marble"))
 )
 
-func parseMarble(marble string, defaultIckDuration time.Duration) ([]op, error) {
-	var parsed []op
+func Parse(marble string, defaultIckDuration time.Duration) ([]Op, error) {
+	var parsed []Op
 	if marble == "" {
 		return nil, ErrEmptyMarble
 	}
@@ -31,24 +31,24 @@ func parseMarble(marble string, defaultIckDuration time.Duration) ([]op, error) 
 					fmt.Errorf("unexpected ^ at %d", i),
 				)
 			}
-			parsed = append(parsed, startEventOp{})
+			parsed = append(parsed, StartEventOp{})
 			i++
 		case c == '-':
-			parsed = append(parsed, waitOp{Duration: defaultIckDuration})
+			parsed = append(parsed, WaitOp{Duration: defaultIckDuration})
 			i++
 		case c == '_':
 			for i < len(marble) && marble[i] == '_' {
 				i++
 			}
-			parsed = append(parsed, waitOp{Duration: defaultIckDuration})
+			parsed = append(parsed, WaitOp{Duration: defaultIckDuration})
 		case (c == '/') || ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')):
 			label := parseLabel(marble, &i)
 			if i < len(marble)-2 && marble[i:i+2] == "<-" {
 				i += 2
 				fLabel := parseLabel(marble, &i)
-				parsed = append(parsed, eventWithFollowupOp{EventName: label, From: fLabel})
+				parsed = append(parsed, EventWithFollowupOp{EventName: label, From: fLabel})
 			} else {
-				parsed = append(parsed, eventOp{Name: label})
+				parsed = append(parsed, EventOp{Name: label})
 			}
 		case c == '(':
 			grp, err := parseGroup(marble, &i, '(', ')', "unbalanced parenthesis", defaultIckDuration)
@@ -56,14 +56,14 @@ func parseMarble(marble string, defaultIckDuration time.Duration) ([]op, error) 
 				return nil, err
 			}
 
-			parsed = append(parsed, unorderedGroupOp{Ops: grp})
+			parsed = append(parsed, UnorderedGroupOp{Ops: grp})
 		case c == '[':
 			grp, err := parseGroup(marble, &i, '[', ']', "squared brackets", defaultIckDuration)
 			if err != nil {
 				return nil, err
 			}
 
-			parsed = append(parsed, orderedGroupOp{Ops: grp})
+			parsed = append(parsed, OrderedGroupOp{Ops: grp})
 		default:
 			return nil, errors.Join(
 				ErrMarbleSyntax,
@@ -98,7 +98,7 @@ func parseLabel(marble string, i *int) string {
 	return label
 }
 
-func parseGroup(marble string, i *int, open, close rune, errMsg string, defaultIckDuration time.Duration) ([]op, error) {
+func parseGroup(marble string, i *int, open, close rune, errMsg string, defaultIckDuration time.Duration) ([]Op, error) {
 	var end int
 	cnt := 1
 	*i++
@@ -125,7 +125,7 @@ func parseGroup(marble string, i *int, open, close rune, errMsg string, defaultI
 	}
 
 	grpMarble := marble[start:end]
-	grpOps, err := parseMarble(grpMarble, defaultIckDuration)
+	grpOps, err := Parse(grpMarble, defaultIckDuration)
 	if err != nil {
 		return nil, err
 	}
