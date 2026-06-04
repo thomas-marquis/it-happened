@@ -47,5 +47,9 @@ th := eventest.NewHarness(bus
 )
 
 in := event.New(fakePayload("input value"))
-bus.Publish()
+
+th.Run(func(bus event.Bus) {
+    bus.Publish(in)
+})
+
 ```
