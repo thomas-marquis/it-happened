@@ -15,13 +15,19 @@ type Timer interface {
 	Elapsed() time.Duration
 }
 
-type VirtualClock interface {
-	Clock
+type TimeTraveller interface {
 	Forward(duration time.Duration)
 }
 
 type Scheduler interface {
 	Schedule(delay time.Duration, f func())
+}
+
+type VirtualClock interface {
+	Clock
+	Timer
+	TimeTraveller
+	Scheduler
 }
 
 type virtualClockImpl struct {
@@ -33,9 +39,13 @@ type virtualClockImpl struct {
 
 var (
 	_ VirtualClock = (*virtualClockImpl)(nil)
-	_ Timer        = (*virtualClockImpl)(nil)
-	_ Scheduler    = (*virtualClockImpl)(nil)
 )
+
+func NewVirtualClock() VirtualClock {
+	return &virtualClockImpl{
+		scheduled: make(map[time.Duration]func()),
+	}
+}
 
 func (c *virtualClockImpl) Now() time.Time {
 	return c.current
@@ -48,6 +58,7 @@ func (c *virtualClockImpl) Start() {
 	for delay, f := range c.scheduled {
 		if delay <= 0 {
 			f()
+			delete(c.scheduled, delay)
 		}
 	}
 }
@@ -79,6 +90,7 @@ func (c *virtualClockImpl) Forward(duration time.Duration) {
 				f:         f,
 				startTime: c.startTime.Add(delay),
 			})
+			delete(c.scheduled, delay)
 		}
 	}
 
