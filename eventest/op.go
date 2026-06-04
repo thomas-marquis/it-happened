@@ -14,6 +14,7 @@ const (
 	startEventOpType
 	orderedGroupOpType
 	unorderedGroupOpType
+	eventWithFollowupOpType
 )
 
 type waitOp struct {
@@ -52,4 +53,13 @@ type startEventOp struct{}
 
 func (o startEventOp) Type() opType {
 	return startEventOpType
+}
+
+type eventWithFollowupOp struct {
+	EventName string
+	From      string
+}
+
+func (o eventWithFollowupOp) Type() opType {
+	return eventWithFollowupOpType
 }

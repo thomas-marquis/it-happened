@@ -29,13 +29,13 @@ exp := "[^(abc)] - d<-a - [(e<-b f<-c)x]"
 
 // carrier sequence
 se := "   ^   /aRes<-a   -- /bRes<-b    /cRes<-c"
-exp := " [^a][/aRes<-a b]--[/bRes<-b c][/cRes<-cx]" // with strict match
+exp := " [^a][/aRes<-a b]--[/bRes<-b c][/cRes<-c x]" // with strict match
 exp2 := " ^   b          -- c           x"          // with non-strict match
 
 bus := inmemory.NewBus()
 th := eventest.NewHarness(bus
     exp,
-    WithSideEffect(),
+    WithSideEffect(se),
     WithEvents(map[string]event.Payload{ // define a payload implementation for labels. A fake payload impl is used by default for labels that don't apear in this map
         "a": ...,
         "b": ...,

@@ -98,6 +98,12 @@ func TestMarbleParser(t *testing.T) {
 				eventOp{Name: "f"},
 			},
 		},
+		{
+			marble: "a<-b",
+			ops: []op{
+				eventWithFollowupOp{EventName: "a", From: "b"},
+			},
+		},
 	} {
 		t.Run(tc.marble, func(t *testing.T) {
 			res, err := parseMarble(tc.marble, fakeDuration)
