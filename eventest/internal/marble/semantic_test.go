@@ -10,7 +10,7 @@ import (
 func TestSingleTickGroupRule(t *testing.T) {
 	t.Run("should fail when wait op is inside a group", func(t *testing.T) {
 		// Given
-		rule := marble.SingleTickGroupRule{}
+		rule := marble.WaitlessGroupsRule{}
 		ops := []marble.Op{
 			marble.OrderedGroupStartOp{EndPos: 2},
 			marble.WaitOp{},
@@ -27,7 +27,7 @@ func TestSingleTickGroupRule(t *testing.T) {
 
 	t.Run("should fail when wait op is inside a nested group", func(t *testing.T) {
 		// Given
-		rule := marble.SingleTickGroupRule{}
+		rule := marble.WaitlessGroupsRule{}
 		ops := []marble.Op{
 			marble.UnorderedGroupStartOp{EndPos: 4},
 			marble.OrderedGroupStartOp{EndPos: 3},
@@ -45,7 +45,7 @@ func TestSingleTickGroupRule(t *testing.T) {
 
 	t.Run("should pass when no wait op is inside groups", func(t *testing.T) {
 		// Given
-		rule := marble.SingleTickGroupRule{}
+		rule := marble.WaitlessGroupsRule{}
 		ops := []marble.Op{
 			marble.WaitOp{},
 			marble.OrderedGroupStartOp{EndPos: 3},

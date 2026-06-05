@@ -91,9 +91,9 @@ func isStartEvent(seq []Op, index int) bool {
 	return false
 }
 
-type SingleTickGroupRule struct{}
+type WaitlessGroupsRule struct{}
 
-func (r SingleTickGroupRule) Validate(seq []Op) error {
+func (r WaitlessGroupsRule) Validate(seq []Op) error {
 	for i, o := range seq {
 		var endPos int
 		if o.Type() == UnorderedGroupStartType {

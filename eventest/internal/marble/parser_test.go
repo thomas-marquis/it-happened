@@ -41,7 +41,8 @@ func TestMarbleParser(t *testing.T) {
 				marble.EventOp{Name: "b"},
 				marble.EventOp{Name: "c"},
 			},
-		}, {
+		},
+		{
 			marble: "a-b/toto/lolo- c",
 			ops: []marble.Op{
 				marble.EventOp{Name: "a"},
@@ -89,7 +90,7 @@ func TestMarbleParser(t *testing.T) {
 				marble.UnorderedGroupEndOp{StartPos: 2},  // 10 )
 				marble.EventOp{Name: "d"},                // 11 d
 				marble.UnorderedGroupEndOp{StartPos: 1},  // 12 )
-				marble.WaitOp{},                          // 13 -
+				marble.WaitOp{},                          // 13 - <- ok, it's likely a semantic error, but I'm a parser, not a semantic validator, so I don't care...
 				marble.OrderedGroupEndOp{StartPos: 0},    // 14 ]
 				marble.EventOp{Name: "f"},                // 15 /f
 			},
