@@ -2,6 +2,7 @@ package runtime_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/thomas-marquis/it-happened/event"
@@ -17,7 +18,7 @@ func (fakePayload) Type() event.Type {
 	return "fake"
 }
 
-func TestRuntime(t *testing.T) {
+func TestRuntime_RunAll(t *testing.T) {
 	t.Run("should publish events according to the timeline", func(t *testing.T) {
 		// Given
 		ctrl := gomock.NewController(t)
@@ -29,14 +30,14 @@ func TestRuntime(t *testing.T) {
 
 		gomock.InOrder(call1, call2, call3)
 
-		tl := runtime.NewRuntime(mockBus, map[string]event.Payload{
+		tl := runtime.NewRuntime(mockBus, runtime.WithPayloadsMapping(map[string]event.Payload{
 			"a": fakePayload("abc"),
 			"b": fakePayload("def"),
 			"c": fakePayload("ghi"),
-		})
+		}))
 
 		// When
-		err := tl.Run("abc")
+		err := tl.RunAll("abc")
 
 		// Then
 		assert.NoError(t, err)
@@ -58,17 +59,17 @@ func TestRuntime(t *testing.T) {
 		gomock.InOrder(call1, call2, callX, call3, call4)
 		gomock.InOrder(call1, call2, callY, call3, call4)
 
-		tl := runtime.NewRuntime(mockBus, map[string]event.Payload{
+		tl := runtime.NewRuntime(mockBus, runtime.WithPayloadsMapping(map[string]event.Payload{
 			"a": fakePayload("abc"),
 			"b": fakePayload("def"),
 			"c": fakePayload("ghi"),
 			"d": fakePayload("de"),
 			"x": fakePayload("xy"),
 			"y": fakePayload("yz"),
-		})
+		}))
 
 		// When
-		err := tl.Run("[ab(xy)cd]")
+		err := tl.RunAll("[ab(xy)cd]")
 
 		// Then
 		assert.NoError(t, err)
@@ -85,12 +86,66 @@ func TestRuntime(t *testing.T) {
 
 		gomock.InOrder(call1, call2, call3)
 
-		tl := runtime.NewRuntime(mockBus, nil)
+		tl := runtime.NewRuntime(mockBus)
 
 		// When
-		err := tl.Run("abc")
+		err := tl.RunAll("abc")
 
 		// Then
 		assert.NoError(t, err)
+	})
+}
+
+func TestRuntime_Run(t *testing.T) {
+	t.Run("should publish events through multiple time ticks", func(t *testing.T) {
+		// Given
+		ctrl := gomock.NewController(t)
+		mockBus := mocksevent.NewMockBus(ctrl)
+
+		tl := runtime.NewRuntime(mockBus, runtime.WithBaseTickDuration(1*time.Second))
+
+		// When & Then
+		sess, err := tl.Run("ab-[cd]-e")
+		assert.NoError(t, err)
+
+		var (
+			clock runtime.VirtualClock
+		)
+
+		clock = sess.Clock()
+		assert.Equal(t, 0*time.Second, clock.Elapsed())
+
+		// a
+		mockBus.EXPECT().Publish(eventest.PayloadEq(runtime.DefaultPayload("a")))
+		assert.NoError(t, sess.Next())
+		assert.Equal(t, 1*time.Second, clock.Elapsed())
+
+		// b
+		mockBus.EXPECT().Publish(eventest.PayloadEq(runtime.DefaultPayload("b")))
+		assert.NoError(t, sess.Next())
+		assert.Equal(t, 2*time.Second, clock.Elapsed())
+
+		// -
+		mockBus.EXPECT().Publish(gomock.Any()).Times(0)
+		assert.NoError(t, sess.Next())
+		assert.Equal(t, 3*time.Second, clock.Elapsed())
+
+		// [cd]
+		mockBus.EXPECT().Publish(eventest.PayloadEq(runtime.DefaultPayload("c")))
+		mockBus.EXPECT().Publish(eventest.PayloadEq(runtime.DefaultPayload("d")))
+		assert.NoError(t, sess.Next())
+		assert.Equal(t, 4*time.Second, clock.Elapsed())
+
+		// -
+		mockBus.EXPECT().Publish(gomock.Any()).Times(0)
+		assert.NoError(t, sess.Next())
+		assert.Equal(t, 5*time.Second, clock.Elapsed())
+
+		// e
+		mockBus.EXPECT().Publish(eventest.PayloadEq(runtime.DefaultPayload("e")))
+		assert.NoError(t, sess.Next())
+		assert.Equal(t, 6*time.Second, clock.Elapsed())
+
+		assert.ErrorIs(t, sess.Next(), runtime.SessionEnded)
 	})
 }

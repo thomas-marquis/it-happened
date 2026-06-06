@@ -193,6 +193,7 @@ func TestTimeline(t *testing.T) {
 			marble.EventWithFollowupOp{EventName: "d", From: "prev2"}, // 4
 			marble.EventOp{Name: "e"},                                 // 5
 			marble.OrderedGroupEndOp{StartPos: 2},                     // 6
+			marble.WaitOp{},                                           // 7
 		}
 
 		expected := []runtime.Tick{
@@ -214,6 +215,12 @@ func TestTimeline(t *testing.T) {
 					marble.EventOp{Name: "c"},
 					marble.EventWithFollowupOp{EventName: "d", From: "prev2"},
 					marble.EventOp{Name: "e"},
+				},
+			},
+			{
+				Duration: runtime.DefaultTickDuration,
+				Ops: []marble.Op{
+					marble.WaitOp{},
 				},
 			},
 		}

@@ -12,23 +12,16 @@ const (
 	DefaultTickDuration = 10 * time.Millisecond
 )
 
-type TimelineOption func(*Timeline)
-
-func TimelineWithSeed(seed uint64) TimelineOption {
-	return func(t *Timeline) {
-		t.seed(seed)
-	}
-}
-
 type Tick struct {
 	Duration time.Duration
 	Ops      []marble.Op
 }
 
 type Timeline struct {
-	events  map[string]event.Event
-	ticks   []Tick
-	randGen *rand.Rand
+	events       map[string]event.Event
+	ticks        []Tick
+	randGen      *rand.Rand
+	tickDuration time.Duration
 }
 
 func NewTimeline(rowOps []marble.Op, opts ...TimelineOption) *Timeline {
@@ -41,6 +34,7 @@ func NewTimeline(rowOps []marble.Op, opts ...TimelineOption) *Timeline {
 		randGen: rand.New(
 			rand.NewPCG(
 				uint64(time.Now().UnixNano()), uint64(time.Now().UnixMilli()))),
+		tickDuration: DefaultTickDuration,
 	}
 
 	for _, opt := range opts {
@@ -70,7 +64,7 @@ func (t *Timeline) buildTicks(rowOps []marble.Op) []Tick {
 		case marble.EventOp, marble.EventWithFollowupOp:
 			if grpExitPos == 0 {
 				t := Tick{
-					Duration: DefaultTickDuration,
+					Duration: t.tickDuration,
 					Ops:      []marble.Op{o},
 				}
 				ticks = append(ticks, t)
@@ -82,7 +76,7 @@ func (t *Timeline) buildTicks(rowOps []marble.Op) []Tick {
 			// check whether we need to create the new tick for the entier group
 			if len(ticks) == current {
 				ticks = append(ticks, Tick{
-					Duration: DefaultTickDuration,
+					Duration: t.tickDuration,
 					Ops:      make([]marble.Op, 0),
 				})
 			}
@@ -92,9 +86,19 @@ func (t *Timeline) buildTicks(rowOps []marble.Op) []Tick {
 		case marble.OrderedGroupStartOp, marble.UnorderedGroupStartOp:
 			grpOps := t.handleGroup(rowOps, &pos)
 			ticks = append(ticks, Tick{
-				Duration: DefaultTickDuration,
+				Duration: t.tickDuration,
 				Ops:      grpOps,
 			})
+			current++
+		case marble.WaitOp:
+			if grpExitPos == 0 { // not supposed to happen, the validator should have caught it... or not...
+				continue
+			}
+			ticks = append(ticks, Tick{
+				Duration: t.tickDuration,
+				Ops:      []marble.Op{o},
+			})
+			pos++
 			current++
 		}
 	}

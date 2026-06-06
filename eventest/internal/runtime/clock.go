@@ -11,6 +11,7 @@ type Clock interface {
 
 type Timer interface {
 	Start()
+	Started() bool
 	Stop()
 	Elapsed() time.Duration
 }
@@ -61,6 +62,10 @@ func (c *virtualClockImpl) Start() {
 			delete(c.scheduled, delay)
 		}
 	}
+}
+
+func (c *virtualClockImpl) Started() bool {
+	return c.started
 }
 
 func (c *virtualClockImpl) Stop() {
