@@ -124,11 +124,17 @@ func parseGroup(marble string, i *int, open, close rune, errMsg string, pos *int
 	*i++
 	start := *i
 	for _, x := range marble[*i:] {
-		if x == close {
+		switch x {
+		case close:
 			cnt--
-		} else if x == open {
+		case open:
 			cnt++
 		}
+		//if x == close {
+		//	cnt--
+		//} else if x == open {
+		//	cnt++
+		//}
 		if cnt == 0 {
 			end = *i
 			*i++

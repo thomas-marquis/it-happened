@@ -18,7 +18,7 @@ func TestVirtualClock(t *testing.T) {
 
 		// Then
 		assert.NotZero(t, vc.Now())
-		assert.LessOrEqual(t, time.Now().Sub(vc.Now()), 10*time.Millisecond)
+		assert.LessOrEqual(t, time.Since(vc.Now()), 10*time.Millisecond)
 	})
 
 	t.Run("should forward time", func(t *testing.T) {
