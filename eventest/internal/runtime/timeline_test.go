@@ -1,11 +1,11 @@
-package eventest_test
+package runtime_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/thomas-marquis/it-happened/eventest"
 	"github.com/thomas-marquis/it-happened/eventest/internal/marble"
+	"github.com/thomas-marquis/it-happened/eventest/internal/runtime"
 )
 
 func TestTimeline(t *testing.T) {
@@ -17,21 +17,21 @@ func TestTimeline(t *testing.T) {
 			marble.EventOp{Name: "c"},
 		}
 
-		expected := []eventest.Tick{
+		expected := []runtime.Tick{
 			{
-				Duration: eventest.DefaultTickDuration,
+				Duration: runtime.DefaultTickDuration,
 				Ops: []marble.Op{
 					marble.EventOp{Name: "a"},
 				},
 			},
 			{
-				Duration: eventest.DefaultTickDuration,
+				Duration: runtime.DefaultTickDuration,
 				Ops: []marble.Op{
 					marble.EventOp{Name: "b"},
 				},
 			},
 			{
-				Duration: eventest.DefaultTickDuration,
+				Duration: runtime.DefaultTickDuration,
 				Ops: []marble.Op{
 					marble.EventOp{Name: "c"},
 				},
@@ -39,7 +39,7 @@ func TestTimeline(t *testing.T) {
 		}
 
 		// Then
-		tl := eventest.NewTimeline(ops)
+		tl := runtime.NewTimeline(ops)
 		res := tl.Ticks()
 
 		// Then
@@ -55,9 +55,9 @@ func TestTimeline(t *testing.T) {
 			marble.OrderedGroupEndOp{StartPos: 0}, // 3
 		}
 
-		expected := []eventest.Tick{
+		expected := []runtime.Tick{
 			{
-				Duration: eventest.DefaultTickDuration,
+				Duration: runtime.DefaultTickDuration,
 				Ops: []marble.Op{
 					marble.EventOp{Name: "a"},
 					marble.EventOp{Name: "b"},
@@ -66,7 +66,7 @@ func TestTimeline(t *testing.T) {
 		}
 
 		// When
-		tl := eventest.NewTimeline(ops)
+		tl := runtime.NewTimeline(ops)
 		res := tl.Ticks()
 
 		// Then
@@ -90,9 +90,9 @@ func TestTimeline(t *testing.T) {
 			marble.OrderedGroupEndOp{StartPos: 8},  // 11
 		}
 
-		expected := []eventest.Tick{
+		expected := []runtime.Tick{
 			{
-				Duration: eventest.DefaultTickDuration,
+				Duration: runtime.DefaultTickDuration,
 				Ops: []marble.Op{
 					marble.EventOp{Name: "a"},
 					marble.EventOp{Name: "x"},
@@ -101,7 +101,7 @@ func TestTimeline(t *testing.T) {
 				},
 			},
 			{
-				Duration: eventest.DefaultTickDuration,
+				Duration: runtime.DefaultTickDuration,
 				Ops: []marble.Op{
 					marble.EventOp{Name: "l"},
 					marble.EventOp{Name: "m"},
@@ -110,7 +110,7 @@ func TestTimeline(t *testing.T) {
 		}
 
 		// When
-		tl := eventest.NewTimeline(ops)
+		tl := runtime.NewTimeline(ops)
 		res := tl.Ticks()
 
 		// Then
@@ -129,9 +129,9 @@ func TestTimeline(t *testing.T) {
 			marble.UnorderedGroupEndOp{StartPos: 0}, // 6
 		}
 
-		expected := []eventest.Tick{
+		expected := []runtime.Tick{
 			{
-				Duration: eventest.DefaultTickDuration,
+				Duration: runtime.DefaultTickDuration,
 				Ops: []marble.Op{
 					marble.EventOp{Name: "e"},
 					marble.EventOp{Name: "a"},
@@ -143,7 +143,7 @@ func TestTimeline(t *testing.T) {
 		}
 
 		// When
-		tl := eventest.NewTimeline(ops, eventest.TimelineWithSeed(42))
+		tl := runtime.NewTimeline(ops, runtime.TimelineWithSeed(42))
 		res := tl.Ticks()
 
 		// Then
@@ -162,9 +162,9 @@ func TestTimeline(t *testing.T) {
 			marble.OrderedGroupEndOp{StartPos: 0}, // 6
 		}
 
-		expected := []eventest.Tick{
+		expected := []runtime.Tick{
 			{
-				Duration: eventest.DefaultTickDuration,
+				Duration: runtime.DefaultTickDuration,
 				Ops: []marble.Op{
 					marble.EventOp{Name: "a"},
 					marble.EventOp{Name: "b"},
@@ -176,7 +176,7 @@ func TestTimeline(t *testing.T) {
 		}
 
 		// When
-		tl := eventest.NewTimeline(ops)
+		tl := runtime.NewTimeline(ops)
 		res := tl.Ticks()
 
 		// Then
@@ -195,21 +195,21 @@ func TestTimeline(t *testing.T) {
 			marble.OrderedGroupEndOp{StartPos: 2},                     // 6
 		}
 
-		expected := []eventest.Tick{
+		expected := []runtime.Tick{
 			{
-				Duration: eventest.DefaultTickDuration,
+				Duration: runtime.DefaultTickDuration,
 				Ops: []marble.Op{
 					marble.EventOp{Name: "a"},
 				},
 			},
 			{
-				Duration: eventest.DefaultTickDuration,
+				Duration: runtime.DefaultTickDuration,
 				Ops: []marble.Op{
 					marble.EventWithFollowupOp{EventName: "b", From: "prev"},
 				},
 			},
 			{
-				Duration: eventest.DefaultTickDuration,
+				Duration: runtime.DefaultTickDuration,
 				Ops: []marble.Op{
 					marble.EventOp{Name: "c"},
 					marble.EventWithFollowupOp{EventName: "d", From: "prev2"},
@@ -219,7 +219,7 @@ func TestTimeline(t *testing.T) {
 		}
 
 		// When
-		tl := eventest.NewTimeline(ops)
+		tl := runtime.NewTimeline(ops)
 		res := tl.Ticks()
 
 		// Then
