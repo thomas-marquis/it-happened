@@ -7,31 +7,16 @@ import (
 
 type Clock interface {
 	Now() time.Time
-}
-
-type Timer interface {
 	Start()
 	Started() bool
+	StartTime() time.Time
 	Stop()
 	Elapsed() time.Duration
-}
-
-type TimeTraveller interface {
 	Forward(duration time.Duration)
-}
-
-type Scheduler interface {
 	Schedule(delay time.Duration, f func())
 }
 
-type VirtualClock interface {
-	Clock
-	Timer
-	TimeTraveller
-	Scheduler
-}
-
-type virtualClockImpl struct {
+type clockImpl struct {
 	current   time.Time
 	started   bool
 	startTime time.Time
@@ -39,20 +24,20 @@ type virtualClockImpl struct {
 }
 
 var (
-	_ VirtualClock = (*virtualClockImpl)(nil)
+	_ Clock = (*clockImpl)(nil)
 )
 
-func NewVirtualClock() VirtualClock {
-	return &virtualClockImpl{
+func NewVirtualClock() Clock {
+	return &clockImpl{
 		scheduled: make(map[time.Duration]func()),
 	}
 }
 
-func (c *virtualClockImpl) Now() time.Time {
+func (c *clockImpl) Now() time.Time {
 	return c.current
 }
 
-func (c *virtualClockImpl) Start() {
+func (c *clockImpl) Start() {
 	c.started = true
 	c.startTime = time.Now()
 	c.current = c.startTime
@@ -64,16 +49,20 @@ func (c *virtualClockImpl) Start() {
 	}
 }
 
-func (c *virtualClockImpl) Started() bool {
+func (c *clockImpl) Started() bool {
 	return c.started
 }
 
-func (c *virtualClockImpl) Stop() {
+func (c *clockImpl) StartTime() time.Time {
+	return c.startTime
+}
+
+func (c *clockImpl) Stop() {
 	c.started = false
 	c.startTime = time.Time{}
 }
 
-func (c *virtualClockImpl) Elapsed() time.Duration {
+func (c *clockImpl) Elapsed() time.Duration {
 	if !c.started {
 		return 0
 	}
@@ -85,7 +74,7 @@ type scheduledFunc struct {
 	startTime time.Time
 }
 
-func (c *virtualClockImpl) Forward(duration time.Duration) {
+func (c *clockImpl) Forward(duration time.Duration) {
 	c.current = c.current.Add(duration)
 	elapsed := c.Elapsed()
 	toBeRun := make([]scheduledFunc, 0)
@@ -107,7 +96,7 @@ func (c *virtualClockImpl) Forward(duration time.Duration) {
 	}
 }
 
-func (c *virtualClockImpl) Schedule(delay time.Duration, f func()) {
+func (c *clockImpl) Schedule(delay time.Duration, f func()) {
 	if c.started {
 		panic("cannot schedule event when clock is started")
 	}

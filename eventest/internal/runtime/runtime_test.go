@@ -8,7 +8,7 @@ import (
 	"github.com/thomas-marquis/it-happened/event"
 	"github.com/thomas-marquis/it-happened/eventest"
 	"github.com/thomas-marquis/it-happened/eventest/internal/runtime"
-	mocksevent "github.com/thomas-marquis/it-happened/mocks/event"
+	"github.com/thomas-marquis/it-happened/internal/mocks/event"
 	"go.uber.org/mock/gomock"
 )
 
@@ -30,14 +30,14 @@ func TestRuntime_RunAll(t *testing.T) {
 
 		gomock.InOrder(call1, call2, call3)
 
-		tl := runtime.NewRuntime(mockBus, runtime.WithPayloadsMapping(map[string]event.Payload{
+		rt := runtime.NewRuntime(mockBus, runtime.WithPayloadsMapping(map[string]event.Payload{
 			"a": fakePayload("abc"),
 			"b": fakePayload("def"),
 			"c": fakePayload("ghi"),
 		}))
 
 		// When
-		err := tl.RunAll("abc")
+		err := rt.RunAll("abc")
 
 		// Then
 		assert.NoError(t, err)
@@ -59,17 +59,20 @@ func TestRuntime_RunAll(t *testing.T) {
 		gomock.InOrder(call1, call2, callX, call3, call4)
 		gomock.InOrder(call1, call2, callY, call3, call4)
 
-		tl := runtime.NewRuntime(mockBus, runtime.WithPayloadsMapping(map[string]event.Payload{
-			"a": fakePayload("abc"),
-			"b": fakePayload("def"),
-			"c": fakePayload("ghi"),
-			"d": fakePayload("de"),
-			"x": fakePayload("xy"),
-			"y": fakePayload("yz"),
-		}))
+		rt := runtime.NewRuntime(mockBus,
+			runtime.WithEventsMapping(map[string]event.Event{
+				"c": event.New(fakePayload("ghi")),
+			}),
+			runtime.WithPayloadsMapping(map[string]event.Payload{
+				"a": fakePayload("abc"),
+				"b": fakePayload("def"),
+				"d": fakePayload("de"),
+				"x": fakePayload("xy"),
+				"y": fakePayload("yz"),
+			}))
 
 		// When
-		err := tl.RunAll("[ab(xy)cd]")
+		err := rt.RunAll("[ab(xy)cd]")
 
 		// Then
 		assert.NoError(t, err)
@@ -86,10 +89,10 @@ func TestRuntime_RunAll(t *testing.T) {
 
 		gomock.InOrder(call1, call2, call3)
 
-		tl := runtime.NewRuntime(mockBus)
+		rt := runtime.NewRuntime(mockBus)
 
 		// When
-		err := tl.RunAll("abc")
+		err := rt.RunAll("abc")
 
 		// Then
 		assert.NoError(t, err)
@@ -102,17 +105,13 @@ func TestRuntime_Run(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		mockBus := mocksevent.NewMockBus(ctrl)
 
-		tl := runtime.NewRuntime(mockBus, runtime.WithBaseTickDuration(1*time.Second))
+		rt := runtime.NewRuntime(mockBus, runtime.WithBaseTickDuration(1*time.Second))
 
 		// When & Then
-		sess, err := tl.Run("ab-[cd]-e")
+		sess, err := rt.Run("ab-[cd]-e")
 		assert.NoError(t, err)
 
-		var (
-			clock runtime.VirtualClock
-		)
-
-		clock = sess.Clock()
+		clock := sess.Clock()
 		assert.Equal(t, 0*time.Second, clock.Elapsed())
 
 		// a
@@ -131,8 +130,10 @@ func TestRuntime_Run(t *testing.T) {
 		assert.Equal(t, 3*time.Second, clock.Elapsed())
 
 		// [cd]
-		mockBus.EXPECT().Publish(eventest.PayloadEq(runtime.DefaultPayload("c")))
-		mockBus.EXPECT().Publish(eventest.PayloadEq(runtime.DefaultPayload("d")))
+		gomock.InOrder(
+			mockBus.EXPECT().Publish(eventest.PayloadEq(runtime.DefaultPayload("c"))),
+			mockBus.EXPECT().Publish(eventest.PayloadEq(runtime.DefaultPayload("d"))),
+		)
 		assert.NoError(t, sess.Next())
 		assert.Equal(t, 4*time.Second, clock.Elapsed())
 
@@ -147,5 +148,54 @@ func TestRuntime_Run(t *testing.T) {
 		assert.Equal(t, 6*time.Second, clock.Elapsed())
 
 		assert.ErrorIs(t, sess.Next(), runtime.SessionEnded)
+	})
+
+	t.Run("should publish events with followup", func(t *testing.T) {
+		// Given
+		ctrl := gomock.NewController(t)
+		mockBus := mocksevent.NewMockBus(ctrl)
+
+		evtA := event.New(fakePayload("abc"))
+		evtX := event.New(fakePayload("xyz"))
+
+		rt := runtime.NewRuntime(mockBus,
+			runtime.WithEventsMapping(map[string]event.Event{
+				"a": evtA,
+				"x": evtX,
+			}),
+			runtime.WithBaseTickDuration(1*time.Second))
+
+		// When & Then
+		sess, err := rt.Run("b<-ay<-x")
+		assert.NoError(t, err)
+
+		// b<-a
+		mockBus.EXPECT().Publish(
+			gomock.All(
+				eventest.IsFollowupOf(evtA),
+				eventest.PayloadEq(runtime.DefaultPayload("b"))),
+		)
+		assert.NoError(t, sess.Next())
+
+		mockBus.EXPECT().Publish(
+			gomock.All(
+				eventest.IsFollowupOf(evtX),
+				eventest.PayloadEq(runtime.DefaultPayload("y"))),
+		)
+		assert.NoError(t, sess.Next())
+
+		assert.ErrorIs(t, sess.Next(), runtime.SessionEnded)
+	})
+
+	t.Run("should publish the start event when provided", func(t *testing.T) {
+		// Given
+		//ctrl := gomock.NewController(t)
+		//mockBus := mocksevent.NewMockBus(ctrl)
+
+		//rt := runtime.NewRuntime(mockBus)
+	})
+
+	t.Run("should return an error when the start event is missing", func(t *testing.T) {
+
 	})
 }

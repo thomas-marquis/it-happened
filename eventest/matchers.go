@@ -30,3 +30,27 @@ func (m payloadEqMatcher) String() string {
 	}
 	return fmt.Sprintf("is equal to %s (%T)", string(repr), m.pl)
 }
+
+type isFollowupOfMatcher struct {
+	from event.Event
+}
+
+func IsFollowupOf(from event.Event) gomock.Matcher {
+	return isFollowupOfMatcher{from: from}
+}
+
+func (m isFollowupOfMatcher) Matches(x any) bool {
+	evt, ok := x.(event.Event)
+	if !ok {
+		return false
+	}
+	return event.IsFollowupOf(m.from).Match(evt)
+}
+
+func (m isFollowupOfMatcher) String() string {
+	repr, err := json.Marshal(m.from.Payload)
+	if err != nil {
+		return fmt.Sprintf("is a followup of %s", m.from.ID)
+	}
+	return fmt.Sprintf("is a followup of %s (%T)", string(repr), m.from.Payload)
+}

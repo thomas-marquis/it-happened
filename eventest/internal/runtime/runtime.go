@@ -24,11 +24,13 @@ func (DefaultPayload) Type() event.Type {
 }
 
 type Runtime struct {
-	clock            VirtualClock
+	clock            Clock
 	payloadMap       map[string]event.Payload
+	eventMap         map[string]event.Event
 	matchers         map[string]event.Matcher
 	baseTickDuration time.Duration
 	bus              event.Bus
+	publishedEvents  map[string]event.Event
 }
 
 func NewRuntime(bus event.Bus, opts ...Option) *Runtime {
@@ -39,6 +41,7 @@ func NewRuntime(bus event.Bus, opts ...Option) *Runtime {
 		bus:              bus,
 		baseTickDuration: DefaultTickDuration,
 		matchers:         make(map[string]event.Matcher),
+		publishedEvents:  make(map[string]event.Event),
 	}
 
 	for _, opt := range opts {
@@ -48,8 +51,20 @@ func NewRuntime(bus event.Bus, opts ...Option) *Runtime {
 	if r.payloadMap == nil {
 		r.payloadMap = make(map[string]event.Payload)
 	}
+	if r.eventMap == nil {
+		r.eventMap = make(map[string]event.Event)
+	}
 
 	return r
+}
+
+func (r *Runtime) PublishedEvents() map[string]event.Event {
+	return r.publishedEvents
+}
+
+func (r *Runtime) PublishedEvent(label string) (event.Event, bool) {
+	evt, ok := r.publishedEvents[label]
+	return evt, ok
 }
 
 func (r *Runtime) RunAll(marbleSeq string) error {
@@ -92,15 +107,17 @@ func (r *Runtime) Run(marbleSeq string) (*RunningSession, error) {
 		clock:      r.clock,
 		bus:        r.bus,
 		payloadMap: r.payloadMap,
+		eventMap:   r.eventMap,
 	}, nil
 }
 
 type RunningSession struct {
 	rt         *Runtime
 	ticks      []Tick
-	clock      VirtualClock
+	clock      Clock
 	bus        event.Bus
 	payloadMap map[string]event.Payload
+	eventMap   map[string]event.Event
 
 	current int
 }
@@ -121,11 +138,18 @@ func (s *RunningSession) Next() error {
 	for _, op := range tick.Ops {
 		switch o := op.(type) {
 		case marble.EventOp:
-			p, found := s.payloadMap[o.Name]
-			if !found {
-				p = DefaultPayload(o.Name)
+			s.bus.Publish(s.getEvent(o.Name))
+			s.rt.publishedEvents[o.Name] = s.getEvent(o.Name)
+		case marble.EventWithFollowupOp:
+			from := s.getEvent(o.From)
+			to, ok := s.payloadMap[o.EventName]
+			if !ok {
+				to = DefaultPayload(o.EventName)
 			}
-			s.bus.Publish(event.New(p))
+
+			toEvt := event.NewFollowup(from, to)
+			s.bus.Publish(toEvt)
+			s.rt.publishedEvents[o.EventName] = toEvt
 		}
 	}
 	s.clock.Forward(tick.Duration)
@@ -144,6 +168,19 @@ func (s *RunningSession) CurrentTick() Tick {
 	return s.ticks[s.current]
 }
 
-func (s *RunningSession) Clock() VirtualClock {
+func (s *RunningSession) Clock() Clock {
 	return s.clock
+}
+
+func (s *RunningSession) getEvent(label string) event.Event {
+	evt, ok := s.eventMap[label]
+	if ok {
+		return evt
+	}
+
+	pl, ok := s.payloadMap[label]
+	if !ok {
+		return event.New(DefaultPayload(label))
+	}
+	return event.New(pl)
 }

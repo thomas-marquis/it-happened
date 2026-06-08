@@ -61,3 +61,48 @@ func TestPayloadEqMatcher_String(t *testing.T) {
 		assert.Equal(t, "is equal to \"my value\" (eventest_test.fakePayload)", res)
 	})
 }
+
+func TestIsFollowupOf_Matches(t *testing.T) {
+	t.Run("should return true when the event is a followup", func(t *testing.T) {
+		// Given
+		fromEvt := event.New(fakePayload("my value"))
+		evt := event.NewFollowup(fromEvt, fakePayload("my new value"))
+
+		m := eventest.IsFollowupOf(fromEvt)
+
+		// When
+		res := m.Matches(evt)
+
+		// Then
+		assert.True(t, res)
+	})
+
+	t.Run("should return false when the event is not a followup", func(t *testing.T) {
+		// Given
+		otherEvt := event.New(fakePayload("a value"))
+		evt := event.New(fakePayload("another value"))
+
+		m := eventest.IsFollowupOf(otherEvt)
+
+		// When
+		res := m.Matches(evt)
+
+		// Then
+		assert.False(t, res)
+	})
+}
+
+func TestIsFollowupOf_String(t *testing.T) {
+	t.Run("should return a string representation of the matcher", func(t *testing.T) {
+		// Given
+		fromEvt := event.New(fakePayload("my value"))
+		m := eventest.IsFollowupOf(fromEvt)
+
+		// When
+		res := m.String()
+
+		// Then
+		assert.Equal(t, "is a followup of \"my value\" (eventest_test.fakePayload)", res)
+
+	})
+}

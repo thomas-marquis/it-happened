@@ -52,13 +52,11 @@ func TestVirtualClock(t *testing.T) {
 	t.Run("should execute scheduled events once", func(t *testing.T) {
 		// Given
 		clock := runtime.NewVirtualClock()
-		timer := clock.(runtime.Timer)
-		scheduler := clock.(runtime.Scheduler)
 		count := 0
-		scheduler.Schedule(1*time.Second, func() {
+		clock.Schedule(1*time.Second, func() {
 			count++
 		})
-		timer.Start()
+		clock.Start()
 
 		// When
 		clock.Forward(1 * time.Second)
