@@ -92,27 +92,27 @@ Each task corresponds to a specific actionable item from the implementation plan
   - Expected: Custom tick duration used
 
 ### Error Case Tests
-- [ ] **Task 2.14**: Test missing event
+- [x] **Task 2.14**: Test missing event
   - Test: Expected "abc", actual "ab"
   - Expected: Test fails with clear error message
 
-- [ ] **Task 2.15**: Test extra event
+- [x] **Task 2.15**: Test extra event
   - Test: Expected "ab", actual "abc"
   - Expected: Test fails with clear error message
 
-- [ ] **Task 2.16**: Test wrong event order
+- [x] **Task 2.16**: Test wrong event order
   - Test: Expected "abc", actual "acb"
   - Expected: Test fails with clear error message
 
-- [ ] **Task 2.17**: Test wrong event in group
+- [x] **Task 2.17**: Test wrong event in group
   - Test: Expected "(ab)", actual "ac"
   - Expected: Test fails (unordered group still has expected events)
 
-- [ ] **Task 2.18**: Test empty marble string
+- [x] **Task 2.18**: Test empty marble string
   - Test: `NewHarness(bus, "")`
   - Expected: Returns error or handles gracefully
 
-- [ ] **Task 2.19**: Test invalid marble syntax
+- [x] **Task 2.19**: Test invalid marble syntax
   - Test: `NewHarness(bus, "a!!b")`
   - Expected: Returns parse error
 
@@ -155,73 +155,73 @@ Each task corresponds to a specific actionable item from the implementation plan
 ## Step 4: Code Quality Improvements
 
 ### String() Methods
-- [ ] **Task 4.1**: Add String() to EventOp
+- [x] **Task 4.1**: Add String() to EventOp
   - File: `eventest/internal/marble/op.go`
   - Expected: Returns event name
 
-- [ ] **Task 4.2**: Add String() to WaitOp
+- [x] **Task 4.2**: Add String() to WaitOp
   - File: `eventest/internal/marble/op.go`
   - Expected: Returns "-"
 
-- [ ] **Task 4.3**: Add String() to StartEventOp
+- [x] **Task 4.3**: Add String() to StartEventOp
   - File: `eventest/internal/marble/op.go`
   - Expected: Returns "^"
 
-- [ ] **Task 4.4**: Add String() to EventWithFollowupOp
+- [x] **Task 4.4**: Add String() to EventWithFollowupOp
   - File: `eventest/internal/marble/op.go`
   - Expected: Returns "new<-of" format
 
-- [ ] **Task 4.5**: Add String() to OrderedGroupStartOp
+- [x] **Task 4.5**: Add String() to OrderedGroupStartOp
   - File: `eventest/internal/marble/op.go`
   - Expected: Returns "[" or descriptive string
 
-- [ ] **Task 4.6**: Add String() to OrderedGroupEndOp
+- [x] **Task 4.6**: Add String() to OrderedGroupEndOp
   - File: `eventest/internal/marble/op.go`
   - Expected: Returns "]" or descriptive string
 
-- [ ] **Task 4.7**: Add String() to UnorderedGroupStartOp
+- [x] **Task 4.7**: Add String() to UnorderedGroupStartOp
   - File: `eventest/internal/marble/op.go`
   - Expected: Returns "(" or descriptive string
 
-- [ ] **Task 4.8**: Add String() to UnorderedGroupEndOp
+- [x] **Task 4.8**: Add String() to UnorderedGroupEndOp
   - File: `eventest/internal/marble/op.go`
   - Expected: Returns ")" or descriptive string
 
-- [ ] **Task 4.9**: Add String() to Tick
+- [x] **Task 4.9**: Add String() to Tick
   - File: `eventest/internal/engine/timeline/timeline.go`
   - Expected: Returns descriptive string of tick contents
 
 ### Error Message Improvements
-- [ ] **Task 4.10**: Improve parser error messages
+- [x] **Task 4.10**: Improve parser error messages
   - File: `eventest/internal/marble/parser.go`
   - Action: Add context (position, surrounding text) to error messages
 
-- [ ] **Task 4.11**: Improve semantic validator error messages
+- [x] **Task 4.11**: Improve semantic validator error messages
   - File: `eventest/internal/marble/semantic.go`
   - Action: Add more descriptive error messages for each rule
 
-- [ ] **Task 4.12**: Improve runtime error messages
+- [x] **Task 4.12**: Improve runtime error messages
   - File: `eventest/internal/engine/runtime/runtime.go`
   - Action: Add context to execution errors
 
-- [ ] **Task 4.13**: Improve interceptor error messages
+- [x] **Task 4.13**: Improve interceptor error messages
   - File: `eventest/internal/engine/interceptor/validator.go`
   - Action: Add expected vs actual details to mismatch errors
 
 ### Documentation
-- [ ] **Task 4.14**: Add package-level doc comment to eventest
+- [x] **Task 4.14**: Add package-level doc comment to eventest
   - File: `eventest/doc.go` (NEW)
   - Content: Package overview, usage examples
 
-- [ ] **Task 4.15**: Add doc comments to all exported functions in harness.go
+- [x] **Task 4.15**: Add doc comments to all exported functions in harness.go
   - File: `eventest/harness.go`
   - Action: Add // Function comments for NewHarness, Run, and all Option functions
 
-- [ ] **Task 4.16**: Add doc comments to marble package
+- [x] **Task 4.16**: Add doc comments to marble package
   - File: `eventest/internal/marble/doc.go` (NEW)
   - Content: Package overview, relationship to other packages
 
-- [ ] **Task 4.17**: Add doc comments to engine packages
+- [x] **Task 4.17**: Add doc comments to engine packages
   - Files: runtime, interceptor, timeline, clock package files
   - Action: Add package-level documentation
 

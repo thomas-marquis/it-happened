@@ -48,55 +48,9 @@ func NewTimeline(node marble.Node, opts ...Option) *Timeline {
 }
 
 func NewTimelineFromOps(ops []marble.Op, opts ...Option) *Timeline {
-	t := &Timeline{
-		events: make(map[string]event.Event),
-		randGen: rand.New(
-			rand.NewPCG(
-				uint64(time.Now().UnixNano()), uint64(time.Now().UnixMilli()))),
-		tickDuration: DefaultTickDuration,
-	}
-
-	for _, opt := range opts {
-		opt(t)
-	}
-
-	t.ticks = buildTicksFromOps(ops, t.tickDuration)
-
-	return t
-}
-
-func buildTicksFromOps(ops []marble.Op, duration time.Duration) []Tick {
-	var (
-		ticks []Tick
-		pos   int
-	)
-
-	for pos < len(ops) {
-		op := ops[pos]
-		switch op.Type() {
-		case marble.OrderedGroupStartType, marble.UnorderedGroupStartType:
-			var endPos int
-			if o, ok := op.(marble.OrderedGroupStartOp); ok {
-				endPos = o.EndPos
-			} else {
-				endPos = op.(marble.UnorderedGroupStartOp).EndPos
-			}
-			ticks = append(ticks, Tick{
-				Duration: duration,
-				Ops:      ops[pos : endPos+1],
-			})
-			pos = endPos + 1
-		case marble.WaitOpType, marble.EventOpType, marble.StartEventOpType, marble.EventWithFollowupOpType:
-			ticks = append(ticks, Tick{
-				Duration: duration,
-				Ops:      []marble.Op{op},
-			})
-			pos++
-		default:
-			pos++
-		}
-	}
-	return ticks
+	// Convert ops to node and use the new implementation
+	node := marble.SequenceNodeFromOps(ops)
+	return NewTimeline(node, opts...)
 }
 
 func (t *Timeline) Ticks() []Tick {
