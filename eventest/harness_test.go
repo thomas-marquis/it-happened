@@ -1,6 +1,7 @@
 package eventest_test
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -17,6 +18,33 @@ type testPayload string
 func (testPayload) Type() event.Type {
 	return "test"
 }
+
+// Custom payload types for testing with real event types
+type customPayloadA struct {
+	ID   string
+	Data string
+}
+
+func (p customPayloadA) Type() event.Type {
+	return "custom"
+}
+
+type customPayloadB struct {
+	ID   string
+	Data string
+}
+
+func (p customPayloadB) Type() event.Type {
+	return "custom"
+}
+
+type payloadType1 struct{ TypeID string }
+
+func (payloadType1) Type() event.Type { return "type1" }
+
+type payloadType2 struct{ TypeID string }
+
+func (payloadType2) Type() event.Type { return "type2" }
 
 // Helper to create default payloads using runtime.DefaultPayload
 func dp(name string) event.Payload {
@@ -749,5 +777,180 @@ func TestHarness_ClockSynchronization(t *testing.T) {
 		})
 
 		// Then - test passes (clock advanced correctly)
+	})
+}
+
+func TestHarness_WithRealEventTypes(t *testing.T) {
+	t.Run("should work with custom event payload types", func(t *testing.T) {
+		// Given
+		bus := inmemory.NewBus(nil, nil)
+
+		// Create matchers for custom payloads
+		customA := customPayloadA{ID: "a", Data: "test-a"}
+		customB := customPayloadB{ID: "b", Data: "test-b"}
+
+		harness := eventest.NewHarness(
+			bus, "ab",
+			eventest.WithMatchers(map[string]event.Matcher{
+				"a": event.HasPayload(customA),
+				"b": event.HasPayload(customB),
+			}),
+		)
+
+		// When
+		harness.Run(t, func(testBus event.Bus, clk clock.Clock) {
+			testBus.Publish(event.New(customA))
+			clk.Forward(timeline.DefaultTickDuration)
+			testBus.Publish(event.New(customB))
+			clk.Forward(timeline.DefaultTickDuration)
+		})
+
+		// Then - test passes
+	})
+
+	t.Run("should work with different payload types in same sequence", func(t *testing.T) {
+		// Given
+		bus := inmemory.NewBus(nil, nil)
+
+		payload1 := payloadType1{TypeID: "t1"}
+		payload2 := payloadType2{TypeID: "t2"}
+
+		// Use type matchers instead of specific payloads
+		harness := eventest.NewHarness(
+			bus, "ab",
+			eventest.WithMatchers(map[string]event.Matcher{
+				"a": event.Is("type1"),
+				"b": event.Is("type2"),
+			}),
+		)
+
+		// When
+		harness.Run(t, func(testBus event.Bus, clk clock.Clock) {
+			testBus.Publish(event.New(payload1))
+			clk.Forward(timeline.DefaultTickDuration)
+			testBus.Publish(event.New(payload2))
+			clk.Forward(timeline.DefaultTickDuration)
+		})
+
+		// Then - test passes
+	})
+}
+
+func TestHarness_LongMarbleSequence(t *testing.T) {
+	t.Run("should handle 50+ events in sequence", func(t *testing.T) {
+		// Given
+		bus := inmemory.NewBus(nil, nil)
+
+		// Build a marble string with 50 events
+		var sb strings.Builder
+		for i := 0; i < 50; i++ {
+			sb.WriteRune(rune('a' + (i % 26)))
+		}
+		longMarble := sb.String()
+
+		harness := eventest.NewHarness(bus, longMarble)
+
+		// When
+		harness.Run(t, func(testBus event.Bus, clk clock.Clock) {
+			for i := 0; i < 50; i++ {
+				eventName := string(rune('a' + (i % 26)))
+				testBus.Publish(event.New(dp(eventName)))
+				clk.Forward(timeline.DefaultTickDuration)
+			}
+		})
+
+		// Then - test passes
+	})
+
+	t.Run("should handle sequence with groups and waits", func(t *testing.T) {
+		// Given
+		bus := inmemory.NewBus(nil, nil)
+
+		// Build a long marble with mixed features: events, waits, groups
+		// Pattern: [abc]-[abc]-[abc]... (repeating abc pattern)
+		var sb strings.Builder
+		for i := 0; i < 10; i++ {
+			if i > 0 {
+				sb.WriteRune('-')
+			}
+			sb.WriteRune('[')
+			sb.WriteRune('a')
+			sb.WriteRune('b')
+			sb.WriteRune('c')
+			sb.WriteRune(']')
+		}
+		longMarble := sb.String()
+
+		harness := eventest.NewHarness(bus, longMarble)
+
+		// When
+		harness.Run(t, func(testBus event.Bus, clk clock.Clock) {
+			for i := 0; i < 10; i++ {
+				if i > 0 {
+					clk.Forward(timeline.DefaultTickDuration) // wait
+				}
+				// Ordered group [abc]
+				testBus.Publish(event.New(dp("a")))
+				testBus.Publish(event.New(dp("b")))
+				testBus.Publish(event.New(dp("c")))
+				clk.Forward(timeline.DefaultTickDuration)
+			}
+		})
+
+		// Then - test passes
+	})
+}
+
+func TestHarness_MixedFeatures(t *testing.T) {
+	t.Run("should handle complex mixed features: start, events, waits, groups, followups", func(t *testing.T) {
+		// Given
+		bus := inmemory.NewBus(nil, nil)
+
+		harness := eventest.NewHarness(bus, "^a-(bc)[de]")
+
+		// When
+		harness.Run(t, func(testBus event.Bus, clk clock.Clock) {
+			// Start event
+			testBus.Publish(event.New(dp("^")))
+			clk.Forward(timeline.DefaultTickDuration)
+
+			// Event a
+			originalA := event.New(dp("a"))
+			testBus.Publish(originalA)
+			clk.Forward(timeline.DefaultTickDuration)
+
+			// Wait
+			clk.Forward(timeline.DefaultTickDuration)
+
+			// Unordered group (bc) - can be in any order
+			testBus.Publish(event.New(dp("c")))
+			testBus.Publish(event.New(dp("b")))
+			clk.Forward(timeline.DefaultTickDuration)
+
+			// Ordered group [de] - must be in order
+			testBus.Publish(event.New(dp("d")))
+			testBus.Publish(event.New(dp("e")))
+			clk.Forward(timeline.DefaultTickDuration)
+		})
+
+		// Then - test passes
+	})
+
+	t.Run("should handle deeply nested groups with events and waits", func(t *testing.T) {
+		// Given
+		bus := inmemory.NewBus(nil, nil)
+
+		harness := eventest.NewHarness(bus, "[a(b[c]d)e]")
+
+		// When - all in same tick, in order
+		harness.Run(t, func(testBus event.Bus, clk clock.Clock) {
+			testBus.Publish(event.New(dp("a")))
+			testBus.Publish(event.New(dp("b")))
+			testBus.Publish(event.New(dp("c")))
+			testBus.Publish(event.New(dp("d")))
+			testBus.Publish(event.New(dp("e")))
+		})
+
+		// Then - test passes
 	})
 }

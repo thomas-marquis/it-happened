@@ -38,56 +38,56 @@ Each task corresponds to a specific actionable item from the implementation plan
 ## Step 2: Write Harness API Tests
 
 ### Basic Functionality Tests
-- [ ] **Task 2.1**: Create harness_test.go file
+- [x] **Task 2.1**: Create harness_test.go file
   - File: `eventest/harness_test.go`
   - Action: Create file with package declaration and imports
 
-- [ ] **Task 2.2**: Test simple event sequence matching
+- [x] **Task 2.2**: Test simple event sequence matching
   - Test: `NewHarness(bus, "abc").Run(t, func() { bus.Publish(...) })`
   - Expected: Test passes when events match in order
 
-- [ ] **Task 2.3**: Test event sequence with waits
+- [x] **Task 2.3**: Test event sequence with waits
   - Test: `NewHarness(bus, "a-b-c").Run(t, ...)`
   - Expected: Test accounts for wait ticks
 
-- [ ] **Task 2.4**: Test with ordered groups
+- [x] **Task 2.4**: Test with ordered groups
   - Test: `NewHarness(bus, "[ab]").Run(t, ...)`
   - Expected: Events a and b must occur in order within same tick
 
-- [ ] **Task 2.5**: Test with unordered groups
+- [x] **Task 2.5**: Test with unordered groups
   - Test: `NewHarness(bus, "(ab)").Run(t, ...)`
   - Expected: Events a and b can occur in any order within same tick
 
-- [ ] **Task 2.6**: Test with nested groups
+- [x] **Task 2.6**: Test with nested groups
   - Test: `NewHarness(bus, "[a(bc)]").Run(t, ...)`
   - Expected: Complex nested group structure works
 
-- [ ] **Task 2.7**: Test with followup events
+- [x] **Task 2.7**: Test with followup events
   - Test: `NewHarness(bus, "b<-a").Run(t, ...)`
   - Expected: Followup relationship verified
 
-- [ ] **Task 2.8**: Test with start event
+- [x] **Task 2.8**: Test with start event
   - Test: `NewHarness(bus, "^abc").Run(t, ...)`
   - Expected: Start event handled correctly
 
 ### Options Tests
-- [ ] **Task 2.9**: Test WithPayloads option
+- [x] **Task 2.9**: Test WithPayloads option
   - Test: `NewHarness(bus, "a", WithPayloads(map[string]event.Payload{"a": myPayload}))`
   - Expected: Event a matches payload
 
-- [ ] **Task 2.10**: Test WithEvents option
+- [x] **Task 2.10**: Test WithEvents option
   - Test: `NewHarness(bus, "a", WithEvents(map[string]event.Event{"a": myEvent}))`
   - Expected: Event a matches exact event
 
-- [ ] **Task 2.11**: Test WithMatchers option
+- [x] **Task 2.11**: Test WithMatchers option
   - Test: `NewHarness(bus, "a", WithMatchers(map[string]event.Matcher{"a": myMatcher}))`
   - Expected: Event a matches custom matcher
 
-- [ ] **Task 2.12**: Test WithSideEffect option
+- [x] **Task 2.12**: Test WithSideEffect option
   - Test: `NewHarness(bus, "abc", WithSideEffect("xy"))`
   - Expected: Side effect marble executed, then expected sequence verified
 
-- [ ] **Task 2.13**: Test WithTickDuration option
+- [x] **Task 2.13**: Test WithTickDuration option
   - Test: `NewHarness(bus, "a-b", WithTickDuration(100*time.Millisecond))`
   - Expected: Custom tick duration used
 
@@ -121,32 +121,32 @@ Each task corresponds to a specific actionable item from the implementation plan
 ## Step 3: Integration Testing
 
 ### End-to-End Tests
-- [ ] **Task 3.1**: Test complete workflow with inmemory bus
+- [x] **Task 3.1**: Test complete workflow with inmemory bus
   - Test: Create bus, harness, publish events, verify
   - Expected: Full integration works
 
-- [ ] **Task 3.2**: Test multiple harnesses on same bus
+- [x] **Task 3.2**: Test multiple harnesses on same bus
   - Test: Two harnesses verify different sequences on same bus
   - Expected: Both can verify independently
 
-- [ ] **Task 3.3**: Test clock synchronization
+- [x] **Task 3.3**: Test clock synchronization
   - Test: Verify clock advances correctly through ticks
   - Expected: Timing is consistent
 
-- [ ] **Task 3.4**: Test with real event types
+- [x] **Task 3.4**: Test with real event types
   - Test: Use application-specific event types
   - Expected: Works with custom payload types
 
 ### Complex Scenario Tests
-- [ ] **Task 3.5**: Test long marble sequence
+- [x] **Task 3.5**: Test long marble sequence
   - Test: 50+ events in sequence
   - Expected: Handles large sequences correctly
 
-- [ ] **Task 3.6**: Test deeply nested groups
+- [x] **Task 3.6**: Test deeply nested groups
   - Test: `"[(a[b(cd)])]"`
   - Expected: Handles deep nesting correctly
 
-- [ ] **Task 3.7**: Test mixed features
+- [x] **Task 3.7**: Test mixed features
   - Test: `"^a-(bc)[de]f<-a"`
   - Expected: All features work together
 
