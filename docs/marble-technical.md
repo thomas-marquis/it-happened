@@ -615,7 +615,7 @@ func (r *InterceptorRecorder) Failures() []error {
 **Solution:** Extend the language:
 ```
 // Optional event (may or may not occur)
-?a
+a?
 
 // Alternative events (one of these must occur)
 a|b|c
@@ -1065,25 +1065,24 @@ eventest/
 │   │   ├── semantic.go   # Validation
 │   │   └── format.go     # Formatter (NEW)
 │   │
-│   ├── runtime/
-│   │   ├── runtime.go    # Runtime
-│   │   ├── timeline/
-│   │   │   ├── builder.go # Timeline builder (REFACTORED)
-│   │   │   └── tick.go    # Tick type (EXISTING)
-│   │   ├── clock.go      # Clock
-│   │   └── interceptor/
-│   │       ├── interceptor.go # Interceptor
-│   │       ├── recorder.go    # Recorder (NEW - split from interceptor)
-│   │       └── validator.go   # Event validator (NEW)
-│   │
-│   └── resolver/        # (NEW)
-│       ├── chain.go     # Chain resolver
-│       ├── payload.go   # Payload resolver
-│       └── event.go      # Event resolver
-│
-└── testutils/           # (NEW)
-    ├── assert.go        # Test assertions
-    └── helpers.go       # Test helpers
+│   └── engine/
+│       ├── runtime/
+│       │   └── runtime.go    # Runtime
+│       ├── timeline/
+│       │   ├── builder.go # Timeline builder (REFACTORED)
+│       │   └── tick.go    # Tick type (EXISTING)
+│       ├── clock/      # Clock
+│       │   └── clock.go      # Clock
+│       ├── interceptor/
+│       │   ├── interceptor.go # Interceptor
+│       │   ├── recorder.go    # Recorder (NEW - split from interceptor)
+│       │   └── validator.go   # Event validator (NEW)
+│       └── resolver/        # (NEW)
+│           ├── chain.go     # Chain resolver
+│           ├── payload.go   # Payload resolver
+│           └── event.go      # Event resolver
+├── assert.go        # Test assertions
+└── helpers.go       # Test helpers
 ```
 
 ### Key Design Patterns Applied
