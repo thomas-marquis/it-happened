@@ -69,6 +69,23 @@ func (h *Harness) Run(t *testing.T, f func()) {
 	intercept := runtime.NewInterceptor(t, h.bus, clock)
 
 	recorder := intercept.EXPECT().FromMarble(h.expected)
+
+	// Automatically add matchers from payload and event maps
+	if h.payloadMap != nil {
+		for label, pl := range h.payloadMap {
+			recorder.ShouldMatch(map[string]event.Matcher{
+				label: event.HasPayload(pl),
+			})
+		}
+	}
+	if h.eventMap != nil {
+		for label, evt := range h.eventMap {
+			recorder.ShouldMatch(map[string]event.Matcher{
+				label: event.IsExactly(evt),
+			})
+		}
+	}
+
 	if h.matchers != nil {
 		recorder.ShouldMatch(h.matchers)
 	}
