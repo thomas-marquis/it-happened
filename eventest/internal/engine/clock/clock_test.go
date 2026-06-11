@@ -1,17 +1,17 @@
-package runtime_test
+package clock_test
 
 import (
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/thomas-marquis/it-happened/eventest/internal/runtime"
+	"github.com/thomas-marquis/it-happened/eventest/internal/engine/clock"
 )
 
 func TestVirtualClock(t *testing.T) {
 	t.Run("should have current time at start", func(t *testing.T) {
 		// Given
-		vc := runtime.NewClock()
+		vc := clock.NewClock()
 
 		// When
 		vc.Start()
@@ -23,7 +23,7 @@ func TestVirtualClock(t *testing.T) {
 
 	t.Run("should forward time", func(t *testing.T) {
 		// Given
-		vc := runtime.NewClock()
+		vc := clock.NewClock()
 		vc.Start()
 		start := vc.Now()
 
@@ -38,7 +38,7 @@ func TestVirtualClock(t *testing.T) {
 
 	t.Run("should return elapsed time", func(t *testing.T) {
 		// Given
-		vc := runtime.NewClock()
+		vc := clock.NewClock()
 		vc.Start()
 
 		// When
@@ -51,7 +51,7 @@ func TestVirtualClock(t *testing.T) {
 
 	t.Run("should execute scheduled events once", func(t *testing.T) {
 		// Given
-		clock := runtime.NewClock()
+		clock := clock.NewClock()
 		count := 0
 		clock.Schedule(1*time.Second, func() {
 			count++
@@ -70,7 +70,7 @@ func TestVirtualClock(t *testing.T) {
 
 	t.Run("should execute events in order", func(t *testing.T) {
 		// Given
-		vc := runtime.NewClock()
+		vc := clock.NewClock()
 		results := make([]int, 0)
 		vc.Schedule(2*time.Second, func() { results = append(results, 2) })
 		vc.Schedule(1*time.Second, func() { results = append(results, 1) })
@@ -85,7 +85,7 @@ func TestVirtualClock(t *testing.T) {
 
 	t.Run("should reset on stop", func(t *testing.T) {
 		// Given
-		vc := runtime.NewClock()
+		vc := clock.NewClock()
 		vc.Start()
 		vc.Forward(1 * time.Second)
 
@@ -98,7 +98,7 @@ func TestVirtualClock(t *testing.T) {
 
 	t.Run("should execute event when reached by multiple forwards", func(t *testing.T) {
 		// Given
-		vc := runtime.NewClock()
+		vc := clock.NewClock()
 		count := 0
 		vc.Schedule(1*time.Second, func() {
 			count++

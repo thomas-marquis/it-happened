@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/thomas-marquis/it-happened/event"
 	"github.com/thomas-marquis/it-happened/eventest"
-	"github.com/thomas-marquis/it-happened/eventest/internal/runtime"
+	"github.com/thomas-marquis/it-happened/eventest/internal/engine/runtime"
 	"github.com/thomas-marquis/it-happened/internal/mocks/event"
 	"go.uber.org/mock/gomock"
 )

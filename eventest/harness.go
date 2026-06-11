@@ -5,7 +5,10 @@ import (
 	"time"
 
 	"github.com/thomas-marquis/it-happened/event"
-	"github.com/thomas-marquis/it-happened/eventest/internal/runtime"
+	"github.com/thomas-marquis/it-happened/eventest/internal/engine/clock"
+	"github.com/thomas-marquis/it-happened/eventest/internal/engine/interceptor"
+	"github.com/thomas-marquis/it-happened/eventest/internal/engine/runtime"
+	"github.com/thomas-marquis/it-happened/eventest/internal/engine/timeline"
 )
 
 type Option func(*Harness)
@@ -54,7 +57,7 @@ func NewHarness(bus event.Bus, expected string, opts ...Option) *Harness {
 	h := &Harness{
 		bus:          bus,
 		expected:     expected,
-		tickDuration: runtime.DefaultTickDuration,
+		tickDuration: timeline.DefaultTickDuration,
 	}
 
 	for _, opt := range opts {
@@ -65,8 +68,8 @@ func NewHarness(bus event.Bus, expected string, opts ...Option) *Harness {
 }
 
 func (h *Harness) Run(t *testing.T, f func()) {
-	clock := runtime.NewClock()
-	intercept := runtime.NewInterceptor(t, h.bus, clock)
+	clock := clock.NewClock()
+	intercept := interceptor.NewInterceptor(t, h.bus, clock)
 
 	recorder := intercept.EXPECT().FromMarble(h.expected)
 

@@ -1,21 +1,23 @@
-package runtime
+package interceptor
 
 import (
 	"fmt"
-	"github.com/thomas-marquis/it-happened/event"
-	"github.com/thomas-marquis/it-happened/eventest/internal/marble"
 	"time"
+
+	"github.com/thomas-marquis/it-happened/event"
+	timeline2 "github.com/thomas-marquis/it-happened/eventest/internal/engine/timeline"
+	"github.com/thomas-marquis/it-happened/eventest/internal/marble"
 )
 
 type InterceptorValidator struct {
-	timeline    *Timeline
+	timeline    *timeline2.Timeline
 	activity    []activityEntry
 	matchers    map[string]event.Matcher
 	errors      []error
 	currentTick int
 }
 
-func NewInterceptorValidator(tl *Timeline, activity []activityEntry, matchers map[string]event.Matcher) *InterceptorValidator {
+func NewInterceptorValidator(tl *timeline2.Timeline, activity []activityEntry, matchers map[string]event.Matcher) *InterceptorValidator {
 	return &InterceptorValidator{
 		timeline: tl,
 		activity: activity,

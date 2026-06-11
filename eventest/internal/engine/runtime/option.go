@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/thomas-marquis/it-happened/event"
+	"github.com/thomas-marquis/it-happened/eventest/internal/engine/clock"
 )
 
 type Option func(*Runtime)
@@ -14,7 +15,7 @@ func WithBaseTickDuration(d time.Duration) Option {
 	}
 }
 
-func WithClock(clock Clock) Option {
+func WithClock(clock clock.Clock) Option {
 	return func(r *Runtime) {
 		r.clock = clock
 	}
@@ -49,19 +50,5 @@ func WithEventsMapping(ev map[string]event.Event) Option {
 			}
 		}
 		r.eventMap = ev
-	}
-}
-
-type TimelineOption func(*Timeline)
-
-func TimelineWithSeed(seed uint64) TimelineOption {
-	return func(t *Timeline) {
-		t.seed(seed)
-	}
-}
-
-func TimelineWithTickDuration(d time.Duration) TimelineOption {
-	return func(t *Timeline) {
-		t.tickDuration = d
 	}
 }

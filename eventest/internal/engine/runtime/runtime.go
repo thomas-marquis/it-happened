@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/thomas-marquis/it-happened/event"
+	clock2 "github.com/thomas-marquis/it-happened/eventest/internal/engine/clock"
+	"github.com/thomas-marquis/it-happened/eventest/internal/engine/timeline"
 	"github.com/thomas-marquis/it-happened/eventest/internal/marble"
 )
 
@@ -24,7 +26,7 @@ func (DefaultPayload) Type() event.Type {
 }
 
 type Runtime struct {
-	clock            Clock
+	clock            clock2.Clock
 	payloadMap       map[string]event.Payload
 	eventMap         map[string]event.Event
 	matchers         map[string]event.Matcher
@@ -34,12 +36,12 @@ type Runtime struct {
 }
 
 func NewRuntime(bus event.Bus, opts ...Option) *Runtime {
-	clock := NewClock()
+	clock := clock2.NewClock()
 
 	r := &Runtime{
 		clock:            clock,
 		bus:              bus,
-		baseTickDuration: DefaultTickDuration,
+		baseTickDuration: timeline.DefaultTickDuration,
 		matchers:         make(map[string]event.Matcher),
 		publishedEvents:  make(map[string]event.Event),
 	}
@@ -109,7 +111,7 @@ func (r *Runtime) RunFromNode(node marble.Node) (*RunningSession, error) {
 		return nil, err
 	}
 
-	tl := NewTimeline(node, TimelineWithTickDuration(r.baseTickDuration))
+	tl := timeline.NewTimeline(node, timeline.WithTickDuration(r.baseTickDuration))
 	ticks := tl.Ticks()
 
 	return &RunningSession{
@@ -123,7 +125,7 @@ func (r *Runtime) RunFromNode(node marble.Node) (*RunningSession, error) {
 }
 
 func (r *Runtime) RunFromOps(ops []marble.Op) (*RunningSession, error) {
-	tl := NewTimelineFromOps(ops, TimelineWithTickDuration(r.baseTickDuration))
+	tl := timeline.NewTimelineFromOps(ops, timeline.WithTickDuration(r.baseTickDuration))
 	ticks := tl.Ticks()
 
 	return &RunningSession{
@@ -138,8 +140,8 @@ func (r *Runtime) RunFromOps(ops []marble.Op) (*RunningSession, error) {
 
 type RunningSession struct {
 	rt         *Runtime
-	ticks      []Tick
-	clock      Clock
+	ticks      []timeline.Tick
+	clock      clock2.Clock
 	bus        event.Bus
 	payloadMap map[string]event.Payload
 	eventMap   map[string]event.Event
@@ -186,14 +188,14 @@ func (s *RunningSession) HasNext() bool {
 	return s.current < len(s.ticks)
 }
 
-func (s *RunningSession) CurrentTick() Tick {
+func (s *RunningSession) CurrentTick() timeline.Tick {
 	if s.current >= len(s.ticks) {
-		return Tick{}
+		return timeline.Tick{}
 	}
 	return s.ticks[s.current]
 }
 
-func (s *RunningSession) Clock() Clock {
+func (s *RunningSession) Clock() clock2.Clock {
 	return s.clock
 }
 

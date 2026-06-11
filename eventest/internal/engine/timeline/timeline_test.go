@@ -1,11 +1,12 @@
-package runtime_test
+package timeline_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/thomas-marquis/it-happened/eventest/internal/engine"
+	"github.com/thomas-marquis/it-happened/eventest/internal/engine/timeline"
 	"github.com/thomas-marquis/it-happened/eventest/internal/marble"
-	"github.com/thomas-marquis/it-happened/eventest/internal/runtime"
 )
 
 func TestTimeline(t *testing.T) {
@@ -13,21 +14,21 @@ func TestTimeline(t *testing.T) {
 		// Given
 		node, _ := marble.ParseAsNode("abc")
 
-		expected := []runtime.Tick{
+		expected := []timeline.Tick{
 			{
-				Duration: runtime.DefaultTickDuration,
+				Duration: timeline.DefaultTickDuration,
 				Ops: []marble.Op{
 					marble.EventOp{Name: "a"},
 				},
 			},
 			{
-				Duration: runtime.DefaultTickDuration,
+				Duration: timeline.DefaultTickDuration,
 				Ops: []marble.Op{
 					marble.EventOp{Name: "b"},
 				},
 			},
 			{
-				Duration: runtime.DefaultTickDuration,
+				Duration: timeline.DefaultTickDuration,
 				Ops: []marble.Op{
 					marble.EventOp{Name: "c"},
 				},
@@ -35,7 +36,7 @@ func TestTimeline(t *testing.T) {
 		}
 
 		// Then
-		tl := runtime.NewTimeline(node)
+		tl := timeline.NewTimeline(node)
 		res := tl.Ticks()
 
 		// Then
@@ -46,9 +47,9 @@ func TestTimeline(t *testing.T) {
 		// Given
 		node, _ := marble.ParseAsNode("[ab]")
 
-		expected := []runtime.Tick{
+		expected := []timeline.Tick{
 			{
-				Duration: runtime.DefaultTickDuration,
+				Duration: timeline.DefaultTickDuration,
 				Ops: []marble.Op{
 					marble.OrderedGroupStartOp{EndPos: 3}, // 0
 					marble.EventOp{Name: "a"},             // 1
@@ -59,7 +60,7 @@ func TestTimeline(t *testing.T) {
 		}
 
 		// When
-		tl := runtime.NewTimeline(node)
+		tl := timeline.NewTimeline(node)
 		res := tl.Ticks()
 
 		// Then
@@ -70,9 +71,9 @@ func TestTimeline(t *testing.T) {
 		// Given
 		node, _ := marble.ParseAsNode("[a[xy]b][lm]")
 
-		expected := []runtime.Tick{
+		expected := []timeline.Tick{
 			{
-				Duration: runtime.DefaultTickDuration,
+				Duration: timeline.DefaultTickDuration,
 				Ops: []marble.Op{
 					marble.OrderedGroupStartOp{EndPos: 7}, // 0
 					marble.EventOp{Name: "a"},             // 1
@@ -85,7 +86,7 @@ func TestTimeline(t *testing.T) {
 				},
 			},
 			{
-				Duration: runtime.DefaultTickDuration,
+				Duration: timeline.DefaultTickDuration,
 				Ops: []marble.Op{
 					marble.OrderedGroupStartOp{EndPos: 3}, // 0
 					marble.EventOp{Name: "l"},             // 1
@@ -96,7 +97,7 @@ func TestTimeline(t *testing.T) {
 		}
 
 		// When
-		tl := runtime.NewTimeline(node)
+		tl := timeline.NewTimeline(node)
 		res := tl.Ticks()
 
 		// Then
@@ -107,9 +108,9 @@ func TestTimeline(t *testing.T) {
 		// Given
 		node, _ := marble.ParseAsNode("(abcde)(x)[qr[nm]s]")
 
-		expected := []runtime.Tick{
+		expected := []timeline.Tick{
 			{
-				Duration: runtime.DefaultTickDuration,
+				Duration: timeline.DefaultTickDuration,
 				Ops: []marble.Op{
 					marble.UnorderedGroupStartOp{EndPos: 6}, // 0
 					marble.EventOp{Name: "e"},               // 1
@@ -121,7 +122,7 @@ func TestTimeline(t *testing.T) {
 				},
 			},
 			{
-				Duration: runtime.DefaultTickDuration,
+				Duration: timeline.DefaultTickDuration,
 				Ops: []marble.Op{
 					marble.UnorderedGroupStartOp{EndPos: 2}, // 0
 					marble.EventOp{Name: "x"},               // 1
@@ -129,7 +130,7 @@ func TestTimeline(t *testing.T) {
 				},
 			},
 			{
-				Duration: runtime.DefaultTickDuration,
+				Duration: timeline.DefaultTickDuration,
 				Ops: []marble.Op{
 					marble.OrderedGroupStartOp{EndPos: 8}, // 0
 					marble.EventOp{Name: "q"},             // 1
@@ -145,7 +146,7 @@ func TestTimeline(t *testing.T) {
 		}
 
 		// When
-		tl := runtime.NewTimeline(node, runtime.TimelineWithSeed(42))
+		tl := timeline.NewTimeline(node, engine.TimelineWithSeed(42))
 		res := tl.Ticks()
 
 		// Then
@@ -156,9 +157,9 @@ func TestTimeline(t *testing.T) {
 		// Given
 		node, _ := marble.ParseAsNode("[abcde]")
 
-		expected := []runtime.Tick{
+		expected := []timeline.Tick{
 			{
-				Duration: runtime.DefaultTickDuration,
+				Duration: timeline.DefaultTickDuration,
 				Ops: []marble.Op{
 					marble.OrderedGroupStartOp{EndPos: 6}, // 0
 					marble.EventOp{Name: "a"},             // 1
@@ -172,7 +173,7 @@ func TestTimeline(t *testing.T) {
 		}
 
 		// When
-		tl := runtime.NewTimeline(node)
+		tl := timeline.NewTimeline(node)
 		res := tl.Ticks()
 
 		// Then
@@ -184,21 +185,21 @@ func TestTimeline(t *testing.T) {
 		node, err := marble.ParseAsNode("ab<-/prev [c d<-/prev2 e]-")
 		assert.NoError(t, err)
 
-		expected := []runtime.Tick{
+		expected := []timeline.Tick{
 			{
-				Duration: runtime.DefaultTickDuration,
+				Duration: timeline.DefaultTickDuration,
 				Ops: []marble.Op{
 					marble.EventOp{Name: "a"},
 				},
 			},
 			{
-				Duration: runtime.DefaultTickDuration,
+				Duration: timeline.DefaultTickDuration,
 				Ops: []marble.Op{
 					marble.EventWithFollowupOp{NewEvent: "b", OfEvent: "prev"},
 				},
 			},
 			{
-				Duration: runtime.DefaultTickDuration,
+				Duration: timeline.DefaultTickDuration,
 				Ops: []marble.Op{
 					marble.OrderedGroupStartOp{EndPos: 4},                       // 0
 					marble.EventOp{Name: "c"},                                   // 1
@@ -208,7 +209,7 @@ func TestTimeline(t *testing.T) {
 				},
 			},
 			{
-				Duration: runtime.DefaultTickDuration,
+				Duration: timeline.DefaultTickDuration,
 				Ops: []marble.Op{
 					marble.WaitOp{},
 				},
@@ -216,7 +217,7 @@ func TestTimeline(t *testing.T) {
 		}
 
 		// When
-		tl := runtime.NewTimeline(node)
+		tl := timeline.NewTimeline(node)
 		res := tl.Ticks()
 
 		// Then

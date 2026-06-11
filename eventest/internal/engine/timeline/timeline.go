@@ -1,10 +1,11 @@
-package runtime
+package timeline
 
 import (
 	"math/rand/v2"
 	"time"
 
 	"github.com/thomas-marquis/it-happened/event"
+	"github.com/thomas-marquis/it-happened/eventest/internal/engine"
 	"github.com/thomas-marquis/it-happened/eventest/internal/marble"
 )
 
@@ -24,7 +25,7 @@ type Timeline struct {
 	tickDuration time.Duration
 }
 
-func NewTimeline(node marble.Node, opts ...TimelineOption) *Timeline {
+func NewTimeline(node marble.Node, opts ...engine.TimelineOption) *Timeline {
 	t := &Timeline{
 		events: make(map[string]event.Event),
 		randGen: rand.New(
@@ -47,7 +48,7 @@ func NewTimeline(node marble.Node, opts ...TimelineOption) *Timeline {
 	return t
 }
 
-func NewTimelineFromOps(ops []marble.Op, opts ...TimelineOption) *Timeline {
+func NewTimelineFromOps(ops []marble.Op, opts ...engine.TimelineOption) *Timeline {
 	t := &Timeline{
 		events: make(map[string]event.Event),
 		randGen: rand.New(

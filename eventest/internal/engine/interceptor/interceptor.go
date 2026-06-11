@@ -1,4 +1,4 @@
-package runtime
+package interceptor
 
 import (
 	"fmt"
@@ -7,12 +7,15 @@ import (
 	"time"
 
 	"github.com/thomas-marquis/it-happened/event"
+	clock2 "github.com/thomas-marquis/it-happened/eventest/internal/engine/clock"
+	"github.com/thomas-marquis/it-happened/eventest/internal/engine/runtime"
+	timeline2 "github.com/thomas-marquis/it-happened/eventest/internal/engine/timeline"
 	"github.com/thomas-marquis/it-happened/eventest/internal/marble"
 )
 
 type Interceptor struct {
 	actualBus event.Bus
-	clock     Clock
+	clock     clock2.Clock
 	t         *testing.T
 	recorders []*InterceptorRecorder
 
@@ -23,7 +26,7 @@ var (
 	_ event.Bus = (*Interceptor)(nil)
 )
 
-func NewInterceptor(t *testing.T, bus event.Bus, clock Clock) *Interceptor {
+func NewInterceptor(t *testing.T, bus event.Bus, clock clock2.Clock) *Interceptor {
 	it := &Interceptor{
 		actualBus:             bus,
 		t:                     t,
@@ -89,7 +92,7 @@ func (i *Interceptor) Finish() {
 type InterceptorRecorder struct {
 	expectedSeq  string
 	expectedNode marble.Node
-	timeline     *Timeline
+	timeline     *timeline2.Timeline
 	it           *Interceptor
 	matchers     map[string]event.Matcher
 }
@@ -111,7 +114,7 @@ func (r *InterceptorRecorder) FromMarble(seq string) *InterceptorRecorder {
 		panic(err)
 	}
 
-	tl := NewTimeline(node)
+	tl := timeline2.NewTimeline(node)
 	r.timeline = tl
 
 	for _, tick := range tl.Ticks() {
@@ -119,12 +122,12 @@ func (r *InterceptorRecorder) FromMarble(seq string) *InterceptorRecorder {
 			switch o := op.(type) {
 			case marble.EventOp:
 				if _, ok := r.matchers[o.Name]; !ok {
-					r.matchers[o.Name] = event.HasPayload(DefaultPayload(o.Name))
+					r.matchers[o.Name] = event.HasPayload(runtime.DefaultPayload(o.Name))
 				}
 
 			case marble.EventWithFollowupOp:
 				if _, ok := r.matchers[o.NewEvent]; !ok {
-					r.matchers[o.NewEvent] = event.HasPayload(DefaultPayload(o.NewEvent))
+					r.matchers[o.NewEvent] = event.HasPayload(runtime.DefaultPayload(o.NewEvent))
 				}
 			}
 		}

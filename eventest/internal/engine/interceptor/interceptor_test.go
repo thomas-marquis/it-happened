@@ -1,4 +1,4 @@
-package runtime_test
+package interceptor_test
 
 import (
 	"testing"
@@ -6,7 +6,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/thomas-marquis/it-happened/event"
 	"github.com/thomas-marquis/it-happened/eventest"
-	"github.com/thomas-marquis/it-happened/eventest/internal/runtime"
+	"github.com/thomas-marquis/it-happened/eventest/internal/engine/clock"
+	"github.com/thomas-marquis/it-happened/eventest/internal/engine/interceptor"
+	"github.com/thomas-marquis/it-happened/eventest/internal/engine/runtime"
+	"github.com/thomas-marquis/it-happened/eventest/internal/engine/timeline"
 	"github.com/thomas-marquis/it-happened/inmemory"
 	mocksevent "github.com/thomas-marquis/it-happened/internal/mocks/event"
 	"go.uber.org/mock/gomock"
@@ -24,9 +27,9 @@ func TestInterceptor(t *testing.T) {
 			mockBus.EXPECT().Publish(eventest.PayloadEq(runtime.DefaultPayload("c"))).Times(1),
 		)
 
-		clock := runtime.NewClock()
+		clock := clock.NewClock()
 		tt := &testing.T{}
-		it := runtime.NewInterceptor(tt, mockBus, clock)
+		it := interceptor.NewInterceptor(tt, mockBus, clock)
 
 		// When
 		it.EXPECT().FromMarble("abc")
@@ -34,13 +37,13 @@ func TestInterceptor(t *testing.T) {
 		clock.Start()
 
 		it.Publish(event.New(runtime.DefaultPayload("a")))
-		clock.Forward(runtime.DefaultTickDuration)
+		clock.Forward(timeline.DefaultTickDuration)
 
 		it.Publish(event.New(runtime.DefaultPayload("b")))
-		clock.Forward(runtime.DefaultTickDuration)
+		clock.Forward(timeline.DefaultTickDuration)
 
 		it.Publish(event.New(runtime.DefaultPayload("c")))
-		clock.Forward(runtime.DefaultTickDuration)
+		clock.Forward(timeline.DefaultTickDuration)
 
 		clock.Stop()
 		it.Finish()
@@ -51,14 +54,14 @@ func TestInterceptor(t *testing.T) {
 
 	t.Run("should fail when an event is missing", func(t *testing.T) {
 		// Given
-		clock := runtime.NewClock()
+		clock := clock.NewClock()
 		done := make(chan struct{})
 		defer close(done)
 
 		bus := inmemory.NewBus(done, nil)
 
 		tt := &testing.T{}
-		it := runtime.NewInterceptor(tt, bus, clock)
+		it := interceptor.NewInterceptor(tt, bus, clock)
 
 		// When
 		it.EXPECT().FromMarble("abc")
@@ -66,10 +69,10 @@ func TestInterceptor(t *testing.T) {
 		clock.Start()
 
 		it.Publish(event.New(runtime.DefaultPayload("a")))
-		clock.Forward(runtime.DefaultTickDuration)
+		clock.Forward(timeline.DefaultTickDuration)
 
 		it.Publish(event.New(runtime.DefaultPayload("b")))
-		clock.Forward(runtime.DefaultTickDuration)
+		clock.Forward(timeline.DefaultTickDuration)
 
 		clock.Stop()
 		it.Finish()
@@ -85,9 +88,9 @@ func TestInterceptor(t *testing.T) {
 
 		mockBus.EXPECT().Publish(gomock.Any()).AnyTimes()
 
-		clock := runtime.NewClock()
+		clock := clock.NewClock()
 		tt := &testing.T{}
-		it := runtime.NewInterceptor(tt, mockBus, clock)
+		it := interceptor.NewInterceptor(tt, mockBus, clock)
 
 		// When
 		it.EXPECT().FromMarble("[ab](cd)")
@@ -97,12 +100,12 @@ func TestInterceptor(t *testing.T) {
 		// Tick 0: [ab]
 		it.Publish(event.New(runtime.DefaultPayload("a")))
 		it.Publish(event.New(runtime.DefaultPayload("b")))
-		clock.Forward(runtime.DefaultTickDuration)
+		clock.Forward(timeline.DefaultTickDuration)
 
 		// Tick 1: (cd)
 		it.Publish(event.New(runtime.DefaultPayload("d")))
 		it.Publish(event.New(runtime.DefaultPayload("c")))
-		clock.Forward(runtime.DefaultTickDuration)
+		clock.Forward(timeline.DefaultTickDuration)
 
 		clock.Stop()
 		it.Finish()
@@ -118,9 +121,9 @@ func TestInterceptor(t *testing.T) {
 
 		mockBus.EXPECT().Publish(gomock.Any()).AnyTimes()
 
-		clock := runtime.NewClock()
+		clock := clock.NewClock()
 		tt := &testing.T{}
-		it := runtime.NewInterceptor(tt, mockBus, clock)
+		it := interceptor.NewInterceptor(tt, mockBus, clock)
 
 		// When
 		it.EXPECT().FromMarble("[a(bc)]")
@@ -131,7 +134,7 @@ func TestInterceptor(t *testing.T) {
 		it.Publish(event.New(runtime.DefaultPayload("a")))
 		it.Publish(event.New(runtime.DefaultPayload("c")))
 		it.Publish(event.New(runtime.DefaultPayload("b")))
-		clock.Forward(runtime.DefaultTickDuration)
+		clock.Forward(timeline.DefaultTickDuration)
 
 		clock.Stop()
 		it.Finish()
