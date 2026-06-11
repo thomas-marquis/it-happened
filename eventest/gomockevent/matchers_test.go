@@ -58,7 +58,7 @@ func TestPayloadEqMatcher_String(t *testing.T) {
 		res := m.String()
 
 		// Then
-		assert.Equal(t, "is equal to \"my value\" (eventest_test.fakePayload)", res)
+		assert.Equal(t, "is equal to \"my value\" (gomockevent_test.fakePayload)", res)
 	})
 }
 
@@ -102,7 +102,7 @@ func TestIsFollowupOf_String(t *testing.T) {
 		res := m.String()
 
 		// Then
-		assert.Equal(t, "is a followup of \"my value\" (eventest_test.fakePayload)", res)
+		assert.Equal(t, "is a followup of \"my value\" (gomockevent_test.fakePayload)", res)
 
 	})
 }

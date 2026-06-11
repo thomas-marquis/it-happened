@@ -189,13 +189,42 @@ func TestRuntime_Run(t *testing.T) {
 
 	t.Run("should publish the start event when provided", func(t *testing.T) {
 		// Given
-		//ctrl := gomock.NewController(t)
-		//mockBus := mocksevent.NewMockBus(ctrl)
+		ctrl := gomock.NewController(t)
+		mockBus := mocksevent.NewMockBus(ctrl)
 
-		//rt := runtime.NewRuntime(mockBus)
+		// TODO: add an expectation for the start event
+		call1 := mockBus.EXPECT().Publish(gomockevent.PayloadEq(runtime.DefaultPayload("a")))
+		call2 := mockBus.EXPECT().Publish(gomockevent.PayloadEq(runtime.DefaultPayload("b")))
+		call3 := mockBus.EXPECT().Publish(gomockevent.PayloadEq(runtime.DefaultPayload("c")))
+
+		gomock.InOrder(call1, call2, call3)
+
+		rt := runtime.NewRuntime(mockBus)
+
+		// When
+		err := rt.RunAll("^abc")
+
+		// Then
+		assert.NoError(t, err)
 	})
 
-	t.Run("should return an error when the start event is missing", func(t *testing.T) {
+	t.Run("should handle a sequence without a start event", func(t *testing.T) {
+		// Given
+		ctrl := gomock.NewController(t)
+		mockBus := mocksevent.NewMockBus(ctrl)
 
+		call1 := mockBus.EXPECT().Publish(gomockevent.PayloadEq(runtime.DefaultPayload("a")))
+		call2 := mockBus.EXPECT().Publish(gomockevent.PayloadEq(runtime.DefaultPayload("b")))
+		call3 := mockBus.EXPECT().Publish(gomockevent.PayloadEq(runtime.DefaultPayload("c")))
+
+		gomock.InOrder(call1, call2, call3)
+
+		rt := runtime.NewRuntime(mockBus)
+
+		// When
+		err := rt.RunAll("abc")
+
+		// Then
+		assert.NoError(t, err)
 	})
 }
