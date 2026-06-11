@@ -67,7 +67,7 @@ func NewHarness(bus event.Bus, expected string, opts ...Option) *Harness {
 	return h
 }
 
-func (h *Harness) Run(t *testing.T, f func()) {
+func (h *Harness) Run(t *testing.T, f func(bus event.Bus, clock clock.Clock)) {
 	clock := clock.NewClock()
 	intercept := interceptor.NewInterceptor(t, h.bus, clock)
 
@@ -115,7 +115,9 @@ func (h *Harness) Run(t *testing.T, f func()) {
 		}
 	}
 
-	f()
+	clock.Start()
+	f(intercept, clock)
+	clock.Stop()
 
 	intercept.Finish()
 }
