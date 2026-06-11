@@ -34,7 +34,7 @@ type Runtime struct {
 }
 
 func NewRuntime(bus event.Bus, opts ...Option) *Runtime {
-	clock := NewVirtualClock()
+	clock := NewClock()
 
 	r := &Runtime{
 		clock:            clock,

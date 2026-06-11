@@ -11,7 +11,7 @@ import (
 func TestVirtualClock(t *testing.T) {
 	t.Run("should have current time at start", func(t *testing.T) {
 		// Given
-		vc := runtime.NewVirtualClock()
+		vc := runtime.NewClock()
 
 		// When
 		vc.Start()
@@ -23,7 +23,7 @@ func TestVirtualClock(t *testing.T) {
 
 	t.Run("should forward time", func(t *testing.T) {
 		// Given
-		vc := runtime.NewVirtualClock()
+		vc := runtime.NewClock()
 		vc.Start()
 		start := vc.Now()
 
@@ -38,7 +38,7 @@ func TestVirtualClock(t *testing.T) {
 
 	t.Run("should return elapsed time", func(t *testing.T) {
 		// Given
-		vc := runtime.NewVirtualClock()
+		vc := runtime.NewClock()
 		vc.Start()
 
 		// When
@@ -51,7 +51,7 @@ func TestVirtualClock(t *testing.T) {
 
 	t.Run("should execute scheduled events once", func(t *testing.T) {
 		// Given
-		clock := runtime.NewVirtualClock()
+		clock := runtime.NewClock()
 		count := 0
 		clock.Schedule(1*time.Second, func() {
 			count++
@@ -70,7 +70,7 @@ func TestVirtualClock(t *testing.T) {
 
 	t.Run("should execute events in order", func(t *testing.T) {
 		// Given
-		vc := runtime.NewVirtualClock()
+		vc := runtime.NewClock()
 		results := make([]int, 0)
 		vc.Schedule(2*time.Second, func() { results = append(results, 2) })
 		vc.Schedule(1*time.Second, func() { results = append(results, 1) })
@@ -85,7 +85,7 @@ func TestVirtualClock(t *testing.T) {
 
 	t.Run("should reset on stop", func(t *testing.T) {
 		// Given
-		vc := runtime.NewVirtualClock()
+		vc := runtime.NewClock()
 		vc.Start()
 		vc.Forward(1 * time.Second)
 
@@ -98,7 +98,7 @@ func TestVirtualClock(t *testing.T) {
 
 	t.Run("should execute event when reached by multiple forwards", func(t *testing.T) {
 		// Given
-		vc := runtime.NewVirtualClock()
+		vc := runtime.NewClock()
 		count := 0
 		vc.Schedule(1*time.Second, func() {
 			count++

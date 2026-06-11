@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"sort"
 	"testing"
 	"time"
 
@@ -15,10 +16,7 @@ type Interceptor struct {
 	t         *testing.T
 	recorders []*InterceptorRecorder
 
-	publishedEvents   []event.Event // TODO: to remove
-	publishedTimeline []Tick        // TODO: to remove
-	publishedTicks    []Tick        // TODO: to remove
-	eventsOverTime    map[time.Duration][]event.Event
+	actualActivityEntries []activityEntry
 
 	expectedOps []marble.Op
 }
@@ -27,16 +25,12 @@ var (
 	_ event.Bus = (*Interceptor)(nil)
 )
 
-// features:
-// - intercepts all published events before publishing them back to the actual bus
-// - able to make assertions from a marble sequence
-
 func NewInterceptor(t *testing.T, bus event.Bus, clock Clock) *Interceptor {
 	it := &Interceptor{
-		actualBus:      bus,
-		t:              t,
-		clock:          clock,
-		eventsOverTime: make(map[time.Duration][]event.Event),
+		actualBus:             bus,
+		t:                     t,
+		clock:                 clock,
+		actualActivityEntries: make([]activityEntry, 0),
 	}
 
 	t.Cleanup(func() {
@@ -47,11 +41,8 @@ func NewInterceptor(t *testing.T, bus event.Bus, clock Clock) *Interceptor {
 
 func (i *Interceptor) Publish(evt event.Event) {
 	i.actualBus.Publish(evt)
-	elapsed := i.clock.Elapsed()
-	if _, ok := i.eventsOverTime[elapsed]; !ok {
-		i.eventsOverTime[elapsed] = make([]event.Event, 0)
-	}
-	i.eventsOverTime[elapsed] = append(i.eventsOverTime[elapsed], evt)
+	i.actualActivityEntries = append(i.actualActivityEntries,
+		activityEntry{elapsedFromStart: i.clock.Elapsed(), event: evt})
 }
 
 func (i *Interceptor) Subscribe() *event.Subscriber {
@@ -59,7 +50,10 @@ func (i *Interceptor) Subscribe() *event.Subscriber {
 }
 
 func (i *Interceptor) EXPECT() *InterceptorRecorder {
-	r := &InterceptorRecorder{it: i}
+	r := &InterceptorRecorder{
+		it:       i,
+		matchers: make(map[string]event.Matcher),
+	}
 	i.recorders = append(i.recorders, r)
 	return r
 }
@@ -67,18 +61,24 @@ func (i *Interceptor) EXPECT() *InterceptorRecorder {
 func (i *Interceptor) finish(cleanup bool) {
 	i.t.Helper()
 
+	sortActivityEntries(i.actualActivityEntries)
+
+	var errs []error
+	for _, rec := range i.recorders {
+		errs = append(errs, rec.Failures()...)
+	}
+
+	if len(errs) == 0 {
+		return
+	}
+
+	for _, err := range errs {
+		i.t.Error(err)
+	}
+
 	if !cleanup {
 		i.t.Fail()
-		//i.t.Fatalf("expected %d events, got %d", len(i.expectedOps), len(i.publishedEvents))
-		//return
 	}
-	i.t.Errorf("expected %d events, got %d", len(i.expectedOps), len(i.publishedEvents))
-
-	//if len(i.expectedOps) == 0 {
-	//	// TODO:
-	//	return
-	//}
-
 }
 
 // Finish forces to terminate the test and perform assertions.
@@ -121,12 +121,12 @@ func (r *InterceptorRecorder) FromMarble(seq string) *InterceptorRecorder {
 			switch o := op.(type) {
 			case marble.EventOp:
 				if _, ok := r.matchers[o.Name]; !ok {
-					r.matchers[o.Name] = event.HasPayload(DefaultPayload(o.Name))
+					r.matchers[o.Name] = event.HasPayload(DefaultPayload(o.Name)) // TODO: wrong way...
 				}
 
 			case marble.EventWithFollowupOp:
 				if _, ok := r.matchers[o.EventName]; !ok {
-					r.matchers[o.EventName] = event.HasPayload(DefaultPayload(o.EventName))
+					r.matchers[o.EventName] = event.HasPayload(DefaultPayload(o.EventName)) // TODO: wrong way...
 				}
 			}
 		}
@@ -151,7 +151,6 @@ func (r *InterceptorRecorder) Failures() []error {
 		errs            []error
 		currentTickIds  int
 		currentTick     = expectedTicks[0]
-		startTime       = r.it.clock.StartTime()
 		eventInCurrTick []event.Event
 	)
 
@@ -160,37 +159,233 @@ func (r *InterceptorRecorder) Failures() []error {
 	if r.it.clock.Started() {
 		return []error{fmt.Errorf("clock has not been stopped")}
 	}
-	if startTime.IsZero() {
-		return []error{fmt.Errorf("clock has never been started")}
-	}
 
-	for pubElapsed, publishedEvt := range r.it.eventsOverTime {
-		if currentTickIds >= len(expectedTicks) {
-			errs = append(errs, fmt.Errorf("unexpected event at time %s: %v", pubElapsed, publishedEvt))
-			continue
-		}
-		if startTime.Add(pubElapsed).Before(startTime.Add(nextTickStart)) {
-			eventInCurrTick = append(eventInCurrTick, publishedEvt...)
+	var tickStart time.Duration
+	for i, tick := range r.timeline.Ticks() {
+		tickEnd := tickStart + tick.Duration
 
-		} else {
-			if len(eventInCurrTick) != len(currentTick.Ops) {
-				errs = append(errs, fmt.Errorf("at tick %d: expected %d events, got %d", currentTickIds, len(currentTick.Ops), len(eventInCurrTick)))
+		tickActivity := selectActivityEtriesByRange(r.it.actualActivityEntries, nextTickStart, tickEnd)
+
+		// mode strict
+		if len(tick.Ops) == 0 && len(tickActivity) > 0 {
+			errs = append(errs, fmt.Errorf("nothing is supposed to happen in the tick %d", i))
+		} else if len(tick.Ops) == 1 {
+			if len(tickActivity) != 1 {
+				errs = append(errs, fmt.Errorf("expected exactly one event in the tick %d", i))
 				continue
 			}
-
-			for range len(eventInCurrTick) {
-
+			switch op := tick.Ops[0].(type) {
+			case marble.EventOp:
+				if m := r.matchers[op.Name]; !m.Match(tickActivity[0].event) {
+					errs = append(errs, fmt.Errorf("expected event %s to match %v, got %v",
+						op.Name, m, tickActivity[0].event))
+				}
+			case marble.EventWithFollowupOp:
+				if m := r.matchers[op.EventName]; !m.Match(tickActivity[0].event) {
+					errs = append(errs, fmt.Errorf("expected event %s to match %v, got %v",
+						op.EventName, m, tickActivity[0].event))
+				}
+			default:
+				panic("implementation error: unexpected op type for matching")
 			}
-
-			currentTickIds++
-			currentTick = expectedTicks[currentTickIds]
-			nextTickStart += currentTick.Duration
+		} else {
+			var grpPos int
+			errs = append(errs, r.failuresFromGroup(tick, tickActivity, tick.Ops, &grpPos)...)
 		}
 
-		// marble:      a   bc  -   d
-		// elapsed:     ---|---|---|---|
-		// evtOverTime: -a- bc- --- -d-
+		// mode lenient
+		if len(tick.Ops) == 0 {
+			continue
+		} else if len(tick.Ops) == 1 {
+			for _, act := range tickActivity {
+				switch op := tick.Ops[0].(type) {
+				case marble.EventOp:
+					if m := r.matchers[op.Name]; !m.Match(act.event) {
+						errs = append(errs, fmt.Errorf("expected event %s to match %v, got %v",
+							op.Name, m, act.event))
+					}
+				case marble.EventWithFollowupOp:
+					if m := r.matchers[op.EventName]; !m.Match(act.event) {
+						errs = append(errs, fmt.Errorf("expected event %s to match %v, got %v",
+							op.EventName, m, act.event))
+					}
+				default:
+					panic("implementation error: unexpected op type for matching")
+				}
+			}
+		} else {
+
+		}
+
+		tickStart = tickEnd
 	}
 
 	return errs
 }
+
+func (r *InterceptorRecorder) failuresFromGroup(tick Tick, activity []activityEntry, ops []marble.Op, posOp, posEvt *int, strict bool) []error {
+	if len(ops) <= 2 {
+		return nil
+	}
+
+	var (
+		grpOpStart  = *posOp
+		grpOpEnd    int
+		grpEvtStart = *posEvt
+		ordered     bool
+		errs        []error
+	)
+
+	switch o := ops[0].(type) {
+	case marble.OrderedGroupStartOp:
+		grpOpEnd = o.EndPos
+		ordered = true
+	case marble.UnorderedGroupStartOp:
+		grpOpEnd = o.EndPos
+		ordered = false
+	}
+
+	grpOps := ops[grpOpStart+1 : grpOpEnd]
+	grpActEntries := activity[grpEvtStart : grpEvtStart+len(grpOps)]
+
+	if strict && len(grpActEntries) != len(grpOps) {
+		return append(errs, fmt.Errorf("expected %d events in group, got %d", len(grpOps), len(grpActEntries)))
+	}
+
+	if !strict && len(grpActEntries) < len(grpOps) {
+		return append(errs, fmt.Errorf("expected at least %d events in group, got %d", len(grpOps), len(grpActEntries)))
+	}
+
+	if ordered {
+
+		for *posOp < grpOpEnd {
+			op := grpOps[*posOp]
+			if op.Type() == marble.OrderedGroupStartType || op.Type() == marble.UnorderedGroupStartType {
+				errs = append(errs, r.failuresFromGroup(tick, activity, ops, posOp, posEvt, strict)...)
+				*posOp++
+				continue
+			}
+
+			label := getOpLabel(op)
+
+			if strict {
+				ae := grpActEntries[*posEvt]
+				evt := ae.event
+				m := r.matchers[label]
+
+				if !m.Match(evt) {
+					errs = append(errs, fmt.Errorf("event %s (%s) does not match op %s", evt.ID, evt.Type(), label))
+				}
+			} else {
+				// TODO
+			}
+		}
+	} else {
+		// TODO
+	}
+
+	return errs
+}
+
+func (r *InterceptorRecorder) failuresFromOrderedGroup(tick Tick, activity []activityEntry, ops []marble.Op, posOp, posEvt *int) []error {
+	return nil
+}
+
+func (r *InterceptorRecorder) failuresFromUnorderedGroup(tick Tick, activity []activityEntry, ops []marble.Op, posOp, posEvt *int) []error {
+	return nil
+}
+
+//func (r *InterceptorRecorder) matchesEventsWithOps(events []event.Event, ops []marble.Op, pos *int) bool {
+//	for *pos < len(ops) {
+//		currOp := ops[*pos]
+//		switch op := currOp.(type) {
+//		case marble.EventOp:
+//			//if !event.HasPayload(DefaultPayload(op.Name)).Match(events[*pos]) {
+//			//	return false
+//			//}
+//			//*pos++
+//		case marble.EventWithFollowupOp:
+//			//if !event.HasPayload(DefaultPayload(op.EventName)).Match(events[*pos]) {
+//			//	return false
+//			//}
+//		}
+//	}
+//
+//}
+
+//func countOps(ops []marble.Op) int {
+//	var cnt int
+//	for _, op := range ops {
+//		if op.Type() == marble.EventOpType || op.Type() == marble.EventWithFollowupOpType {
+//			cnt++
+//		}
+//	}
+//
+//	return cnt
+//}
+
+type activityEntry struct {
+	elapsedFromStart time.Duration
+	event            event.Event
+}
+
+func sortActivityEntries(entries []activityEntry) {
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].elapsedFromStart < entries[j].elapsedFromStart
+	})
+}
+
+func selectActivityEtriesByRange(entries []activityEntry, start, end time.Duration) []activityEntry {
+	var res []activityEntry
+	for _, e := range entries {
+		if e.elapsedFromStart >= start && e.elapsedFromStart < end {
+			res = append(res, e)
+		}
+	}
+	return res
+}
+
+func getOpLabel(op marble.Op) string {
+	switch o := op.(type) {
+	case marble.EventOp:
+		return o.Name
+	case marble.EventWithFollowupOp:
+		return o.EventName
+	default:
+		panic("implementation error: unexpected op type")
+	}
+}
+
+func recordOrderedGroup(ops []marble.Op, tickPos, grpPos *int) {
+
+}
+
+func extractGroupParts(ops []marble.Op) [][]marble.Op {
+	var (
+		parts [][]marble.Op
+		i     int
+	)
+
+	for i < len(ops) {
+		op := ops[i]
+		if op.Type() == marble.O
+	}
+}
+
+func isGroup(ops []marble.Op) (isGrp bool, grpEnd int) {
+	n := len(ops)
+	if n <= 2 {
+		return
+	}
+	isGrp = (ops[0].Type() == marble.OrderedGroupStartType && ops[n-1].Type() == marble.UnorderedGroupEndType) ||
+		(ops[0].Type() == marble.UnorderedGroupStartType && ops[n-1].Type() == marble.OrderedGroupEndType)
+	return
+}
+
+//
+//type interceptEngine struct {
+//	currPos *int
+//	ops []marble.Op
+//}
+//
+//func (e *interceptEngine)

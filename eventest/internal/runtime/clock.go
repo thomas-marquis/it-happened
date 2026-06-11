@@ -27,7 +27,7 @@ var (
 	_ Clock = (*clockImpl)(nil)
 )
 
-func NewVirtualClock() Clock {
+func NewClock() Clock {
 	return &clockImpl{
 		scheduled: make(map[time.Duration]func()),
 	}
