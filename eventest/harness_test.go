@@ -12,7 +12,6 @@ import (
 	"github.com/thomas-marquis/it-happened/inmemory"
 )
 
-// Test payload types for testing
 type testPayload string
 
 func (testPayload) Type() event.Type {
@@ -24,20 +23,13 @@ func dp(name string) event.Payload {
 	return runtimepkg.DefaultPayload(name)
 }
 
-// =============================================================================
-// Step 2: Basic Functionality Tests
-// =============================================================================
-
-// Task 2.1: Create harness_test.go file - This file serves as the test file
-
-// Task 2.2: Test simple event sequence matching
 func TestHarness_SimpleEventSequence(t *testing.T) {
 	t.Run("should pass when events match in order", func(t *testing.T) {
 		// Given
 		bus := inmemory.NewBus(nil, nil)
 		harness := eventest.NewHarness(bus, "abc")
 
-		// When
+		// When & Then - test passes
 		harness.Run(t, func(testBus event.Bus, clk clock.Clock) {
 			testBus.Publish(event.New(dp("a")))
 			clk.Forward(timeline.DefaultTickDuration)
@@ -45,8 +37,6 @@ func TestHarness_SimpleEventSequence(t *testing.T) {
 			clk.Forward(timeline.DefaultTickDuration)
 			testBus.Publish(event.New(dp("c")))
 		})
-
-		// Then - test passes (no assertion needed, would fail if events don't match)
 	})
 
 	t.Run("should pass with single event", func(t *testing.T) {
@@ -54,16 +44,13 @@ func TestHarness_SimpleEventSequence(t *testing.T) {
 		bus := inmemory.NewBus(nil, nil)
 		harness := eventest.NewHarness(bus, "a")
 
-		// When
+		// When & Then - test passes
 		harness.Run(t, func(testBus event.Bus, clk clock.Clock) {
 			testBus.Publish(event.New(dp("a")))
 		})
-
-		// Then - test passes
 	})
 }
 
-// Task 2.3: Test event sequence with waits
 func TestHarness_EventSequenceWithWaits(t *testing.T) {
 	t.Run("should handle wait ticks correctly", func(t *testing.T) {
 		// Given
@@ -125,7 +112,6 @@ func TestHarness_EventSequenceWithWaits(t *testing.T) {
 	})
 }
 
-// Task 2.4: Test with ordered groups
 func TestHarness_OrderedGroups(t *testing.T) {
 	t.Run("should require events in order within ordered group", func(t *testing.T) {
 		// Given
@@ -177,7 +163,6 @@ func TestHarness_OrderedGroups(t *testing.T) {
 	})
 }
 
-// Task 2.5: Test with unordered groups
 func TestHarness_UnorderedGroups(t *testing.T) {
 	t.Run("should accept events in any order within unordered group", func(t *testing.T) {
 		// Given
@@ -224,7 +209,6 @@ func TestHarness_UnorderedGroups(t *testing.T) {
 	})
 }
 
-// Task 2.6: Test with nested groups
 func TestHarness_NestedGroups(t *testing.T) {
 	t.Run("should handle nested ordered groups", func(t *testing.T) {
 		// Given
@@ -308,7 +292,6 @@ func TestHarness_NestedGroups(t *testing.T) {
 	})
 }
 
-// Task 2.7: Test with followup events
 func TestHarness_FollowupEvents(t *testing.T) {
 	t.Run("should verify followup relationship", func(t *testing.T) {
 		// Given
@@ -355,7 +338,6 @@ func TestHarness_FollowupEvents(t *testing.T) {
 	})
 }
 
-// Task 2.8: Test with start event
 func TestHarness_StartEvent(t *testing.T) {
 	t.Run("should handle start event at beginning", func(t *testing.T) {
 		// Given
@@ -396,11 +378,6 @@ func TestHarness_StartEvent(t *testing.T) {
 	})
 }
 
-// =============================================================================
-// Step 2: Options Tests
-// =============================================================================
-
-// Task 2.9: Test WithPayloads option
 func TestHarness_WithPayloads(t *testing.T) {
 	t.Run("should match events by payload", func(t *testing.T) {
 		// Given
@@ -428,7 +405,6 @@ func TestHarness_WithPayloads(t *testing.T) {
 	})
 }
 
-// Task 2.10: Test WithEvents option
 func TestHarness_WithEvents(t *testing.T) {
 	t.Run("should match exact events", func(t *testing.T) {
 		// Given
@@ -456,7 +432,6 @@ func TestHarness_WithEvents(t *testing.T) {
 	})
 }
 
-// Task 2.11: Test WithMatchers option
 func TestHarness_WithMatchers(t *testing.T) {
 	t.Run("should use custom matchers", func(t *testing.T) {
 		// Given
@@ -507,7 +482,6 @@ func TestHarness_WithMatchers(t *testing.T) {
 	})
 }
 
-// Task 2.12: Test WithSideEffect option
 func TestHarness_WithSideEffect(t *testing.T) {
 	t.Run("should execute side effect before expected sequence", func(t *testing.T) {
 		// Given
@@ -534,17 +508,6 @@ func TestHarness_WithSideEffect(t *testing.T) {
 	t.Run("should handle side effect with multiple events", func(t *testing.T) {
 		// Given
 		bus := inmemory.NewBus(nil, nil)
-		// Side effect "ab" publishes a in tick 0, b in tick 1
-		// Expected sequence "c" means c in tick 0
-		// But this doesn't make sense because c can't be in tick 0 if we publish it after the side effect
-		// Actually, the side effect runs first and uses the clock, so:
-		// - Side effect publishes a at clock time 0
-		// - Side effect advances clock by 1 tick
-		// - Side effect publishes b at clock time 1 tick
-		// - Side effect advances clock by 1 tick
-		// - Test function runs, publishes c at clock time 2 ticks
-		// So total: a at tick 0, b at tick 1, c at tick 2
-		// Expected sequence should be "abc"
 		harness := eventest.NewHarness(
 			bus, "abc",
 			eventest.WithSideEffect("ab"),
@@ -585,7 +548,6 @@ func TestHarness_WithSideEffect(t *testing.T) {
 	})
 }
 
-// Task 2.13: Test WithTickDuration option
 func TestHarness_WithTickDuration(t *testing.T) {
 	t.Run("should use custom tick duration", func(t *testing.T) {
 		// Given
@@ -634,11 +596,6 @@ func TestHarness_WithTickDuration(t *testing.T) {
 	})
 }
 
-// =============================================================================
-// Step 2: Error Case Tests
-// =============================================================================
-
-// Task 2.14: Test missing event
 func TestHarness_ErrorMissingEvent(t *testing.T) {
 	t.Run("should fail when expected event is missing", func(t *testing.T) {
 		// TODO: Error case tests need mock testing.T (Task 2.14)
@@ -652,7 +609,6 @@ func TestHarness_ErrorMissingEvent(t *testing.T) {
 	})
 }
 
-// Task 2.15: Test extra event
 func TestHarness_ErrorExtraEvent(t *testing.T) {
 	t.Run("should fail when extra event is published", func(t *testing.T) {
 		// TODO: Error case tests need mock testing.T (Task 2.15)
@@ -660,7 +616,6 @@ func TestHarness_ErrorExtraEvent(t *testing.T) {
 	})
 }
 
-// Task 2.16: Test wrong event order
 func TestHarness_ErrorWrongOrder(t *testing.T) {
 	t.Run("should fail when events come in wrong order", func(t *testing.T) {
 		// TODO: Error case tests need mock testing.T (Task 2.16)
@@ -673,7 +628,6 @@ func TestHarness_ErrorWrongOrder(t *testing.T) {
 	})
 }
 
-// Task 2.17: Test wrong event in group
 func TestHarness_ErrorWrongEventInGroup(t *testing.T) {
 	t.Run("should fail when unordered group has wrong event", func(t *testing.T) {
 		// TODO: Error case tests need mock testing.T (Task 2.17)
@@ -686,7 +640,6 @@ func TestHarness_ErrorWrongEventInGroup(t *testing.T) {
 	})
 }
 
-// Task 2.18: Test empty marble string
 func TestHarness_ErrorEmptyMarble(t *testing.T) {
 	t.Run("should handle empty marble string gracefully", func(t *testing.T) {
 		// TODO: Error case tests need mock testing.T (Task 2.18)
@@ -695,7 +648,6 @@ func TestHarness_ErrorEmptyMarble(t *testing.T) {
 	})
 }
 
-// Task 2.19: Test invalid marble syntax
 func TestHarness_ErrorInvalidSyntax(t *testing.T) {
 	t.Run("should fail with invalid syntax - unknown character", func(t *testing.T) {
 		// TODO: Error case tests need mock testing.T (Task 2.19)
@@ -714,11 +666,6 @@ func TestHarness_ErrorInvalidSyntax(t *testing.T) {
 	})
 }
 
-// =============================================================================
-// Integration Tests
-// =============================================================================
-
-// Task 3.1: Test complete workflow
 func TestHarness_CompleteWorkflow(t *testing.T) {
 	t.Run("should work with complete workflow", func(t *testing.T) {
 		// Given
@@ -757,7 +704,6 @@ func TestHarness_CompleteWorkflow(t *testing.T) {
 	})
 }
 
-// Task 3.2: Test multiple harnesses on same bus
 func TestHarness_MultipleHarnessesSameBus(t *testing.T) {
 	t.Run("should allow multiple harnesses on same bus", func(t *testing.T) {
 		// Given
@@ -782,7 +728,6 @@ func TestHarness_MultipleHarnessesSameBus(t *testing.T) {
 	})
 }
 
-// Task 3.3: Test clock synchronization
 func TestHarness_ClockSynchronization(t *testing.T) {
 	t.Run("should verify clock advances correctly through ticks", func(t *testing.T) {
 		// Given
