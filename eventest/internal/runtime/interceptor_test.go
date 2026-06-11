@@ -19,9 +19,9 @@ func TestInterceptor(t *testing.T) {
 		mockBus := mocksevent.NewMockBus(ctrl)
 
 		gomock.InOrder(
-			mockBus.EXPECT().Publish(eventest.PayloadEq(fakePayload("aaa"))).Times(1),
-			mockBus.EXPECT().Publish(eventest.PayloadEq(fakePayload("bbb"))).Times(1),
-			mockBus.EXPECT().Publish(eventest.PayloadEq(fakePayload("ccc"))).Times(1),
+			mockBus.EXPECT().Publish(eventest.PayloadEq(runtime.DefaultPayload("a"))).Times(1),
+			mockBus.EXPECT().Publish(eventest.PayloadEq(runtime.DefaultPayload("b"))).Times(1),
+			mockBus.EXPECT().Publish(eventest.PayloadEq(runtime.DefaultPayload("c"))).Times(1),
 		)
 
 		clock := runtime.NewClock()
@@ -33,13 +33,13 @@ func TestInterceptor(t *testing.T) {
 
 		clock.Start()
 
-		it.Publish(event.New(fakePayload("aaa")))
+		it.Publish(event.New(runtime.DefaultPayload("a")))
 		clock.Forward(runtime.DefaultTickDuration)
 
-		it.Publish(event.New(fakePayload("bbb")))
+		it.Publish(event.New(runtime.DefaultPayload("b")))
 		clock.Forward(runtime.DefaultTickDuration)
 
-		it.Publish(event.New(fakePayload("ccc")))
+		it.Publish(event.New(runtime.DefaultPayload("c")))
 		clock.Forward(runtime.DefaultTickDuration)
 
 		clock.Stop()
@@ -65,10 +65,10 @@ func TestInterceptor(t *testing.T) {
 
 		clock.Start()
 
-		it.Publish(event.New(fakePayload("aaa")))
+		it.Publish(event.New(runtime.DefaultPayload("a")))
 		clock.Forward(runtime.DefaultTickDuration)
 
-		it.Publish(event.New(fakePayload("bbb")))
+		it.Publish(event.New(runtime.DefaultPayload("b")))
 		clock.Forward(runtime.DefaultTickDuration)
 
 		clock.Stop()
@@ -76,5 +76,67 @@ func TestInterceptor(t *testing.T) {
 
 		// Then
 		assert.True(t, tt.Failed())
+	})
+
+	t.Run("should pass with ordered and unordered groups", func(t *testing.T) {
+		// Given
+		ctrl := gomock.NewController(t)
+		mockBus := mocksevent.NewMockBus(ctrl)
+
+		mockBus.EXPECT().Publish(gomock.Any()).AnyTimes()
+
+		clock := runtime.NewClock()
+		tt := &testing.T{}
+		it := runtime.NewInterceptor(tt, mockBus, clock)
+
+		// When
+		it.EXPECT().FromMarble("[ab](cd)")
+
+		clock.Start()
+
+		// Tick 0: [ab]
+		it.Publish(event.New(runtime.DefaultPayload("a")))
+		it.Publish(event.New(runtime.DefaultPayload("b")))
+		clock.Forward(runtime.DefaultTickDuration)
+
+		// Tick 1: (cd)
+		it.Publish(event.New(runtime.DefaultPayload("d")))
+		it.Publish(event.New(runtime.DefaultPayload("c")))
+		clock.Forward(runtime.DefaultTickDuration)
+
+		clock.Stop()
+		it.Finish()
+
+		// Then
+		assert.False(t, tt.Failed())
+	})
+
+	t.Run("should pass with nested groups", func(t *testing.T) {
+		// Given
+		ctrl := gomock.NewController(t)
+		mockBus := mocksevent.NewMockBus(ctrl)
+
+		mockBus.EXPECT().Publish(gomock.Any()).AnyTimes()
+
+		clock := runtime.NewClock()
+		tt := &testing.T{}
+		it := runtime.NewInterceptor(tt, mockBus, clock)
+
+		// When
+		it.EXPECT().FromMarble("[a(bc)]")
+
+		clock.Start()
+
+		// Tick 0: [a(bc)]
+		it.Publish(event.New(runtime.DefaultPayload("a")))
+		it.Publish(event.New(runtime.DefaultPayload("c")))
+		it.Publish(event.New(runtime.DefaultPayload("b")))
+		clock.Forward(runtime.DefaultTickDuration)
+
+		clock.Stop()
+		it.Finish()
+
+		// Then
+		assert.False(t, tt.Failed())
 	})
 }

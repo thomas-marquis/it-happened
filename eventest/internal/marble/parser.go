@@ -12,100 +12,98 @@ var (
 )
 
 func Parse(marble string) ([]Op, error) {
+	node, err := ParseAsNode(marble)
+	if err != nil {
+		return nil, err
+	}
+	return ToOpList(node), nil
+}
+
+func ParseAsNode(marble string) (Node, error) {
+	if marble == "" {
+		return nil, ErrEmptyMarble
+	}
 	var pos int
 	return parse(marble, &pos)
 }
 
-func parse(marble string, pos *int) ([]Op, error) {
-	var (
-		parsed []Op
-	)
-	if marble == "" {
-		return nil, ErrEmptyMarble
-	}
+func parse(marble string, pos *int) (Node, error) {
+	var children []Node
 
-	i := 0
-	for i < len(marble) {
-		c := marble[i]
+	for *pos < len(marble) {
+		c := marble[*pos]
 		switch {
 		case c == ' ', c == '\t', c == '\n', c == '\r':
-			i++
+			*pos++
 		case c == '^':
-			if i != 0 {
+			if *pos != 0 {
 				return nil, errors.Join(
 					ErrMarbleSyntax,
-					fmt.Errorf("unexpected ^ at %d", i),
+					fmt.Errorf("unexpected ^ at %d", *pos),
 				)
 			}
-			parsed = append(parsed, StartEventOp{})
+			children = append(children, &StartNode{pos: Position{Offset: *pos}})
 			*pos++
-			i++
 		case c == '-':
-			parsed = append(parsed, WaitOp{})
+			children = append(children, &WaitNode{pos: Position{Offset: *pos}})
 			*pos++
-			i++
 		case c == '_':
-			for i < len(marble) && marble[i] == '_' {
-				i++
+			start := *pos
+			for *pos < len(marble) && marble[*pos] == '_' {
+				*pos++
 			}
-			parsed = append(parsed, WaitOp{})
-			*pos++
+			children = append(children, &WaitNode{pos: Position{Offset: start}})
 		case (c == '/') || ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')):
-			label := parseLabel(marble, &i)
-			if i < len(marble)-2 && marble[i:i+2] == "<-" {
-				i += 2
-				fLabel := parseLabel(marble, &i)
-				parsed = append(parsed, EventWithFollowupOp{EventName: label, From: fLabel})
+			start := *pos
+			label := parseLabel(marble, pos)
+			if *pos < len(marble)-1 && marble[*pos:*pos+2] == "<-" {
+				*pos += 2
+				fLabel := parseLabel(marble, pos)
+				children = append(children, &FollowupNode{
+					NewEvent: label,
+					OfEvent:  fLabel,
+					pos:      Position{Offset: start},
+				})
 			} else {
-				parsed = append(parsed, EventOp{Name: label})
+				children = append(children, &EventNode{
+					Name: label,
+					pos:  Position{Offset: start},
+				})
 			}
-			*pos++
 		case c == '(':
-			startPos := *pos
-			*pos++
-			grp, err := parseGroup(marble, &i, '(', ')', "unbalanced parenthesis", pos)
+			group, err := parseGroupNode(marble, pos, '(', ')', "unbalanced parenthesis", false)
 			if err != nil {
 				return nil, err
 			}
-
-			parsed = append(parsed, UnorderedGroupStartOp{EndPos: *pos})
-			parsed = append(parsed, grp...)
-			parsed = append(parsed, UnorderedGroupEndOp{StartPos: startPos})
-			*pos++
+			children = append(children, group)
 		case c == '[':
-			startPos := *pos
-			*pos++
-			grp, err := parseGroup(marble, &i, '[', ']', "squared brackets", pos)
+			group, err := parseGroupNode(marble, pos, '[', ']', "squared brackets", true)
 			if err != nil {
 				return nil, err
 			}
-
-			parsed = append(parsed, OrderedGroupStartOp{EndPos: *pos})
-			parsed = append(parsed, grp...)
-			parsed = append(parsed, OrderedGroupEndOp{StartPos: startPos})
-			*pos++
+			children = append(children, group)
 		default:
 			return nil, errors.Join(
 				ErrMarbleSyntax,
-				fmt.Errorf("unexpected character %q at %d", c, i),
+				fmt.Errorf("unexpected character %q at %d", c, *pos),
 			)
 		}
 	}
 
-	return parsed, nil
+	return &SequenceNode{Children: children}, nil
 }
 
-func parseLabel(marble string, i *int) string {
-	c := marble[*i]
+func parseLabel(marble string, pos *int) string {
+	c := marble[*pos]
 	var label string
 	if c == '/' {
 		lb := strings.Builder{}
-		*i++
-		for *i < len(marble) {
-			c = marble[*i]
+		*pos++
+		for *pos < len(marble) {
+			c = marble[*pos]
 			if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') {
-				lb.WriteByte(marble[*i])
-				*i++
+				lb.WriteByte(marble[*pos])
+				*pos++
 			} else {
 				break
 			}
@@ -113,37 +111,35 @@ func parseLabel(marble string, i *int) string {
 		label = lb.String()
 	} else {
 		label = string(c)
-		*i++
+		*pos++
 	}
 	return label
 }
 
-func parseGroup(marble string, i *int, open, close rune, errMsg string, pos *int) ([]Op, error) {
-	var end int
+func parseGroupNode(marble string, pos *int, open, close rune, errMsg string, ordered bool) (Node, error) {
+	startPos := *pos
+	*pos++ // skip open char
+	start := *pos
+
 	cnt := 1
-	*i++
-	start := *i
-	for _, x := range marble[*i:] {
-		switch x {
-		case close:
-			cnt--
-		case open:
+	var end int
+	for *pos < len(marble) {
+		x := rune(marble[*pos])
+		if x == open {
 			cnt++
+		} else if x == close {
+			cnt--
 		}
-		//if x == close {
-		//	cnt--
-		//} else if x == open {
-		//	cnt++
-		//}
+
 		if cnt == 0 {
-			end = *i
-			*i++
+			end = *pos
+			*pos++ // skip close char
 			break
 		}
-		*i++
+		*pos++
 	}
 
-	if end == 0 {
+	if cnt != 0 {
 		return nil, errors.Join(
 			ErrMarbleSyntax,
 			fmt.Errorf("%s at %d", errMsg, start-1),
@@ -151,9 +147,16 @@ func parseGroup(marble string, i *int, open, close rune, errMsg string, pos *int
 	}
 
 	grpMarble := marble[start:end]
-	grpOps, err := parse(grpMarble, pos)
+	var grpPos int
+	grpNode, err := parse(grpMarble, &grpPos)
 	if err != nil {
 		return nil, err
 	}
-	return grpOps, nil
+
+	seq := grpNode.(*SequenceNode)
+	return &GroupNode{
+		Children: seq.Children,
+		Ordered:  ordered,
+		pos:      Position{Offset: startPos},
+	}, nil
 }

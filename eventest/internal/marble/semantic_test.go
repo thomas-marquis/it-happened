@@ -11,14 +11,10 @@ func TestSingleTickGroupRule(t *testing.T) {
 	t.Run("should fail when wait op is inside a group", func(t *testing.T) {
 		// Given
 		rule := marble.WaitlessGroupsRule{}
-		ops := []marble.Op{
-			marble.OrderedGroupStartOp{EndPos: 2},
-			marble.WaitOp{},
-			marble.OrderedGroupEndOp{StartPos: 0},
-		}
+		node, _ := marble.ParseAsNode("[-]")
 
 		// When
-		err := rule.Validate(ops)
+		err := rule.Validate(node)
 
 		// Then
 		assert.ErrorIs(t, err, marble.ErrSemantic)
@@ -28,16 +24,10 @@ func TestSingleTickGroupRule(t *testing.T) {
 	t.Run("should fail when wait op is inside a nested group", func(t *testing.T) {
 		// Given
 		rule := marble.WaitlessGroupsRule{}
-		ops := []marble.Op{
-			marble.UnorderedGroupStartOp{EndPos: 4},
-			marble.OrderedGroupStartOp{EndPos: 3},
-			marble.WaitOp{},
-			marble.OrderedGroupEndOp{StartPos: 1},
-			marble.UnorderedGroupEndOp{StartPos: 0},
-		}
+		node, _ := marble.ParseAsNode("([-])")
 
 		// When
-		err := rule.Validate(ops)
+		err := rule.Validate(node)
 
 		// Then
 		assert.ErrorIs(t, err, marble.ErrSemantic)
@@ -46,15 +36,10 @@ func TestSingleTickGroupRule(t *testing.T) {
 	t.Run("should pass when no wait op is inside groups", func(t *testing.T) {
 		// Given
 		rule := marble.WaitlessGroupsRule{}
-		ops := []marble.Op{
-			marble.WaitOp{},
-			marble.OrderedGroupStartOp{EndPos: 3},
-			marble.EventOp{Name: "a"},
-			marble.OrderedGroupEndOp{StartPos: 1},
-		}
+		node, _ := marble.ParseAsNode("-[a]")
 
 		// When
-		err := rule.Validate(ops)
+		err := rule.Validate(node)
 
 		// Then
 		assert.NoError(t, err)
@@ -65,10 +50,10 @@ func TestNotEmptyRule(t *testing.T) {
 	t.Run("should fail on empty sequence", func(t *testing.T) {
 		// Given
 		rule := marble.NotEmptyRule{}
-		ops := []marble.Op{}
+		node := &marble.SequenceNode{}
 
 		// When
-		err := rule.Validate(ops)
+		err := rule.Validate(node)
 
 		// Then
 		assert.ErrorIs(t, err, marble.ErrSemantic)
@@ -78,10 +63,10 @@ func TestNotEmptyRule(t *testing.T) {
 	t.Run("should pass on non-empty sequence", func(t *testing.T) {
 		// Given
 		rule := marble.NotEmptyRule{}
-		ops := []marble.Op{marble.EventOp{Name: "a"}}
+		node, _ := marble.ParseAsNode("a")
 
 		// When
-		err := rule.Validate(ops)
+		err := rule.Validate(node)
 
 		// Then
 		assert.NoError(t, err)
@@ -92,10 +77,16 @@ func TestStartEventAtBeginningRule(t *testing.T) {
 	t.Run("should fail if more than one start event", func(t *testing.T) {
 		// Given
 		rule := marble.StartEventAtBeginningRule{}
-		ops := []marble.Op{marble.StartEventOp{}, marble.StartEventOp{}}
+		// We use a manual sequence node since ParseAsNode might fail on ^^
+		node := &marble.SequenceNode{
+			Children: []marble.Node{
+				&marble.StartNode{},
+				&marble.StartNode{},
+			},
+		}
 
 		// When
-		err := rule.Validate(ops)
+		err := rule.Validate(node)
 
 		// Then
 		assert.ErrorIs(t, err, marble.ErrSemantic)
@@ -105,15 +96,20 @@ func TestStartEventAtBeginningRule(t *testing.T) {
 	t.Run("should fail if group contains multiple start events", func(t *testing.T) {
 		// Given
 		rule := marble.StartEventAtBeginningRule{}
-		ops := []marble.Op{
-			marble.OrderedGroupStartOp{EndPos: 3},
-			marble.StartEventOp{},
-			marble.StartEventOp{},
-			marble.OrderedGroupEndOp{StartPos: 0},
+		node := &marble.SequenceNode{
+			Children: []marble.Node{
+				&marble.GroupNode{
+					Ordered: true,
+					Children: []marble.Node{
+						&marble.StartNode{},
+						&marble.StartNode{},
+					},
+				},
+			},
 		}
 
 		// When
-		err := rule.Validate(ops)
+		err := rule.Validate(node)
 
 		// Then
 		assert.ErrorIs(t, err, marble.ErrSemantic)
@@ -123,10 +119,15 @@ func TestStartEventAtBeginningRule(t *testing.T) {
 	t.Run("should fail if start event is not at the beginning", func(t *testing.T) {
 		// Given
 		rule := marble.StartEventAtBeginningRule{}
-		ops := []marble.Op{marble.EventOp{Name: "a"}, marble.StartEventOp{}}
+		node := &marble.SequenceNode{
+			Children: []marble.Node{
+				&marble.EventNode{Name: "a"},
+				&marble.StartNode{},
+			},
+		}
 
 		// When
-		err := rule.Validate(ops)
+		err := rule.Validate(node)
 
 		// Then
 		assert.ErrorIs(t, err, marble.ErrSemantic)
@@ -136,10 +137,10 @@ func TestStartEventAtBeginningRule(t *testing.T) {
 	t.Run("should pass if start event is at the beginning", func(t *testing.T) {
 		// Given
 		rule := marble.StartEventAtBeginningRule{}
-		ops := []marble.Op{marble.StartEventOp{}, marble.EventOp{Name: "a"}}
+		node, _ := marble.ParseAsNode("^a")
 
 		// When
-		err := rule.Validate(ops)
+		err := rule.Validate(node)
 
 		// Then
 		assert.NoError(t, err)
@@ -148,15 +149,10 @@ func TestStartEventAtBeginningRule(t *testing.T) {
 	t.Run("should pass if start event is inside a group at the beginning", func(t *testing.T) {
 		// Given
 		rule := marble.StartEventAtBeginningRule{}
-		ops := []marble.Op{
-			marble.OrderedGroupStartOp{EndPos: 2},
-			marble.StartEventOp{},
-			marble.OrderedGroupEndOp{StartPos: 0},
-			marble.EventOp{Name: "a"},
-		}
+		node, _ := marble.ParseAsNode("[^]a")
 
 		// When
-		err := rule.Validate(ops)
+		err := rule.Validate(node)
 
 		// Then
 		assert.NoError(t, err)
@@ -165,10 +161,10 @@ func TestStartEventAtBeginningRule(t *testing.T) {
 	t.Run("should pass if no start event", func(t *testing.T) {
 		// Given
 		rule := marble.StartEventAtBeginningRule{}
-		ops := []marble.Op{marble.EventOp{Name: "a"}}
+		node, _ := marble.ParseAsNode("a")
 
 		// When
-		err := rule.Validate(ops)
+		err := rule.Validate(node)
 
 		// Then
 		assert.NoError(t, err)
@@ -179,10 +175,15 @@ func TestStartEventAnywhereRule(t *testing.T) {
 	t.Run("should fail if more than one start event", func(t *testing.T) {
 		// Given
 		rule := marble.StartEventAnywhereRule{}
-		ops := []marble.Op{marble.StartEventOp{}, marble.StartEventOp{}}
+		node := &marble.SequenceNode{
+			Children: []marble.Node{
+				&marble.StartNode{},
+				&marble.StartNode{},
+			},
+		}
 
 		// When
-		err := rule.Validate(ops)
+		err := rule.Validate(node)
 
 		// Then
 		assert.ErrorIs(t, err, marble.ErrSemantic)
@@ -192,10 +193,16 @@ func TestStartEventAnywhereRule(t *testing.T) {
 	t.Run("should pass if start event is anywhere", func(t *testing.T) {
 		// Given
 		rule := marble.StartEventAnywhereRule{}
-		ops := []marble.Op{marble.EventOp{Name: "a"}, marble.StartEventOp{}, marble.EventOp{Name: "b"}}
+		node := &marble.SequenceNode{
+			Children: []marble.Node{
+				&marble.EventNode{Name: "a"},
+				&marble.StartNode{},
+				&marble.EventNode{Name: "b"},
+			},
+		}
 
 		// When
-		err := rule.Validate(ops)
+		err := rule.Validate(node)
 
 		// Then
 		assert.NoError(t, err)
@@ -204,10 +211,10 @@ func TestStartEventAnywhereRule(t *testing.T) {
 	t.Run("should pass if no start event", func(t *testing.T) {
 		// Given
 		rule := marble.StartEventAnywhereRule{}
-		ops := []marble.Op{marble.EventOp{Name: "a"}}
+		node, _ := marble.ParseAsNode("a")
 
 		// When
-		err := rule.Validate(ops)
+		err := rule.Validate(node)
 
 		// Then
 		assert.NoError(t, err)
@@ -218,10 +225,10 @@ func TestUniqueStartEventRule(t *testing.T) {
 	t.Run("should fail if no start event", func(t *testing.T) {
 		// Given
 		rule := marble.UniqueStartEventRule{}
-		ops := []marble.Op{marble.EventOp{Name: "a"}}
+		node, _ := marble.ParseAsNode("a")
 
 		// When
-		err := rule.Validate(ops)
+		err := rule.Validate(node)
 
 		// Then
 		assert.ErrorIs(t, err, marble.ErrSemantic)
@@ -231,10 +238,15 @@ func TestUniqueStartEventRule(t *testing.T) {
 	t.Run("should fail if more than one start event", func(t *testing.T) {
 		// Given
 		rule := marble.UniqueStartEventRule{}
-		ops := []marble.Op{marble.StartEventOp{}, marble.StartEventOp{}}
+		node := &marble.SequenceNode{
+			Children: []marble.Node{
+				&marble.StartNode{},
+				&marble.StartNode{},
+			},
+		}
 
 		// When
-		err := rule.Validate(ops)
+		err := rule.Validate(node)
 
 		// Then
 		assert.ErrorIs(t, err, marble.ErrSemantic)
@@ -244,10 +256,15 @@ func TestUniqueStartEventRule(t *testing.T) {
 	t.Run("should pass if exactly one start event", func(t *testing.T) {
 		// Given
 		rule := marble.UniqueStartEventRule{}
-		ops := []marble.Op{marble.EventOp{Name: "a"}, marble.StartEventOp{}}
+		node := &marble.SequenceNode{
+			Children: []marble.Node{
+				&marble.EventNode{Name: "a"},
+				&marble.StartNode{},
+			},
+		}
 
 		// When
-		err := rule.Validate(ops)
+		err := rule.Validate(node)
 
 		// Then
 		assert.NoError(t, err)

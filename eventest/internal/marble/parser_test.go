@@ -98,7 +98,7 @@ func TestMarbleParser(t *testing.T) {
 		{
 			marble: "a<-b",
 			ops: []marble.Op{
-				marble.EventWithFollowupOp{EventName: "a", From: "b"},
+				marble.EventWithFollowupOp{NewEvent: "a", OfEvent: "b"},
 			},
 		},
 	} {

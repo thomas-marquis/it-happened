@@ -68,7 +68,15 @@ func (r *Runtime) PublishedEvent(label string) (event.Event, bool) {
 }
 
 func (r *Runtime) RunAll(marbleSeq string) error {
-	sess, err := r.Run(marbleSeq)
+	node, err := marble.ParseAsNode(marbleSeq)
+	if err != nil {
+		return err
+	}
+	return r.RunAllFromNode(node)
+}
+
+func (r *Runtime) RunAllFromNode(node marble.Node) error {
+	sess, err := r.RunFromNode(node)
 	if err != nil {
 		return err
 	}
@@ -86,19 +94,36 @@ func (r *Runtime) RunAll(marbleSeq string) error {
 }
 
 func (r *Runtime) Run(marbleSeq string) (*RunningSession, error) {
-	ops, err := marble.Parse(marbleSeq)
+	node, err := marble.ParseAsNode(marbleSeq)
 	if err != nil {
 		return nil, err
 	}
+	return r.RunFromNode(node)
+}
 
-	if err := marble.Validate(ops,
+func (r *Runtime) RunFromNode(node marble.Node) (*RunningSession, error) {
+	if err := marble.Validate(node,
 		marble.StartEventAnywhereRule{},
 		marble.WaitlessGroupsRule{},
 	); err != nil {
 		return nil, err
 	}
 
-	tl := NewTimeline(ops, TimelineWithTickDuration(r.baseTickDuration))
+	tl := NewTimeline(node, TimelineWithTickDuration(r.baseTickDuration))
+	ticks := tl.Ticks()
+
+	return &RunningSession{
+		rt:         r,
+		ticks:      ticks,
+		clock:      r.clock,
+		bus:        r.bus,
+		payloadMap: r.payloadMap,
+		eventMap:   r.eventMap,
+	}, nil
+}
+
+func (r *Runtime) RunFromOps(ops []marble.Op) (*RunningSession, error) {
+	tl := NewTimelineFromOps(ops, TimelineWithTickDuration(r.baseTickDuration))
 	ticks := tl.Ticks()
 
 	return &RunningSession{
@@ -141,15 +166,15 @@ func (s *RunningSession) Next() error {
 			s.bus.Publish(s.getEvent(o.Name))
 			s.rt.publishedEvents[o.Name] = s.getEvent(o.Name)
 		case marble.EventWithFollowupOp:
-			from := s.getEvent(o.From)
-			to, ok := s.payloadMap[o.EventName]
+			from := s.getEvent(o.OfEvent)
+			to, ok := s.payloadMap[o.NewEvent]
 			if !ok {
-				to = DefaultPayload(o.EventName)
+				to = DefaultPayload(o.NewEvent)
 			}
 
 			toEvt := event.NewFollowup(from, to)
 			s.bus.Publish(toEvt)
-			s.rt.publishedEvents[o.EventName] = toEvt
+			s.rt.publishedEvents[o.NewEvent] = toEvt
 		}
 	}
 	s.clock.Forward(tick.Duration)

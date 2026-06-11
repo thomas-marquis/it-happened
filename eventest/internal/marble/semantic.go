@@ -7,39 +7,67 @@ var (
 )
 
 type Rule interface {
-	Validate(seq []Op) error
+	Validate(node Node) error
 }
 
 type NotEmptyRule struct{}
 
-func (r NotEmptyRule) Validate(seq []Op) error {
-	if len(seq) == 0 {
+func (r NotEmptyRule) Validate(node Node) error {
+	if node == nil {
 		return errors.Join(ErrSemantic, errors.New("a timeline cannot be empty"))
 	}
-
+	if seq, ok := node.(*SequenceNode); ok && len(seq.Children) == 0 {
+		return errors.Join(ErrSemantic, errors.New("a timeline cannot be empty"))
+	}
 	return nil
 }
 
 type StartEventAtBeginningRule struct{}
 
-func (r StartEventAtBeginningRule) Validate(seq []Op) error {
-	count := countStartEvents(seq)
-	if count > 1 {
+func (r StartEventAtBeginningRule) Validate(node Node) error {
+	v := &startEventVisitor{}
+	node.Accept(v)
+
+	if v.count > 1 {
 		return errors.Join(ErrSemantic, errors.New("a timeline can have at most one start event"))
 	}
 
-	if count == 1 && len(seq) > 0 && !isStartEvent(seq, 0) {
-		return errors.Join(ErrSemantic, errors.New("the start event must be at the beginning of the timeline"))
+	if v.count == 1 {
+		seq, ok := node.(*SequenceNode)
+		if !ok || len(seq.Children) == 0 {
+			return nil // Should be caught by NotEmptyRule
+		}
+		if !isFirstNodeStart(seq.Children[0]) {
+			return errors.Join(ErrSemantic, errors.New("the start event must be at the beginning of the timeline"))
+		}
 	}
 
 	return nil
 }
 
+func isFirstNodeStart(n Node) bool {
+	switch node := n.(type) {
+	case *StartNode:
+		return true
+	case *GroupNode:
+		if len(node.Children) > 0 {
+			return isFirstNodeStart(node.Children[0])
+		}
+	case *SequenceNode:
+		if len(node.Children) > 0 {
+			return isFirstNodeStart(node.Children[0])
+		}
+	}
+	return false
+}
+
 type StartEventAnywhereRule struct{}
 
-func (r StartEventAnywhereRule) Validate(seq []Op) error {
-	count := countStartEvents(seq)
-	if count > 1 {
+func (r StartEventAnywhereRule) Validate(node Node) error {
+	v := &startEventVisitor{}
+	node.Accept(v)
+
+	if v.count > 1 {
 		return errors.Join(ErrSemantic, errors.New("a timeline can have at most one start event"))
 	}
 
@@ -48,78 +76,82 @@ func (r StartEventAnywhereRule) Validate(seq []Op) error {
 
 type UniqueStartEventRule struct{}
 
-func (r UniqueStartEventRule) Validate(seq []Op) error {
-	count := countStartEvents(seq)
-	if count != 1 {
+func (r UniqueStartEventRule) Validate(node Node) error {
+	v := &startEventVisitor{}
+	node.Accept(v)
+
+	if v.count != 1 {
 		return errors.Join(ErrSemantic, errors.New("a timeline must have exactly one start event"))
 	}
 
 	return nil
 }
 
-func countStartEvents(seq []Op) int {
-	count := 0
-	for _, o := range seq {
-		if o.Type() == StartEventOpType {
-			count++
-		}
-	}
-	return count
+type startEventVisitor struct {
+	BaseVisitor
+	count int
 }
 
-func isStartEvent(seq []Op, index int) bool {
-	o := seq[index]
-	if o.Type() == StartEventOpType {
-		return true
-	}
+func (v *startEventVisitor) VisitStart(*StartNode) {
+	v.count++
+}
 
-	var endPos int
-	if o.Type() == UnorderedGroupStartType {
-		endPos = o.(UnorderedGroupStartOp).EndPos
-	} else if o.Type() == OrderedGroupStartType {
-		endPos = o.(OrderedGroupStartOp).EndPos
-	} else {
-		return false
+func (v *startEventVisitor) VisitSequence(n *SequenceNode) {
+	for _, child := range n.Children {
+		child.Accept(v)
 	}
+}
 
-	for i := index + 1; i < endPos; i++ {
-		if seq[i].Type() == StartEventOpType {
-			return true
-		}
+func (v *startEventVisitor) VisitGroup(n *GroupNode) {
+	for _, child := range n.Children {
+		child.Accept(v)
 	}
-
-	return false
 }
 
 type WaitlessGroupsRule struct{}
 
-func (r WaitlessGroupsRule) Validate(seq []Op) error {
-	for i, o := range seq {
-		var endPos int
-		if o.Type() == UnorderedGroupStartType {
-			endPos = o.(UnorderedGroupStartOp).EndPos
-		} else if o.Type() == OrderedGroupStartType {
-			endPos = o.(OrderedGroupStartOp).EndPos
-		} else {
-			continue
-		}
-
-		for j := i + 1; j < endPos; j++ {
-			if seq[j].Type() == WaitOpType {
-				return errors.Join(
-					ErrSemantic,
-					errors.New("a group is a single tick operation so a wait operator can't be used here"),
-				)
-			}
-		}
+func (r WaitlessGroupsRule) Validate(node Node) error {
+	v := &waitlessGroupsVisitor{}
+	node.Accept(v)
+	if len(v.errors) > 0 {
+		return errors.Join(v.errors...)
 	}
-
 	return nil
 }
 
-func Validate(ops []Op, rules ...Rule) error {
+type waitlessGroupsVisitor struct {
+	BaseVisitor
+	inGroup bool
+	errors  []error
+}
+
+func (v *waitlessGroupsVisitor) VisitWait(n *WaitNode) {
+	if v.inGroup {
+		v.errors = append(v.errors, errors.Join(
+			ErrSemantic,
+			errors.New("a group is a single tick operation so a wait operator can't be used here"),
+		))
+	}
+}
+
+func (v *waitlessGroupsVisitor) VisitSequence(n *SequenceNode) {
+	for _, child := range n.Children {
+		child.Accept(v)
+	}
+}
+
+func (v *waitlessGroupsVisitor) VisitGroup(n *GroupNode) {
+	oldInGroup := v.inGroup
+	v.inGroup = true
+	for _, child := range n.Children {
+		child.Accept(v)
+	}
+	v.inGroup = oldInGroup
+}
+
+func Validate(node Node, rules ...Rule) error {
 	for _, rule := range rules {
-		if err := rule.Validate(ops); err != nil {
+		if err := rule.Validate(node); err != nil {
 			return err
 		}
 	}

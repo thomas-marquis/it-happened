@@ -14,6 +14,12 @@ func WithBaseTickDuration(d time.Duration) Option {
 	}
 }
 
+func WithClock(clock Clock) Option {
+	return func(r *Runtime) {
+		r.clock = clock
+	}
+}
+
 func WithPayloadsMapping(pl map[string]event.Payload) Option {
 	return func(r *Runtime) {
 		if pl == nil {

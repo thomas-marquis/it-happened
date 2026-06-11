@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"fmt"
 	"math/rand/v2"
 	"time"
 
@@ -25,11 +24,7 @@ type Timeline struct {
 	tickDuration time.Duration
 }
 
-func NewTimeline(rowOps []marble.Op, opts ...TimelineOption) *Timeline {
-	if err := marble.Validate(rowOps, marble.WaitlessGroupsRule{}); err != nil {
-		panic(err)
-	}
-
+func NewTimeline(node marble.Node, opts ...TimelineOption) *Timeline {
 	t := &Timeline{
 		events: make(map[string]event.Event),
 		randGen: rand.New(
@@ -42,163 +37,72 @@ func NewTimeline(rowOps []marble.Op, opts ...TimelineOption) *Timeline {
 		opt(t)
 	}
 
-	t.ticks = t.buildTicks(rowOps)
+	builder := NewTimelineBuilder(t.tickDuration, t.randGen)
+	ticks, err := builder.Build(node)
+	if err != nil {
+		panic(err)
+	}
+	t.ticks = ticks
 
 	return t
+}
+
+func NewTimelineFromOps(ops []marble.Op, opts ...TimelineOption) *Timeline {
+	t := &Timeline{
+		events: make(map[string]event.Event),
+		randGen: rand.New(
+			rand.NewPCG(
+				uint64(time.Now().UnixNano()), uint64(time.Now().UnixMilli()))),
+		tickDuration: DefaultTickDuration,
+	}
+
+	for _, opt := range opts {
+		opt(t)
+	}
+
+	t.ticks = buildTicksFromOps(ops, t.tickDuration)
+
+	return t
+}
+
+func buildTicksFromOps(ops []marble.Op, duration time.Duration) []Tick {
+	var (
+		ticks []Tick
+		pos   int
+	)
+
+	for pos < len(ops) {
+		op := ops[pos]
+		switch op.Type() {
+		case marble.OrderedGroupStartType, marble.UnorderedGroupStartType:
+			var endPos int
+			if o, ok := op.(marble.OrderedGroupStartOp); ok {
+				endPos = o.EndPos
+			} else {
+				endPos = op.(marble.UnorderedGroupStartOp).EndPos
+			}
+			ticks = append(ticks, Tick{
+				Duration: duration,
+				Ops:      ops[pos : endPos+1],
+			})
+			pos = endPos + 1
+		case marble.WaitOpType, marble.EventOpType, marble.StartEventOpType, marble.EventWithFollowupOpType:
+			ticks = append(ticks, Tick{
+				Duration: duration,
+				Ops:      []marble.Op{op},
+			})
+			pos++
+		default:
+			pos++
+		}
+	}
+	return ticks
 }
 
 func (t *Timeline) Ticks() []Tick {
 	return t.ticks
 }
 
-func (t *Timeline) buildTicks(rowOps []marble.Op) []Tick {
-	var (
-		current    int
-		ticks      []Tick
-		grpExitPos int // 0 if not in a group
-		pos        int
-	)
-
-	for pos < len(rowOps) {
-		op := rowOps[pos]
-		switch o := op.(type) {
-		case marble.EventOp, marble.EventWithFollowupOp:
-			if grpExitPos == 0 {
-				t := Tick{
-					Duration: t.tickDuration,
-					Ops:      []marble.Op{o},
-				}
-				ticks = append(ticks, t)
-				current++
-				pos++
-				continue
-			}
-
-			// check whether we need to create the new tick for the entier group
-			if len(ticks) == current {
-				ticks = append(ticks, Tick{
-					Duration: t.tickDuration,
-					Ops:      make([]marble.Op, 0),
-				})
-			}
-
-			ticks[current].Ops = append(ticks[current].Ops, o)
-
-		case marble.OrderedGroupStartOp, marble.UnorderedGroupStartOp:
-			grpOps := t.handleGroup(rowOps, &pos, pos)
-			ticks = append(ticks, Tick{
-				Duration: t.tickDuration,
-				Ops:      grpOps,
-			})
-			current++
-		case marble.WaitOp:
-			if grpExitPos != 0 { // not supposed to happen, the validator should have caught it... or not...
-				continue
-			}
-			ticks = append(ticks, Tick{
-				Duration: t.tickDuration,
-				Ops:      []marble.Op{o},
-			})
-			pos++
-			current++
-		}
-	}
-
-	return ticks
-}
-
-func (t *Timeline) handleGroup(ops []marble.Op, pos *int, tickStartPos int) (result []marble.Op) {
-	var (
-		exitPos       int
-		parts         [][]marble.Op
-		startPos      = *pos
-		shuffleNeeded bool
-	)
-	defer func() {
-		if shuffleNeeded {
-			t.shuffleParts(parts)
-		}
-
-		var startOp, endOp marble.Op
-
-		if o := ops[startPos]; o.Type() == marble.OrderedGroupStartType {
-			startOp = marble.OrderedGroupStartOp{EndPos: o.(marble.OrderedGroupStartOp).EndPos - tickStartPos}
-		} else if o := ops[startPos]; o.Type() == marble.UnorderedGroupStartType {
-			startOp = marble.UnorderedGroupStartOp{EndPos: o.(marble.UnorderedGroupStartOp).EndPos - tickStartPos}
-		} else {
-			panic(fmt.Sprintf("expected OrderedGroupStartOp at position %d, got %T", startPos, ops[startPos]))
-		}
-
-		if o := ops[exitPos]; o.Type() == marble.OrderedGroupEndType {
-			endOp = marble.OrderedGroupEndOp{StartPos: o.(marble.OrderedGroupEndOp).StartPos - tickStartPos}
-		} else if o := ops[exitPos]; o.Type() == marble.UnorderedGroupEndType {
-			endOp = marble.UnorderedGroupEndOp{StartPos: o.(marble.UnorderedGroupEndOp).StartPos - tickStartPos}
-		} else {
-			panic(fmt.Sprintf("expected OrderedGroupEndOp at position %d, got %T", exitPos, ops[exitPos]))
-		}
-
-		result = []marble.Op{startOp}
-		result = append(result, flattenParts(parts)...)
-		result = append(result, endOp)
-	}()
-
-	for *pos < len(ops) {
-		switch op := ops[*pos].(type) {
-		case marble.OrderedGroupStartOp:
-			if *pos == startPos {
-				exitPos = op.EndPos
-				*pos++
-			} else {
-				parts = append(parts, t.handleGroup(ops, pos, tickStartPos))
-			}
-
-		case marble.UnorderedGroupStartOp:
-			if *pos == startPos {
-				shuffleNeeded = true
-				exitPos = op.EndPos
-				*pos++
-			} else {
-				parts = append(parts, t.handleGroup(ops, pos, tickStartPos))
-			}
-
-		case marble.EventOp, marble.EventWithFollowupOp:
-			parts = append(parts, []marble.Op{op})
-			*pos++
-
-		case marble.UnorderedGroupEndOp:
-			if exitPos == *pos {
-				*pos++
-				return
-			}
-
-		case marble.OrderedGroupEndOp:
-			if exitPos == *pos {
-				*pos++
-				return
-			}
-
-		default:
-			panic("unknown group op")
-		}
-	}
-
-	return
-}
-
-func (t *Timeline) shuffleParts(ops [][]marble.Op) {
-	t.randGen.Shuffle(len(ops), func(i, j int) {
-		ops[i], ops[j] = ops[j], ops[i]
-	})
-}
-
 func (t *Timeline) seed(seed uint64) {
 	t.randGen = rand.New(rand.NewPCG(seed, seed*2))
-}
-
-func flattenParts(parts [][]marble.Op) []marble.Op {
-	result := make([]marble.Op, 0, len(parts))
-	for _, part := range parts {
-		result = append(result, part...)
-	}
-	return result
 }

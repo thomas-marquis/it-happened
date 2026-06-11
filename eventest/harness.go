@@ -2,31 +2,60 @@ package eventest
 
 import (
 	"testing"
+	"time"
 
 	"github.com/thomas-marquis/it-happened/event"
+	"github.com/thomas-marquis/it-happened/eventest/internal/runtime"
 )
 
 type Option func(*Harness)
 
 func WithSideEffect(marble string) Option {
 	return func(h *Harness) {
-
+		h.sideEffect = marble
 	}
 }
 
 func WithPayloads(payloads map[string]event.Payload) Option {
-	return func(h *Harness) {}
+	return func(h *Harness) {
+		h.payloadMap = payloads
+	}
 }
 
 func WithMatchers(matchers map[string]event.Matcher) Option {
-	return func(h *Harness) {}
+	return func(h *Harness) {
+		h.matchers = matchers
+	}
+}
+
+func WithEvents(events map[string]event.Event) Option {
+	return func(h *Harness) {
+		h.eventMap = events
+	}
+}
+
+func WithTickDuration(d time.Duration) Option {
+	return func(h *Harness) {
+		h.tickDuration = d
+	}
 }
 
 type Harness struct {
+	bus          event.Bus
+	expected     string
+	sideEffect   string
+	payloadMap   map[string]event.Payload
+	eventMap     map[string]event.Event
+	matchers     map[string]event.Matcher
+	tickDuration time.Duration
 }
 
 func NewHarness(bus event.Bus, expected string, opts ...Option) *Harness {
-	h := &Harness{}
+	h := &Harness{
+		bus:          bus,
+		expected:     expected,
+		tickDuration: runtime.DefaultTickDuration,
+	}
 
 	for _, opt := range opts {
 		opt(h)
@@ -35,4 +64,38 @@ func NewHarness(bus event.Bus, expected string, opts ...Option) *Harness {
 	return h
 }
 
-func (h *Harness) Run(t *testing.T, f func()) {}
+func (h *Harness) Run(t *testing.T, f func()) {
+	clock := runtime.NewClock()
+	intercept := runtime.NewInterceptor(t, h.bus, clock)
+
+	recorder := intercept.EXPECT().FromMarble(h.expected)
+	if h.matchers != nil {
+		recorder.ShouldMatch(h.matchers)
+	}
+
+	if h.sideEffect != "" {
+		rt := runtime.NewRuntime(intercept,
+			runtime.WithClock(clock),
+			runtime.WithPayloadsMapping(h.payloadMap),
+			runtime.WithEventsMapping(h.eventMap),
+			runtime.WithBaseTickDuration(h.tickDuration))
+
+		sess, err := rt.Run(h.sideEffect)
+		if err != nil {
+			t.Fatalf("failed to parse side effect marble: %v", err)
+		}
+
+		// Run all side effects synchronously for now to establish state,
+		// or we could run them tick by tick.
+		// If we run them all here, the clock advances.
+		for sess.HasNext() {
+			if err := sess.Next(); err != nil {
+				t.Fatalf("side effect failed: %v", err)
+			}
+		}
+	}
+
+	f()
+
+	intercept.Finish()
+}

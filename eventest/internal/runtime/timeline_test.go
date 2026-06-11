@@ -11,11 +11,7 @@ import (
 func TestTimeline(t *testing.T) {
 	t.Run("should build a simple timeline with one tick per event", func(t *testing.T) {
 		// Given
-		ops := []marble.Op{
-			marble.EventOp{Name: "a"},
-			marble.EventOp{Name: "b"},
-			marble.EventOp{Name: "c"},
-		}
+		node, _ := marble.ParseAsNode("abc")
 
 		expected := []runtime.Tick{
 			{
@@ -39,7 +35,7 @@ func TestTimeline(t *testing.T) {
 		}
 
 		// Then
-		tl := runtime.NewTimeline(ops)
+		tl := runtime.NewTimeline(node)
 		res := tl.Ticks()
 
 		// Then
@@ -48,12 +44,7 @@ func TestTimeline(t *testing.T) {
 
 	t.Run("should gather grouped events within the same tick", func(t *testing.T) {
 		// Given
-		ops := []marble.Op{
-			marble.OrderedGroupStartOp{EndPos: 3}, // 0
-			marble.EventOp{Name: "a"},             // 1
-			marble.EventOp{Name: "b"},             // 2
-			marble.OrderedGroupEndOp{StartPos: 0}, // 3
-		}
+		node, _ := marble.ParseAsNode("[ab]")
 
 		expected := []runtime.Tick{
 			{
@@ -68,7 +59,7 @@ func TestTimeline(t *testing.T) {
 		}
 
 		// When
-		tl := runtime.NewTimeline(ops)
+		tl := runtime.NewTimeline(node)
 		res := tl.Ticks()
 
 		// Then
@@ -77,20 +68,7 @@ func TestTimeline(t *testing.T) {
 
 	t.Run("should gather nested grouped events within the same tick", func(t *testing.T) {
 		// Given
-		ops := []marble.Op{
-			marble.OrderedGroupStartOp{EndPos: 7},  // 0
-			marble.EventOp{Name: "a"},              // 1
-			marble.OrderedGroupStartOp{EndPos: 5},  // 2
-			marble.EventOp{Name: "x"},              // 3
-			marble.EventOp{Name: "y"},              // 4
-			marble.OrderedGroupEndOp{StartPos: 2},  // 5
-			marble.EventOp{Name: "b"},              // 6
-			marble.OrderedGroupEndOp{StartPos: 0},  // 7
-			marble.OrderedGroupStartOp{EndPos: 11}, // 8
-			marble.EventOp{Name: "l"},              // 9
-			marble.EventOp{Name: "m"},              // 10
-			marble.OrderedGroupEndOp{StartPos: 8},  // 11
-		}
+		node, _ := marble.ParseAsNode("[a[xy]b][lm]")
 
 		expected := []runtime.Tick{
 			{
@@ -118,7 +96,7 @@ func TestTimeline(t *testing.T) {
 		}
 
 		// When
-		tl := runtime.NewTimeline(ops)
+		tl := runtime.NewTimeline(node)
 		res := tl.Ticks()
 
 		// Then
@@ -127,29 +105,7 @@ func TestTimeline(t *testing.T) {
 
 	t.Run("should shuffle unordered grouped events within the same tick", func(t *testing.T) {
 		// Given
-		ops := []marble.Op{
-			marble.UnorderedGroupStartOp{EndPos: 6}, // 0
-			marble.EventOp{Name: "a"},               // 1
-			marble.EventOp{Name: "b"},               // 2
-			marble.EventOp{Name: "c"},               // 3
-			marble.EventOp{Name: "d"},               // 4
-			marble.EventOp{Name: "e"},               // 5
-			marble.UnorderedGroupEndOp{StartPos: 0}, // 6
-
-			marble.UnorderedGroupStartOp{EndPos: 9}, // 7
-			marble.EventOp{Name: "x"},               // 8
-			marble.UnorderedGroupEndOp{StartPos: 7}, // 9
-
-			marble.OrderedGroupStartOp{EndPos: 18}, // 10
-			marble.EventOp{Name: "q"},              // 11
-			marble.EventOp{Name: "r"},              // 12
-			marble.OrderedGroupStartOp{EndPos: 16}, // 13
-			marble.EventOp{Name: "n"},              // 14
-			marble.EventOp{Name: "m"},              // 15
-			marble.OrderedGroupEndOp{StartPos: 13}, // 16
-			marble.EventOp{Name: "s"},              // 17
-			marble.OrderedGroupEndOp{StartPos: 10}, // 18
-		}
+		node, _ := marble.ParseAsNode("(abcde)(x)[qr[nm]s]")
 
 		expected := []runtime.Tick{
 			{
@@ -189,7 +145,7 @@ func TestTimeline(t *testing.T) {
 		}
 
 		// When
-		tl := runtime.NewTimeline(ops, runtime.TimelineWithSeed(42))
+		tl := runtime.NewTimeline(node, runtime.TimelineWithSeed(42))
 		res := tl.Ticks()
 
 		// Then
@@ -198,15 +154,7 @@ func TestTimeline(t *testing.T) {
 
 	t.Run("should keep order for ordered grouped events within the same tick", func(t *testing.T) {
 		// Given
-		ops := []marble.Op{
-			marble.OrderedGroupStartOp{EndPos: 6}, // 0
-			marble.EventOp{Name: "a"},             // 1
-			marble.EventOp{Name: "b"},             // 2
-			marble.EventOp{Name: "c"},             // 3
-			marble.EventOp{Name: "d"},             // 4
-			marble.EventOp{Name: "e"},             // 5
-			marble.OrderedGroupEndOp{StartPos: 0}, // 6
-		}
+		node, _ := marble.ParseAsNode("[abcde]")
 
 		expected := []runtime.Tick{
 			{
@@ -224,7 +172,7 @@ func TestTimeline(t *testing.T) {
 		}
 
 		// When
-		tl := runtime.NewTimeline(ops)
+		tl := runtime.NewTimeline(node)
 		res := tl.Ticks()
 
 		// Then
@@ -233,16 +181,8 @@ func TestTimeline(t *testing.T) {
 
 	t.Run("should handle event with followup", func(t *testing.T) {
 		// Given
-		ops := []marble.Op{
-			marble.EventOp{Name: "a"},                                 // 0
-			marble.EventWithFollowupOp{EventName: "b", From: "prev"},  // 1
-			marble.OrderedGroupStartOp{EndPos: 6},                     // 2
-			marble.EventOp{Name: "c"},                                 // 3
-			marble.EventWithFollowupOp{EventName: "d", From: "prev2"}, // 4
-			marble.EventOp{Name: "e"},                                 // 5
-			marble.OrderedGroupEndOp{StartPos: 2},                     // 6
-			marble.WaitOp{},                                           // 7
-		}
+		node, err := marble.ParseAsNode("ab<-/prev [c d<-/prev2 e]-")
+		assert.NoError(t, err)
 
 		expected := []runtime.Tick{
 			{
@@ -254,17 +194,17 @@ func TestTimeline(t *testing.T) {
 			{
 				Duration: runtime.DefaultTickDuration,
 				Ops: []marble.Op{
-					marble.EventWithFollowupOp{EventName: "b", From: "prev"},
+					marble.EventWithFollowupOp{NewEvent: "b", OfEvent: "prev"},
 				},
 			},
 			{
 				Duration: runtime.DefaultTickDuration,
 				Ops: []marble.Op{
-					marble.OrderedGroupStartOp{EndPos: 4},                     // 0
-					marble.EventOp{Name: "c"},                                 // 1
-					marble.EventWithFollowupOp{EventName: "d", From: "prev2"}, // 2
-					marble.EventOp{Name: "e"},                                 // 3
-					marble.OrderedGroupEndOp{StartPos: 0},                     // 4
+					marble.OrderedGroupStartOp{EndPos: 4},                       // 0
+					marble.EventOp{Name: "c"},                                   // 1
+					marble.EventWithFollowupOp{NewEvent: "d", OfEvent: "prev2"}, // 2
+					marble.EventOp{Name: "e"},                                   // 3
+					marble.OrderedGroupEndOp{StartPos: 0},                       // 4
 				},
 			},
 			{
@@ -276,7 +216,7 @@ func TestTimeline(t *testing.T) {
 		}
 
 		// When
-		tl := runtime.NewTimeline(ops)
+		tl := runtime.NewTimeline(node)
 		res := tl.Ticks()
 
 		// Then
