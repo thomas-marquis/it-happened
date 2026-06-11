@@ -1,11 +1,11 @@
-package eventest_test
+package gomockevent_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/thomas-marquis/it-happened/event"
-	"github.com/thomas-marquis/it-happened/eventest"
+	"github.com/thomas-marquis/it-happened/eventest/gomockevent"
 )
 
 type fakePayload string
@@ -17,7 +17,7 @@ func (fakePayload) Type() event.Type {
 func TestPayloadEqMatcher_Matches(t *testing.T) {
 	t.Run("should return true when payload are equal", func(t *testing.T) {
 		// Given
-		m := eventest.PayloadEq(fakePayload("my value"))
+		m := gomockevent.PayloadEq(fakePayload("my value"))
 
 		// When
 		res := m.Matches(event.New(fakePayload("my value")))
@@ -28,7 +28,7 @@ func TestPayloadEqMatcher_Matches(t *testing.T) {
 
 	t.Run("should return false when payload are not equal", func(t *testing.T) {
 		// Given
-		m := eventest.PayloadEq(fakePayload("my value"))
+		m := gomockevent.PayloadEq(fakePayload("my value"))
 
 		// When
 		res := m.Matches(event.New(fakePayload("other value")))
@@ -39,7 +39,7 @@ func TestPayloadEqMatcher_Matches(t *testing.T) {
 
 	t.Run("should return false when the provided argument is not an event", func(t *testing.T) {
 		// Given
-		m := eventest.PayloadEq(fakePayload("my value"))
+		m := gomockevent.PayloadEq(fakePayload("my value"))
 
 		// When
 		res := m.Matches("not an event")
@@ -52,7 +52,7 @@ func TestPayloadEqMatcher_Matches(t *testing.T) {
 func TestPayloadEqMatcher_String(t *testing.T) {
 	t.Run("should return a string representation of the matcher", func(t *testing.T) {
 		// Given
-		m := eventest.PayloadEq(fakePayload("my value"))
+		m := gomockevent.PayloadEq(fakePayload("my value"))
 
 		// When
 		res := m.String()
@@ -68,7 +68,7 @@ func TestIsFollowupOf_Matches(t *testing.T) {
 		fromEvt := event.New(fakePayload("my value"))
 		evt := event.NewFollowup(fromEvt, fakePayload("my new value"))
 
-		m := eventest.IsFollowupOf(fromEvt)
+		m := gomockevent.IsFollowupOf(fromEvt)
 
 		// When
 		res := m.Matches(evt)
@@ -82,7 +82,7 @@ func TestIsFollowupOf_Matches(t *testing.T) {
 		otherEvt := event.New(fakePayload("a value"))
 		evt := event.New(fakePayload("another value"))
 
-		m := eventest.IsFollowupOf(otherEvt)
+		m := gomockevent.IsFollowupOf(otherEvt)
 
 		// When
 		res := m.Matches(evt)
@@ -96,7 +96,7 @@ func TestIsFollowupOf_String(t *testing.T) {
 	t.Run("should return a string representation of the matcher", func(t *testing.T) {
 		// Given
 		fromEvt := event.New(fakePayload("my value"))
-		m := eventest.IsFollowupOf(fromEvt)
+		m := gomockevent.IsFollowupOf(fromEvt)
 
 		// When
 		res := m.String()

@@ -1,4 +1,4 @@
-package eventest
+package gomockevent
 
 import (
 	"encoding/json"

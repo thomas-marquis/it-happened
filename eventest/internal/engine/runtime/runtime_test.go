@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/thomas-marquis/it-happened/event"
-	"github.com/thomas-marquis/it-happened/eventest"
+	"github.com/thomas-marquis/it-happened/eventest/gomockevent"
 	"github.com/thomas-marquis/it-happened/eventest/internal/engine/runtime"
 	"github.com/thomas-marquis/it-happened/internal/mocks/event"
 	"go.uber.org/mock/gomock"
@@ -24,9 +24,9 @@ func TestRuntime_RunAll(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		mockBus := mocksevent.NewMockBus(ctrl)
 
-		call1 := mockBus.EXPECT().Publish(eventest.PayloadEq(fakePayload("abc")))
-		call2 := mockBus.EXPECT().Publish(eventest.PayloadEq(fakePayload("def")))
-		call3 := mockBus.EXPECT().Publish(eventest.PayloadEq(fakePayload("ghi")))
+		call1 := mockBus.EXPECT().Publish(gomockevent.PayloadEq(fakePayload("abc")))
+		call2 := mockBus.EXPECT().Publish(gomockevent.PayloadEq(fakePayload("def")))
+		call3 := mockBus.EXPECT().Publish(gomockevent.PayloadEq(fakePayload("ghi")))
 
 		gomock.InOrder(call1, call2, call3)
 
@@ -48,13 +48,13 @@ func TestRuntime_RunAll(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		mockBus := mocksevent.NewMockBus(ctrl)
 
-		call1 := mockBus.EXPECT().Publish(eventest.PayloadEq(fakePayload("abc")))
-		call2 := mockBus.EXPECT().Publish(eventest.PayloadEq(fakePayload("def")))
-		call3 := mockBus.EXPECT().Publish(eventest.PayloadEq(fakePayload("ghi")))
-		call4 := mockBus.EXPECT().Publish(eventest.PayloadEq(fakePayload("de")))
+		call1 := mockBus.EXPECT().Publish(gomockevent.PayloadEq(fakePayload("abc")))
+		call2 := mockBus.EXPECT().Publish(gomockevent.PayloadEq(fakePayload("def")))
+		call3 := mockBus.EXPECT().Publish(gomockevent.PayloadEq(fakePayload("ghi")))
+		call4 := mockBus.EXPECT().Publish(gomockevent.PayloadEq(fakePayload("de")))
 
-		callX := mockBus.EXPECT().Publish(eventest.PayloadEq(fakePayload("xy")))
-		callY := mockBus.EXPECT().Publish(eventest.PayloadEq(fakePayload("yz")))
+		callX := mockBus.EXPECT().Publish(gomockevent.PayloadEq(fakePayload("xy")))
+		callY := mockBus.EXPECT().Publish(gomockevent.PayloadEq(fakePayload("yz")))
 
 		gomock.InOrder(call1, call2, callX, call3, call4)
 		gomock.InOrder(call1, call2, callY, call3, call4)
@@ -83,9 +83,9 @@ func TestRuntime_RunAll(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		mockBus := mocksevent.NewMockBus(ctrl)
 
-		call1 := mockBus.EXPECT().Publish(eventest.PayloadEq(runtime.DefaultPayload("a")))
-		call2 := mockBus.EXPECT().Publish(eventest.PayloadEq(runtime.DefaultPayload("b")))
-		call3 := mockBus.EXPECT().Publish(eventest.PayloadEq(runtime.DefaultPayload("c")))
+		call1 := mockBus.EXPECT().Publish(gomockevent.PayloadEq(runtime.DefaultPayload("a")))
+		call2 := mockBus.EXPECT().Publish(gomockevent.PayloadEq(runtime.DefaultPayload("b")))
+		call3 := mockBus.EXPECT().Publish(gomockevent.PayloadEq(runtime.DefaultPayload("c")))
 
 		gomock.InOrder(call1, call2, call3)
 
@@ -115,12 +115,12 @@ func TestRuntime_Run(t *testing.T) {
 		assert.Equal(t, 0*time.Second, clock.Elapsed())
 
 		// a
-		mockBus.EXPECT().Publish(eventest.PayloadEq(runtime.DefaultPayload("a")))
+		mockBus.EXPECT().Publish(gomockevent.PayloadEq(runtime.DefaultPayload("a")))
 		assert.NoError(t, sess.Next())
 		assert.Equal(t, 1*time.Second, clock.Elapsed())
 
 		// b
-		mockBus.EXPECT().Publish(eventest.PayloadEq(runtime.DefaultPayload("b")))
+		mockBus.EXPECT().Publish(gomockevent.PayloadEq(runtime.DefaultPayload("b")))
 		assert.NoError(t, sess.Next())
 		assert.Equal(t, 2*time.Second, clock.Elapsed())
 
@@ -131,8 +131,8 @@ func TestRuntime_Run(t *testing.T) {
 
 		// [cd]
 		gomock.InOrder(
-			mockBus.EXPECT().Publish(eventest.PayloadEq(runtime.DefaultPayload("c"))),
-			mockBus.EXPECT().Publish(eventest.PayloadEq(runtime.DefaultPayload("d"))),
+			mockBus.EXPECT().Publish(gomockevent.PayloadEq(runtime.DefaultPayload("c"))),
+			mockBus.EXPECT().Publish(gomockevent.PayloadEq(runtime.DefaultPayload("d"))),
 		)
 		assert.NoError(t, sess.Next())
 		assert.Equal(t, 4*time.Second, clock.Elapsed())
@@ -143,7 +143,7 @@ func TestRuntime_Run(t *testing.T) {
 		assert.Equal(t, 5*time.Second, clock.Elapsed())
 
 		// e
-		mockBus.EXPECT().Publish(eventest.PayloadEq(runtime.DefaultPayload("e")))
+		mockBus.EXPECT().Publish(gomockevent.PayloadEq(runtime.DefaultPayload("e")))
 		assert.NoError(t, sess.Next())
 		assert.Equal(t, 6*time.Second, clock.Elapsed())
 
@@ -172,15 +172,15 @@ func TestRuntime_Run(t *testing.T) {
 		// b<-a
 		mockBus.EXPECT().Publish(
 			gomock.All(
-				eventest.IsFollowupOf(evtA),
-				eventest.PayloadEq(runtime.DefaultPayload("b"))),
+				gomockevent.IsFollowupOf(evtA),
+				gomockevent.PayloadEq(runtime.DefaultPayload("b"))),
 		)
 		assert.NoError(t, sess.Next())
 
 		mockBus.EXPECT().Publish(
 			gomock.All(
-				eventest.IsFollowupOf(evtX),
-				eventest.PayloadEq(runtime.DefaultPayload("y"))),
+				gomockevent.IsFollowupOf(evtX),
+				gomockevent.PayloadEq(runtime.DefaultPayload("y"))),
 		)
 		assert.NoError(t, sess.Next())
 

@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/thomas-marquis/it-happened/event"
-	"github.com/thomas-marquis/it-happened/eventest"
+	"github.com/thomas-marquis/it-happened/eventest/gomockevent"
 	"github.com/thomas-marquis/it-happened/eventest/internal/engine/clock"
 	"github.com/thomas-marquis/it-happened/eventest/internal/engine/interceptor"
 	"github.com/thomas-marquis/it-happened/eventest/internal/engine/runtime"
@@ -22,9 +22,9 @@ func TestInterceptor(t *testing.T) {
 		mockBus := mocksevent.NewMockBus(ctrl)
 
 		gomock.InOrder(
-			mockBus.EXPECT().Publish(eventest.PayloadEq(runtime.DefaultPayload("a"))).Times(1),
-			mockBus.EXPECT().Publish(eventest.PayloadEq(runtime.DefaultPayload("b"))).Times(1),
-			mockBus.EXPECT().Publish(eventest.PayloadEq(runtime.DefaultPayload("c"))).Times(1),
+			mockBus.EXPECT().Publish(gomockevent.PayloadEq(runtime.DefaultPayload("a"))).Times(1),
+			mockBus.EXPECT().Publish(gomockevent.PayloadEq(runtime.DefaultPayload("b"))).Times(1),
+			mockBus.EXPECT().Publish(gomockevent.PayloadEq(runtime.DefaultPayload("c"))).Times(1),
 		)
 
 		clock := clock.NewClock()

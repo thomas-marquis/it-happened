@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/thomas-marquis/it-happened/eventest/internal/engine"
 	"github.com/thomas-marquis/it-happened/eventest/internal/engine/timeline"
 	"github.com/thomas-marquis/it-happened/eventest/internal/marble"
 )
@@ -146,7 +145,7 @@ func TestTimeline(t *testing.T) {
 		}
 
 		// When
-		tl := timeline.NewTimeline(node, engine.TimelineWithSeed(42))
+		tl := timeline.NewTimeline(node, timeline.WithSeed(42))
 		res := tl.Ticks()
 
 		// Then
