@@ -58,6 +58,13 @@ jobs:
           go test ./... -race -covermode=atomic -coverprofile=coverage/coverage.out
           go tool cover -func=coverage/coverage.out | tee coverage/summary.txt
 
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage/coverage.out
+          flags: unittests
+          name: codecov-umbrella
+
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v6
         with:
