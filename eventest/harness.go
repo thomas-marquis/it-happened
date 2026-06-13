@@ -67,9 +67,9 @@ func NewHarness(bus event.Bus, expected string, opts ...Option) *Harness {
 	return h
 }
 
-func (h *Harness) Run(t *testing.T, f func(bus event.Bus, clock clock.Clock)) {
-	clock := clock.NewClock()
-	intercept := interceptor.NewInterceptor(t, h.bus, clock)
+func (h *Harness) PublishAndWait(t *testing.T, placeholders ...event.Event) {
+	clk := clock.NewClock()
+	intercept := interceptor.NewInterceptor(t, h.bus, clk)
 
 	recorder := intercept.EXPECT().FromMarble(h.expected)
 
@@ -95,29 +95,28 @@ func (h *Harness) Run(t *testing.T, f func(bus event.Bus, clock clock.Clock)) {
 
 	if h.sideEffect != "" {
 		rt := runtime.NewRuntime(intercept,
-			runtime.WithClock(clock),
+			runtime.WithClock(clk),
+			runtime.WithPlaceholderEvents(placeholders),
 			runtime.WithPayloadsMapping(h.payloadMap),
 			runtime.WithEventsMapping(h.eventMap),
 			runtime.WithBaseTickDuration(h.tickDuration))
 
-		sess, err := rt.Run(h.sideEffect)
-		if err != nil {
+		if err := rt.RunAll(h.sideEffect); err != nil {
 			t.Fatalf("failed to parse side effect marble: %v", err)
 		}
+		clk.Stop()
 
-		// Run all side effects synchronously for now to establish state,
-		// or we could run them tick by tick.
-		// If we run them all here, the clock advances.
-		for sess.HasNext() {
-			if err := sess.Next(); err != nil {
-				t.Fatalf("side effect failed: %v", err)
-			}
+	} else {
+		clk.Start()
+		defer clk.Stop()
+		if len(placeholders) > 1 {
+			t.Fatalf("specify a side effect to publish multiple placeholder events")
 		}
+		if len(placeholders) == 0 {
+			t.Fatalf("specify a side effect to publish a placeholder event")
+		}
+		intercept.Publish(placeholders[0])
 	}
-
-	clock.Start()
-	f(intercept, clock)
-	clock.Stop()
 
 	intercept.Finish()
 }

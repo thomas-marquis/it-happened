@@ -52,3 +52,9 @@ func WithEventsMapping(ev map[string]event.Event) Option {
 		r.eventMap = ev
 	}
 }
+
+func WithPlaceholderEvents(placeholders []event.Event) Option {
+	return func(r *Runtime) {
+		r.placeholderEvents = placeholders
+	}
+}

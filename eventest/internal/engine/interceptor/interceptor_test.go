@@ -58,7 +58,7 @@ func TestInterceptor(t *testing.T) {
 		done := make(chan struct{})
 		defer close(done)
 
-		bus := inmemory.NewBus(done, nil)
+		bus := inmemory.NewBus(done)
 
 		tt := &testing.T{}
 		it := interceptor.NewInterceptor(tt, bus, clock)

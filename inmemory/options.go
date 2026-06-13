@@ -1,5 +1,7 @@
 package inmemory
 
+import "github.com/thomas-marquis/it-happened/event"
+
 type BusOption func(b *inMemoryBus)
 
 // WithBufferSize sets the size of the buffer used to publish events.
@@ -18,5 +20,11 @@ func WithBufferSize(size int) BusOption {
 func WithWorkers(nbr int) BusOption {
 	return func(b *inMemoryBus) {
 		b.nbPubWorkers = nbr
+	}
+}
+
+func WithNotifier(n event.Notifier) BusOption {
+	return func(b *inMemoryBus) {
+		b.notifier = n
 	}
 }

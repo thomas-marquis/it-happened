@@ -53,8 +53,8 @@ func (b *TimelineBuilder) VisitWait(n *marble.WaitNode) {
 	}
 }
 
-func (b *TimelineBuilder) VisitStart(n *marble.StartNode) {
-	op := marble.StartEventOp{}
+func (b *TimelineBuilder) VisitPlaceholder(n *marble.PlaceholderNode) {
+	op := marble.PlaceholderEventOp{}
 	if b.currentOps == nil {
 		b.ticks = append(b.ticks, Tick{
 			Duration: b.tickDuration,

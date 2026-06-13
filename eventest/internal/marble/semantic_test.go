@@ -80,8 +80,8 @@ func TestStartEventAtBeginningRule(t *testing.T) {
 		// We use a manual sequence node since ParseAsNode might fail on ^^
 		node := &marble.SequenceNode{
 			Children: []marble.Node{
-				&marble.StartNode{},
-				&marble.StartNode{},
+				&marble.PlaceholderNode{},
+				&marble.PlaceholderNode{},
 			},
 		}
 
@@ -101,8 +101,8 @@ func TestStartEventAtBeginningRule(t *testing.T) {
 				&marble.GroupNode{
 					Ordered: true,
 					Children: []marble.Node{
-						&marble.StartNode{},
-						&marble.StartNode{},
+						&marble.PlaceholderNode{},
+						&marble.PlaceholderNode{},
 					},
 				},
 			},
@@ -122,7 +122,7 @@ func TestStartEventAtBeginningRule(t *testing.T) {
 		node := &marble.SequenceNode{
 			Children: []marble.Node{
 				&marble.EventNode{Name: "a"},
-				&marble.StartNode{},
+				&marble.PlaceholderNode{},
 			},
 		}
 
@@ -177,8 +177,8 @@ func TestStartEventAnywhereRule(t *testing.T) {
 		rule := marble.StartEventAnywhereRule{}
 		node := &marble.SequenceNode{
 			Children: []marble.Node{
-				&marble.StartNode{},
-				&marble.StartNode{},
+				&marble.PlaceholderNode{},
+				&marble.PlaceholderNode{},
 			},
 		}
 
@@ -196,7 +196,7 @@ func TestStartEventAnywhereRule(t *testing.T) {
 		node := &marble.SequenceNode{
 			Children: []marble.Node{
 				&marble.EventNode{Name: "a"},
-				&marble.StartNode{},
+				&marble.PlaceholderNode{},
 				&marble.EventNode{Name: "b"},
 			},
 		}
@@ -212,56 +212,6 @@ func TestStartEventAnywhereRule(t *testing.T) {
 		// Given
 		rule := marble.StartEventAnywhereRule{}
 		node, _ := marble.ParseAsNode("a")
-
-		// When
-		err := rule.Validate(node)
-
-		// Then
-		assert.NoError(t, err)
-	})
-}
-
-func TestUniqueStartEventRule(t *testing.T) {
-	t.Run("should fail if no start event", func(t *testing.T) {
-		// Given
-		rule := marble.UniqueStartEventRule{}
-		node, _ := marble.ParseAsNode("a")
-
-		// When
-		err := rule.Validate(node)
-
-		// Then
-		assert.ErrorIs(t, err, marble.ErrSemantic)
-		assert.Contains(t, err.Error(), "a timeline must have exactly one start event")
-	})
-
-	t.Run("should fail if more than one start event", func(t *testing.T) {
-		// Given
-		rule := marble.UniqueStartEventRule{}
-		node := &marble.SequenceNode{
-			Children: []marble.Node{
-				&marble.StartNode{},
-				&marble.StartNode{},
-			},
-		}
-
-		// When
-		err := rule.Validate(node)
-
-		// Then
-		assert.ErrorIs(t, err, marble.ErrSemantic)
-		assert.Contains(t, err.Error(), "a timeline must have exactly one start event")
-	})
-
-	t.Run("should pass if exactly one start event", func(t *testing.T) {
-		// Given
-		rule := marble.UniqueStartEventRule{}
-		node := &marble.SequenceNode{
-			Children: []marble.Node{
-				&marble.EventNode{Name: "a"},
-				&marble.StartNode{},
-			},
-		}
 
 		// When
 		err := rule.Validate(node)

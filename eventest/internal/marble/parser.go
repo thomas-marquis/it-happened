@@ -36,13 +36,7 @@ func parse(marble string, pos *int) (Node, error) {
 		case c == ' ', c == '\t', c == '\n', c == '\r':
 			*pos++
 		case c == '^':
-			if *pos != 0 {
-				return nil, errors.Join(
-					ErrMarbleSyntax,
-					fmt.Errorf("unexpected ^ at %d", *pos),
-				)
-			}
-			children = append(children, &StartNode{pos: Position{Offset: *pos}})
+			children = append(children, &PlaceholderNode{pos: Position{Offset: *pos}})
 			*pos++
 		case c == '-':
 			children = append(children, &WaitNode{pos: Position{Offset: *pos}})
@@ -77,7 +71,7 @@ func parse(marble string, pos *int) (Node, error) {
 			}
 			children = append(children, group)
 		case c == '[':
-			group, err := parseGroupNode(marble, pos, '[', ']', "squared brackets", true)
+			group, err := parseGroupNode(marble, pos, '[', ']', "unbalanced squared brackets", true)
 			if err != nil {
 				return nil, err
 			}

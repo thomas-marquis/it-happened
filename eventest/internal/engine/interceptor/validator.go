@@ -45,7 +45,7 @@ func (v *InterceptorValidator) VisitWait(n *marble.WaitNode) {
 	v.validateEmptyTick(v.currentTick)
 }
 
-func (v *InterceptorValidator) VisitStart(n *marble.StartNode) {
+func (v *InterceptorValidator) VisitPlaceholder(n *marble.PlaceholderNode) {
 	// Start event is usually not verified in the same way, but we can check if it was published
 	// For now, we skip it as it's often used for initialization
 }

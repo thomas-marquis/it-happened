@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"container/list"
 	"errors"
 	"time"
 
@@ -26,13 +27,14 @@ func (DefaultPayload) Type() event.Type {
 }
 
 type Runtime struct {
-	clock            clock2.Clock
-	payloadMap       map[string]event.Payload
-	eventMap         map[string]event.Event
-	matchers         map[string]event.Matcher
-	baseTickDuration time.Duration
-	bus              event.Bus
-	publishedEvents  map[string]event.Event
+	clock             clock2.Clock
+	payloadMap        map[string]event.Payload
+	eventMap          map[string]event.Event
+	matchers          map[string]event.Matcher
+	baseTickDuration  time.Duration
+	bus               event.Bus
+	publishedEvents   map[string]event.Event
+	placeholderEvents []event.Event
 }
 
 func NewRuntime(bus event.Bus, opts ...Option) *Runtime {
@@ -111,40 +113,35 @@ func (r *Runtime) RunFromNode(node marble.Node) (*RunningSession, error) {
 		return nil, err
 	}
 
-	tl := timeline.NewTimeline(node, timeline.WithTickDuration(r.baseTickDuration))
+	tl := timeline.NewTimeline(node,
+		timeline.WithTickDuration(r.baseTickDuration),
+		timeline.WithPlaceholderEvents(r.placeholderEvents))
 	ticks := tl.Ticks()
 
-	return &RunningSession{
-		rt:         r,
-		ticks:      ticks,
-		clock:      r.clock,
-		bus:        r.bus,
-		payloadMap: r.payloadMap,
-		eventMap:   r.eventMap,
-	}, nil
-}
-
-func (r *Runtime) RunFromOps(ops []marble.Op) (*RunningSession, error) {
-	tl := timeline.NewTimelineFromOps(ops, timeline.WithTickDuration(r.baseTickDuration))
-	ticks := tl.Ticks()
+	pl := list.New()
+	for _, evt := range r.placeholderEvents {
+		pl.PushBack(evt)
+	}
 
 	return &RunningSession{
-		rt:         r,
-		ticks:      ticks,
-		clock:      r.clock,
-		bus:        r.bus,
-		payloadMap: r.payloadMap,
-		eventMap:   r.eventMap,
+		rt:           r,
+		ticks:        ticks,
+		clock:        r.clock,
+		bus:          r.bus,
+		payloadMap:   r.payloadMap,
+		eventMap:     r.eventMap,
+		placeholders: pl,
 	}, nil
 }
 
 type RunningSession struct {
-	rt         *Runtime
-	ticks      []timeline.Tick
-	clock      clock2.Clock
-	bus        event.Bus
-	payloadMap map[string]event.Payload
-	eventMap   map[string]event.Event
+	rt           *Runtime
+	ticks        []timeline.Tick
+	clock        clock2.Clock
+	bus          event.Bus
+	payloadMap   map[string]event.Payload
+	eventMap     map[string]event.Event
+	placeholders *list.List
 
 	current int
 }
@@ -177,6 +174,13 @@ func (s *RunningSession) Next() error {
 			toEvt := event.NewFollowup(from, to)
 			s.bus.Publish(toEvt)
 			s.rt.publishedEvents[o.NewEvent] = toEvt
+		case marble.PlaceholderEventOp:
+			evt := s.placeholders.Front()
+			if evt == nil {
+				return errors.Join(ErrRuntime,
+					errors.New("no more placeholder events"))
+			}
+			s.bus.Publish(evt.Value.(event.Event))
 		}
 	}
 	s.clock.Forward(tick.Duration)

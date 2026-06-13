@@ -24,8 +24,8 @@ func (b *opListBuilder) VisitWait(n *WaitNode) {
 	b.ops = append(b.ops, WaitOp{})
 }
 
-func (b *opListBuilder) VisitStart(n *StartNode) {
-	b.ops = append(b.ops, StartEventOp{})
+func (b *opListBuilder) VisitPlaceholder(n *PlaceholderNode) {
+	b.ops = append(b.ops, PlaceholderEventOp{})
 }
 
 func (b *opListBuilder) VisitFollowup(n *FollowupNode) {
@@ -90,7 +90,7 @@ func (b *stringBuilder) VisitWait(n *WaitNode) {
 	b.WriteRune('-')
 }
 
-func (b *stringBuilder) VisitStart(n *StartNode) {
+func (b *stringBuilder) VisitPlaceholder(n *PlaceholderNode) {
 	b.WriteRune('^')
 }
 

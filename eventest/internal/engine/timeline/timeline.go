@@ -18,10 +18,11 @@ type Tick struct {
 }
 
 type Timeline struct {
-	events       map[string]event.Event
-	ticks        []Tick
-	randGen      *rand.Rand
-	tickDuration time.Duration
+	events            map[string]event.Event
+	ticks             []Tick
+	randGen           *rand.Rand
+	tickDuration      time.Duration
+	placeholderEvents []event.Event
 }
 
 func NewTimeline(node marble.Node, opts ...Option) *Timeline {
@@ -45,12 +46,6 @@ func NewTimeline(node marble.Node, opts ...Option) *Timeline {
 	t.ticks = ticks
 
 	return t
-}
-
-func NewTimelineFromOps(ops []marble.Op, opts ...Option) *Timeline {
-	// Convert ops to node and use the new implementation
-	node := marble.SequenceNodeFromOps(ops)
-	return NewTimeline(node, opts...)
 }
 
 func (t *Timeline) Ticks() []Tick {

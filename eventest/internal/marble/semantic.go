@@ -25,7 +25,7 @@ func (r NotEmptyRule) Validate(node Node) error {
 type StartEventAtBeginningRule struct{}
 
 func (r StartEventAtBeginningRule) Validate(node Node) error {
-	v := &startEventVisitor{}
+	v := &placeholderEventVisitor{}
 	node.Accept(v)
 
 	if v.count > 1 {
@@ -47,7 +47,7 @@ func (r StartEventAtBeginningRule) Validate(node Node) error {
 
 func isFirstNodeStart(n Node) bool {
 	switch node := n.(type) {
-	case *StartNode:
+	case *PlaceholderNode:
 		return true
 	case *GroupNode:
 		if len(node.Children) > 0 {
@@ -64,45 +64,32 @@ func isFirstNodeStart(n Node) bool {
 type StartEventAnywhereRule struct{}
 
 func (r StartEventAnywhereRule) Validate(node Node) error {
-	v := &startEventVisitor{}
+	v := &placeholderEventVisitor{}
 	node.Accept(v)
 
 	if v.count > 1 {
-		return errors.Join(ErrSemantic, errors.New("a timeline can have at most one start event"))
+		return errors.Join(ErrSemantic, errors.New("at most one placeholder event is expected"))
 	}
 
 	return nil
 }
 
-type UniqueStartEventRule struct{}
-
-func (r UniqueStartEventRule) Validate(node Node) error {
-	v := &startEventVisitor{}
-	node.Accept(v)
-
-	if v.count != 1 {
-		return errors.Join(ErrSemantic, errors.New("a timeline must have exactly one start event"))
-	}
-
-	return nil
-}
-
-type startEventVisitor struct {
+type placeholderEventVisitor struct {
 	BaseVisitor
 	count int
 }
 
-func (v *startEventVisitor) VisitStart(*StartNode) {
+func (v *placeholderEventVisitor) VisitPlaceholder(*PlaceholderNode) {
 	v.count++
 }
 
-func (v *startEventVisitor) VisitSequence(n *SequenceNode) {
+func (v *placeholderEventVisitor) VisitSequence(n *SequenceNode) {
 	for _, child := range n.Children {
 		child.Accept(v)
 	}
 }
 
-func (v *startEventVisitor) VisitGroup(n *GroupNode) {
+func (v *placeholderEventVisitor) VisitGroup(n *GroupNode) {
 	for _, child := range n.Children {
 		child.Accept(v)
 	}
@@ -125,7 +112,7 @@ type waitlessGroupsVisitor struct {
 	errors  []error
 }
 
-func (v *waitlessGroupsVisitor) VisitWait(n *WaitNode) {
+func (v *waitlessGroupsVisitor) VisitWait(*WaitNode) {
 	if v.inGroup {
 		v.errors = append(v.errors, errors.Join(
 			ErrSemantic,
