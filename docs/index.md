@@ -1,14 +1,15 @@
-# it-happened
-
-A library that simplify event-driven development.
+# Quick Start
 
 <figure markdown="span">
   ![Logo](assets/images/logo-tr.png)
 </figure>
 
-## Requirements
+Welcome to **it-happened**, a Go library that simplifies event-driven application development. This guide will get you up and running with basic event publishing and subscription in just a few minutes.
+
+## Prerequisites
 
 - Go 1.25 or higher
+- Basic familiarity with Go syntax
 
 ## Installation
 
@@ -16,68 +17,153 @@ A library that simplify event-driven development.
 go get github.com/thomas-marquis/it-happened
 ```
 
-## Features
+## Your First Event
 
-**Basic features:**
-- **Asynchronous Event Bus**: Decouple your components with a robust pub-sub system.
-- **Strongly Linked Events**: Use the `Ref` system to effortlessly track related events across the bus.
-- **Powerful Matchers**: Subscribe to events using precise criteria like Type, ID, or Followup relationship.
+Let's create a simple application that publishes and receives events.
 
-**What makes a difference:**
-- **Event Carriers**: Orchestrate complex workflows by grouping events into `All` or `Sequence` carriers.
-- **Automated Lifecycle**: Carriers handle timeouts, concurrency, and completion tracking for you.
-- **Result Aggregation**: Use **Outcome Factories** to transform multiple event results into a single, meaningful completion event.
+### Step 1: Define Your Event Payload
 
-## Getting Started
-
-To get started, define a payload that implements the `event.Payload` interface and initialize an in-memory bus:
+First, create a payload type that implements the `event.Payload` interface:
 
 ```go
-type MyPayload struct {
+package main
+
+import (
+    "fmt"
+    "github.com/thomas-marquis/it-happened/event"
+    "github.com/thomas-marquis/it-happened/inmemory"
+)
+
+type MyEventPayload struct {
     Message string
 }
 
-func (p MyPayload) Type() event.Type {
-    return "example.happened"
+func (p MyEventPayload) EventType() event.Type {
+    return "my.event"
+}
+```
+
+### Step 2: Create the Event Bus
+
+Initialize an in-memory event bus:
+
+```go
+func main() {
+    // Create a done channel to control bus lifetime
+    done := make(chan struct{})
+    defer close(done)
+
+    // Create the bus with the done channel
+    bus := inmemory.NewBus(done, nil)
+```
+
+### Step 3: Subscribe to Events
+
+Create a subscriber that listens for your event type:
+
+```go
+    // Create a subscriber
+    sub := bus.Subscribe()
+
+    // Register a callback for your event type
+    sub.On(event.Is("my.event"), func(e event.Event) {
+        // Extract the payload
+        if payload, ok := e.Payload().(MyEventPayload); ok {
+            fmt.Printf("Received event: %s\n", payload.Message)
+        }
+    })
+
+    // Start listening with 1 worker
+    sub.ListenWithWorkers(1)
+```
+
+### Step 4: Publish an Event
+
+Publish your event to the bus:
+
+```go
+    // Create and publish an event
+    evt := event.New(MyEventPayload{Message: "Hello, World!"})
+    bus.Publish(evt)
+
+    // Wait a moment for the event to be processed
+    // In a real application, you would use proper synchronization
+}
+```
+
+### Complete Example
+
+Here's the complete code in one place:
+
+```go
+package main
+
+import (
+    "fmt"
+    "time"
+    "github.com/thomas-marquis/it-happened/event"
+    "github.com/thomas-marquis/it-happened/inmemory"
+)
+
+type MyEventPayload struct {
+    Message string
 }
 
-// Initialize the bus
-done := make(chan struct{})
-bus := inmemory.NewBus(done, nil)
+func (p MyEventPayload) EventType() event.Type {
+    return "my.event"
+}
+
+func main() {
+    done := make(chan struct{})
+    defer close(done)
+
+    bus := inmemory.NewBus(done, nil)
+
+    sub := bus.Subscribe()
+    sub.On(event.Is("my.event"), func(e event.Event) {
+        if payload, ok := e.Payload().(MyEventPayload); ok {
+            fmt.Printf("Received: %s\n", payload.Message)
+        }
+    })
+    sub.ListenWithWorkers(1)
+
+    evt := event.New(MyEventPayload{Message: "Hello, World!"})
+    bus.Publish(evt)
+
+    // Wait for event processing
+    time.Sleep(100 * time.Millisecond)
+}
 ```
 
-## Basic Usage
+### Run It
 
-### Publishing and Subscribing
+Save the code to a file (e.g., `main.go`) and run:
 
-```go
-// Subscribe to your event
-bus.Subscribe().
-    On(event.Is("example.happened"), func(e event.Event) {
-        payload := e.Payload.(MyPayload)
-        fmt.Printf("Something happened: %s\n", payload.Message)
-    }).
-    ListenWithWorkers(1)
-
-// Publish the event
-bus.Publish(event.New(MyPayload{Message: "Hello, World!"}))
+```bash
+go run main.go
 ```
 
-### Using Followup Events
+You should see output similar to:
 
-```go
-// In a handler, create a followup event
-bus.Subscribe().
-    On(event.Is("request"), func(e event.Event) {
-        bus.Publish(event.NewFollowup(e, ResponsePayload{Data: "OK"}))
-    }).
-    ListenWithWorkers(1)
+```
+Received: Hello, World!
 ```
 
-## Examples
+## Next Steps
 
-You can find more detailed examples and advanced usage (like Carriers) in the `examples` folder and the [Concepts](concepts.md) page.
+Now that you have the basics working, explore these next:
 
-## Useful Links
+1. **[Concepts](concepts.md)** - Understand the core library abstractions
+2. **[Tutorials](tutorials/)** - Practical examples for common use cases
+3. **[References](references.md)** - API documentation
 
-- [GitHub Repository](https://github.com/thomas-marquis/it-happened)
+## Need Help?
+
+- Check the [Concepts](concepts.md) page for detailed explanations
+- Browse the [Tutorials](tutorials/) for practical examples
+- Visit the [References](references.md) for API documentation
+- Open an issue on [GitHub](https://github.com/thomas-marquis/it-happened)
+
+---
+
+*This Quick Start guide should take less than 10 minutes to complete.*

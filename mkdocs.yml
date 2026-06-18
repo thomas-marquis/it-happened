@@ -59,6 +59,13 @@ markdown_extensions:
 
 nav:
   - Getting started: index.md
+  - Concepts: concepts.md
+  - Tutorials:
+      - Basic Pub/Sub: tutorials/basic-pubsub.md
+      - Event Chaining: tutorials/event-chaining.md
+      - Using Matchers: tutorials/using-matchers.md
+      - Using Carriers: tutorials/using-carriers.md
+  - References: references.md
 
 extra:
   social:

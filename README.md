@@ -12,7 +12,11 @@ Event management library written in Go simplifying event driven application deve
 
 ## ✨ Features
 
-TODO
+- **Asynchronous Event Bus**: Decouple your components with a robust pub-sub system
+- **Event Chaining**: Track related events across workflows using ChainRef and ChainPosition
+- **Powerful Matchers**: Subscribe to events using precise criteria (by type, followup relationship, etc.)
+- **Event Carriers**: Orchestrate complex workflows with All (parallel) and Sequence (sequential) carriers
+- **Automated Lifecycle**: Carriers handle timeouts, concurrency, and completion tracking
 
 ## 📦 Installation
 
@@ -28,12 +32,16 @@ go get github.com/thomas-marquis/it-happened
 
 ## 📚 Documentation
 
-- [Project Documentation](https://thomas-marquis.github.io/it-happened/)
+- [Project Documentation](https://thomas-marquis.github.io/it-happened/) - Complete documentation with:
+  - [Quick Start](https://thomas-marquis.github.io/it-happened/) - Get started in 10 minutes
+  - [Concepts](https://thomas-marquis.github.io/it-happened/concepts/) - Core library abstractions
+  - [Tutorials](https://thomas-marquis.github.io/it-happened/tutorials/) - Practical examples
+  - [API References](https://thomas-marquis.github.io/it-happened/references/) - Package documentation links
 - [Go Package Documentation](https://pkg.go.dev/github.com/thomas-marquis/it-happened)
 
 ## 💻 Usage
 
-TODO
+See the [Quick Start](https://thomas-marquis.github.io/it-happened/) guide to get started, or explore the [examples](examples/) directory for runnable code samples.
 
 ## 🤝 Contribute
 

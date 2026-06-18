@@ -2,6 +2,8 @@ package event
 
 import "sync"
 
+// Subscriber manages event subscriptions and callback execution.
+// It matches incoming events against registered matchers and invokes the corresponding callbacks.
 type Subscriber struct {
 	sync.RWMutex
 
@@ -11,6 +13,15 @@ type Subscriber struct {
 	done       chan struct{}
 }
 
+// NewSubscriber creates a new Subscriber that listens on the given event channel.
+//
+// Parameters:
+//
+//	event - The channel through which events will be received
+//
+// Returns:
+//
+//	A new Subscriber instance ready to register callbacks
 func NewSubscriber(event chan Event) *Subscriber {
 	return &Subscriber{
 		registered: make(map[Matcher]func(Event)),
@@ -19,6 +30,19 @@ func NewSubscriber(event chan Event) *Subscriber {
 	}
 }
 
+// On registers a callback function for events matching the given matcher.
+//
+// The callback will be invoked when an event matching the matcher is received.
+// This method panics if called after listening has started.
+//
+// Parameters:
+//
+//	matcher - The matcher that determines which events trigger the callback
+//	callback - The function to invoke when a matching event is received
+//
+// Returns:
+//
+//	The Subscriber instance for method chaining
 func (s *Subscriber) On(matcher Matcher, callback func(Event)) *Subscriber {
 	if s.started {
 		panic("cannot register callback after listening started")
@@ -34,6 +58,8 @@ func (s *Subscriber) On(matcher Matcher, callback func(Event)) *Subscriber {
 	return s
 }
 
+// listen is the internal event processing loop.
+// It continuously receives events and invokes matching callbacks.
 func (s *Subscriber) listen() {
 	for {
 		select {
@@ -56,6 +82,14 @@ func (s *Subscriber) listen() {
 	}
 }
 
+// ListenWithWorkers starts multiple worker goroutines to process events.
+//
+// Each worker runs in its own goroutine and processes events concurrently.
+// The number of workers determines the level of parallelism.
+//
+// Parameters:
+//
+//	workers - The number of concurrent worker goroutines to start
 func (s *Subscriber) ListenWithWorkers(workers int) {
 	s.started = true
 	for i := 0; i < workers; i++ {
@@ -63,6 +97,10 @@ func (s *Subscriber) ListenWithWorkers(workers int) {
 	}
 }
 
+// ListenNonBlocking starts a single event listener goroutine.
+//
+// Events are processed asynchronously, and callbacks for matching events
+// are executed in separate goroutines to avoid blocking.
 func (s *Subscriber) ListenNonBlocking() {
 	s.started = true
 	go func() {
@@ -88,6 +126,17 @@ func (s *Subscriber) ListenNonBlocking() {
 	}()
 }
 
+// Accept checks if the subscriber can accept (handle) the given event.
+//
+// It returns true if any registered matcher matches the event.
+//
+// Parameters:
+//
+//	event - The event to check
+//
+// Returns:
+//
+//	true if the event matches any registered matcher, false otherwise
 func (s *Subscriber) Accept(event Event) bool {
 	s.RLock()
 	defer s.RUnlock()
@@ -99,6 +148,9 @@ func (s *Subscriber) Accept(event Event) bool {
 	return false
 }
 
+// Detach stops the subscriber and releases its resources.
+//
+// This method closes the done channel, which signals all listener goroutines to exit.
 func (s *Subscriber) Detach() {
 	close(s.done)
 }
