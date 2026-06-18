@@ -60,3 +60,27 @@ func (m *isFollowup) Match(event Event) bool {
 	}
 	return false
 }
+
+type isExactly struct {
+	event Event
+}
+
+func IsExactly(event Event) Matcher {
+	return &isExactly{event}
+}
+
+func (m *isExactly) Match(event Event) bool {
+	return m.event == event
+}
+
+type hasPayload struct {
+	pl Payload
+}
+
+func HasPayload(pl Payload) Matcher {
+	return &hasPayload{pl: pl}
+}
+
+func (m *hasPayload) Match(event Event) bool {
+	return m.pl == event.Payload
+}

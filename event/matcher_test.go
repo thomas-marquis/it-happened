@@ -72,3 +72,55 @@ func TestIsFollowupOf(t *testing.T) {
 		assert.False(t, res)
 	})
 }
+
+func TestIsExactly_Match(t *testing.T) {
+	t.Run("should return true when the events are equals", func(t *testing.T) {
+		// Given
+		evt := event.New(fakePayload("an event"))
+		m := event.IsExactly(evt)
+
+		// When
+		res := m.Match(evt)
+
+		// Then
+		assert.True(t, res)
+	})
+
+	t.Run("should return false when the events are not equals even with the same payload", func(t *testing.T) {
+		// Given
+		evt := event.New(fakePayload("an event"))
+		m := event.IsExactly(evt)
+
+		// When
+		res := m.Match(event.New(fakePayload("an event")))
+
+		// Then
+		assert.False(t, res)
+	})
+}
+
+func TestHasPayload_Match(t *testing.T) {
+	t.Run("should return true when the events have the same payload", func(t *testing.T) {
+		// Given
+		evt := event.New(fakePayload("an event"))
+		m := event.HasPayload(fakePayload("an event"))
+
+		// When
+		res := m.Match(evt)
+
+		// Then
+		assert.True(t, res)
+	})
+
+	t.Run("should return false when payloads are different", func(t *testing.T) {
+		// Given
+		evt := event.New(fakePayload("an event"))
+		m := event.HasPayload(fakePayload2{})
+
+		// When
+		res := m.Match(evt)
+
+		// Then
+		assert.False(t, res)
+	})
+}
