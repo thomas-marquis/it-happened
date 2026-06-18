@@ -77,7 +77,7 @@ func (b *inMemoryBus) Subscribe() *event.Subscriber {
 
 func (b *inMemoryBus) Publish(evt event.Event) {
 	b.notifier.Notify(evt)
-	if c, ok := evt.Payload.(carrier.Carrier); ok {
+	if c, ok := evt.Payload().(carrier.Carrier); ok {
 		go c.Dispatch(b)
 		return
 	}

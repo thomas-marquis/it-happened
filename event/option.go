@@ -2,18 +2,16 @@ package event
 
 import "context"
 
-type Option func(e Event) Event
+type Option func(e *impl)
 
 func WithContext(ctx context.Context) Option {
-	return func(e Event) Event {
-		e.Context = ctx
-		return e
+	return func(e *impl) {
+		e.ctx = ctx
 	}
 }
 
 func WithRef(ref string) Option {
-	return func(e Event) Event {
-		e.Ref = ref
-		return e
+	return func(e *impl) {
+		e.ref = ref
 	}
 }

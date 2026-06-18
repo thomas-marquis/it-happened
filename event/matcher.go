@@ -40,7 +40,7 @@ func IsAny() Matcher {
 	return &isAny{}
 }
 
-func (m *isAny) Match(event Event) bool {
+func (m *isAny) Match(Event) bool {
 	return true
 }
 
@@ -54,7 +54,7 @@ func IsFollowupOf(event ...Event) Matcher {
 
 func (m *isFollowup) Match(event Event) bool {
 	for _, e := range m.events {
-		if e.ID != event.ID && e.Ref == event.Ref {
+		if e.ID() != event.ID() && e.ChainRef() == event.ChainRef() {
 			return true
 		}
 	}

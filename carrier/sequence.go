@@ -41,7 +41,7 @@ func NewSequence(carried []event.Event, doneEventFactory func(received []event.E
 	return event.New(c)
 }
 
-func (c *Sequence) Type() event.Type {
+func (c *Sequence) EventType() event.Type {
 	return TypePrefix + ".sequence"
 }
 

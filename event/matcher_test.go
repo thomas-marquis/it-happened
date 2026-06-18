@@ -9,13 +9,13 @@ import (
 
 type fakePayload string
 
-func (fakePayload) Type() event.Type {
+func (fakePayload) EventType() event.Type {
 	return "fake.payload"
 }
 
 type fakePayload2 struct{}
 
-func (fakePayload2) Type() event.Type {
+func (fakePayload2) EventType() event.Type {
 	return "fake.payload.2"
 }
 
@@ -29,7 +29,7 @@ func TestIsFollowupOf(t *testing.T) {
 
 		m := event.IsFollowupOf(events...)
 
-		incoming := event.NewFollowup(events[0], fakePayload2{})
+		incoming := events[0].NewFollowup(fakePayload2{})
 
 		// When
 		res := m.Match(incoming)

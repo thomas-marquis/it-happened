@@ -35,11 +35,11 @@ func NewAll(
 ) event.Event {
 	var uniqueRefset = make(map[string]struct{})
 	for _, evt := range carried {
-		if _, exists := uniqueRefset[evt.Ref]; exists {
-			log.Printf("duplicate event ref: %s, undefined behaviour mey will append", evt.Ref)
+		if _, exists := uniqueRefset[evt.ChainRef()]; exists {
+			log.Printf("duplicate event ref: %s, undefined behaviour mey will append", evt.ChainRef())
 			continue
 		}
-		uniqueRefset[evt.Ref] = struct{}{}
+		uniqueRefset[evt.ChainRef()] = struct{}{}
 	}
 
 	c := &All{
@@ -72,7 +72,7 @@ func (c *All) Dispatch(bus event.Bus) {
 	evtByRef := make(map[string]event.Event)
 	receivedEvents := make([]event.Event, 0, len(c.Carried))
 	for _, evt := range c.Carried {
-		evtByRef[evt.Ref] = evt
+		evtByRef[evt.ChainRef()] = evt
 	}
 	var mu sync.Mutex
 
@@ -88,7 +88,7 @@ func (c *All) Dispatch(bus event.Bus) {
 						return
 					}
 					mu.Lock()
-					evtProcessed[evt.Ref] = false
+					evtProcessed[evt.ChainRef()] = false
 					mu.Unlock()
 					bus.Publish(evt) //TODO; won't prevent to overwhelming the event bus
 				}
@@ -99,10 +99,10 @@ func (c *All) Dispatch(bus event.Bus) {
 	sub := bus.Subscribe().
 		On(event.IsFollowupOf(c.Carried...), func(received event.Event) {
 			mu.Lock()
-			if processed, ok := evtProcessed[received.Ref]; ok &&
+			if processed, ok := evtProcessed[received.ChainRef()]; ok &&
 				!processed &&
-				c.CompletionCondition(evtByRef[received.Ref], received) {
-				evtProcessed[received.Ref] = true
+				c.CompletionCondition(evtByRef[received.ChainRef()], received) {
+				evtProcessed[received.ChainRef()] = true
 				receivedEvents = append(receivedEvents, received)
 			}
 			mu.Unlock()
@@ -140,7 +140,7 @@ func (c *All) Dispatch(bus event.Bus) {
 	}
 }
 
-func (c *All) Type() event.Type {
+func (c *All) EventType() event.Type {
 	return TypePrefix + ".all"
 }
 
