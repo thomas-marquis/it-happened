@@ -11,7 +11,7 @@ import (
 // Sequence is a carrier that emits a sequence of events on the bus.
 // The next event is emitted only when the previous one has been received/resolved/.
 type Sequence struct {
-	Carried             []event.Event
+	Carried             []event.ChainableEvent
 	DoneEventFactory    func(received []event.Event) event.Event
 	OnTimeout           event.Event
 	CompletionCondition CompletionCondition
@@ -19,7 +19,7 @@ type Sequence struct {
 	timeout time.Duration
 }
 
-func NewSequence(carried []event.Event, doneEventFactory func(received []event.Event) event.Event, onTimeout event.Event, opts ...Option) event.Event {
+func NewSequence(carried []event.ChainableEvent, doneEventFactory func(received []event.Event) event.Event, onTimeout event.Event, opts ...Option) event.Event {
 	c := &Sequence{
 		Carried:          carried,
 		DoneEventFactory: doneEventFactory,
@@ -60,7 +60,7 @@ func (c *Sequence) Dispatch(bus event.Bus) {
 }
 
 func (c *Sequence) doDispatch(ctx context.Context, bus event.Bus) (receivedEvents []event.Event) {
-	workload := make(chan event.Event, 1)
+	workload := make(chan event.ChainableEvent, 1)
 	defer close(workload)
 
 	var currIdx int

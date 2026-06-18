@@ -45,16 +45,23 @@ func (m *isAny) Match(Event) bool {
 }
 
 type isFollowup struct {
-	events []Event
+	events []ChainableEvent
 }
 
-func IsFollowupOf(event ...Event) Matcher {
+func IsFollowupOf(event ...ChainableEvent) Matcher {
 	return &isFollowup{events: event}
 }
 
 func (m *isFollowup) Match(event Event) bool {
+	evt, ok := event.(ChainableEvent)
+	if !ok {
+		return false
+	} else if evt.ChainPosition() == 0 {
+		return false
+	}
+
 	for _, e := range m.events {
-		if e.ID() != event.ID() && e.ChainRef() == event.ChainRef() {
+		if e.ID() != evt.ID() && e.ChainRef() == evt.ChainRef() {
 			return true
 		}
 	}

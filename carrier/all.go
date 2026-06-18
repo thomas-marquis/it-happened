@@ -12,7 +12,7 @@ import (
 // All is a carrier that emits all carried events on the bus.
 // The carried events order is not preserved. They are dispatched in parallel (under a max concurrency threshold).
 type All struct {
-	Carried             []event.Event
+	Carried             []event.ChainableEvent
 	DoneEventFactory    func(received []event.Event) event.Event
 	OnTimeout           event.Event
 	CompletionCondition CompletionCondition
@@ -28,7 +28,7 @@ var (
 // All carried events must have unique Ref (that means they must not be followup from each other), otherwise the behavior is undefined.
 // This event carrier has a blocking Dispatch method.
 func NewAll(
-	carried []event.Event,
+	carried []event.ChainableEvent,
 	doneEventFactory func(received []event.Event) event.Event,
 	onTimeout event.Event,
 	opts ...Option,
@@ -69,14 +69,14 @@ func (c *All) Dispatch(bus event.Bus) {
 	defer cancel()
 
 	evtProcessed := make(map[string]bool)
-	evtByRef := make(map[string]event.Event)
+	evtByRef := make(map[string]event.ChainableEvent)
 	receivedEvents := make([]event.Event, 0, len(c.Carried))
 	for _, evt := range c.Carried {
 		evtByRef[evt.ChainRef()] = evt
 	}
 	var mu sync.Mutex
 
-	workload := make(chan event.Event)
+	workload := make(chan event.ChainableEvent)
 	for range c.maxConcurrency {
 		go func() {
 			for {
@@ -98,12 +98,16 @@ func (c *All) Dispatch(bus event.Bus) {
 
 	sub := bus.Subscribe().
 		On(event.IsFollowupOf(c.Carried...), func(received event.Event) {
+			e, ok := received.(event.ChainableEvent)
+			if !ok {
+				return
+			}
 			mu.Lock()
-			if processed, ok := evtProcessed[received.ChainRef()]; ok &&
+			if processed, ok := evtProcessed[e.ChainRef()]; ok &&
 				!processed &&
-				c.CompletionCondition(evtByRef[received.ChainRef()], received) {
-				evtProcessed[received.ChainRef()] = true
-				receivedEvents = append(receivedEvents, received)
+				c.CompletionCondition(evtByRef[e.ChainRef()], e) {
+				evtProcessed[e.ChainRef()] = true
+				receivedEvents = append(receivedEvents, e)
 			}
 			mu.Unlock()
 		})

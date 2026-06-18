@@ -17,14 +17,23 @@ type Payload interface {
 	EventType() Type
 }
 
-type Event interface {
-	Type() Type
-	Payload() Payload
-	ID() string
+type Chainable interface {
 	ChainRef() string
 	ChainPosition() uint
+}
+
+type Event interface {
+	ID() string
+	Type() Type
+	Payload() Payload
 	Context() context.Context
-	NewFollowup(newPayload Payload, opts ...Option) Event
+}
+
+type ChainableEvent interface {
+	Event
+	Chainable
+
+	NewFollowup(newPayload Payload, opts ...Option) ChainableEvent
 }
 
 type impl struct {
@@ -65,17 +74,24 @@ func (e *impl) MarshalJSON() ([]byte, error) {
 	return json.Marshal(e.payload)
 }
 
-func (e *impl) NewFollowup(newPayload Payload, opts ...Option) Event {
+// NewFollowup creates a new event that is a followup of the current (parent) event.
+//
+// A followup event may be created from a previous parent event. Both are composing an event **chain**.
+// A chain can be longer than two events.
+// Each event in a chain shares the same ChainRef -- which is basically the ID of the first event in the chain.
+// The position is incremented for each new event in the chain.
+func (e *impl) NewFollowup(newPayload Payload, opts ...Option) ChainableEvent {
 	prevRef := e.ref
 	if prevRef == "" {
 		prevRef = uuid.New().String()
 	}
 	ne := newEventImpl(newPayload, opts...)
 	ne.ref = prevRef
+	ne.position = e.position + 1
 	return ne
 }
 
-func New(payload Payload, opts ...Option) Event {
+func New(payload Payload, opts ...Option) ChainableEvent {
 	return newEventImpl(payload, opts...)
 }
 
