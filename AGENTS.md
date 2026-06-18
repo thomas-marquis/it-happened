@@ -2,6 +2,10 @@
 
 # it-happened - Coding Agent Instructions
 
+## Current Plan
+
+**Active Feature**: [Documentation Improvement](specs/001-doc-improvement/plan.md)
+
 ## Project Overview
 
 **it-happened** is an event management library written in Go that simplifies event-driven application development.
