@@ -36,7 +36,7 @@ func parse(marble string, pos *int) (Node, error) {
 		case c == ' ', c == '\t', c == '\n', c == '\r':
 			*pos++
 		case c == '^':
-			children = append(children, &PlaceholderNode{pos: Position{Offset: *pos}})
+			children = append(children, &InitEventNode{pos: Position{Offset: *pos}})
 			*pos++
 		case c == '-':
 			children = append(children, &WaitNode{pos: Position{Offset: *pos}})

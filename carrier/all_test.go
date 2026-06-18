@@ -3,7 +3,6 @@ package carrier_test
 import (
 	"testing"
 
-	"github.com/thomas-marquis/it-happened/carrier"
 	"github.com/thomas-marquis/it-happened/event"
 	"github.com/thomas-marquis/it-happened/eventest"
 	"github.com/thomas-marquis/it-happened/inmemory"
@@ -26,8 +25,8 @@ func TestAll(t *testing.T) {
 		c := event.New(fakePayload("ccc"))
 		doneEvt := event.New(fakePayload("done"))
 
-		th := eventest.NewHarness(bus, "(abc)/aDone<-a-[(/bDone<-b /cDone<-c)/done]",
-			eventest.WithSideEffect("-/aDone<-a-[/cDone<-c/bDone<-b]"),
+		th := eventest.NewHarness(bus, "^(abc)/aDone<-a-[(/bDone<-b /cDone<-c)/done]",
+			eventest.WithSideEffect("-(abc)/aDone<-a-[(/cDone<-c/bDone<-b)/done]"),
 			eventest.WithEvents(map[string]event.Event{
 				"a":    a,
 				"b":    b,
@@ -35,17 +34,7 @@ func TestAll(t *testing.T) {
 				"done": doneEvt,
 			}))
 
-		toEvt := event.New(fakePayload("timeout"))
-
-		in := carrier.NewAll(
-			[]event.Event{a, b, c},
-			func([]event.Event) event.Event {
-				return doneEvt
-			},
-			toEvt,
-		)
-
 		// When
-		th.PublishAndWait(t, in)
+		th.RunAndWait(t)
 	})
 }

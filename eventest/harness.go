@@ -9,6 +9,7 @@ import (
 	"github.com/thomas-marquis/it-happened/eventest/internal/engine/interceptor"
 	"github.com/thomas-marquis/it-happened/eventest/internal/engine/runtime"
 	"github.com/thomas-marquis/it-happened/eventest/internal/engine/timeline"
+	"github.com/thomas-marquis/it-happened/eventest/internal/marble"
 )
 
 type Option func(*Harness)
@@ -67,13 +68,23 @@ func NewHarness(bus event.Bus, expected string, opts ...Option) *Harness {
 	return h
 }
 
-func (h *Harness) PublishAndWait(t *testing.T, placeholders ...event.Event) {
+func (h *Harness) RunAndWait(t *testing.T, initEvent event.Event) {
 	clk := clock.NewClock()
-	intercept := interceptor.NewInterceptor(t, h.bus, clk)
+	intercept := interceptor.New(t, h.bus, clk)
+
+	expectedNode, err := marble.ParseAsNode(h.expected)
+	if err != nil {
+		t.Fatalf("failed to parse expectation marble: %v", err)
+	}
+
+	if err := marble.Validate(expectedNode,
+		marble.MandatoryInitEventRule{},
+		marble.WaitlessGroupsRule{}); err != nil {
+		t.Fatalf("expectation validation failed: %v", err)
+	}
 
 	recorder := intercept.EXPECT().FromMarble(h.expected)
 
-	// Automatically add matchers from payload and event maps
 	if h.payloadMap != nil {
 		for label, pl := range h.payloadMap {
 			recorder.ShouldMatch(map[string]event.Matcher{
@@ -93,29 +104,51 @@ func (h *Harness) PublishAndWait(t *testing.T, placeholders ...event.Event) {
 		recorder.ShouldMatch(h.matchers)
 	}
 
+	expectedTimeline := timeline.New(expectedNode, timeline.WithTickDuration(h.tickDuration)) // ???
+	expectedTicks := len(expectedTimeline.Ticks())
+
 	if h.sideEffect != "" {
-		rt := runtime.NewRuntime(intercept,
+		sideEffectNode, err := marble.ParseAsNode(h.sideEffect)
+		if err != nil {
+			t.Fatalf("failed to parse side effect marble: %v", err)
+		}
+
+		if err := marble.Validate(sideEffectNode,
+			marble.NoInitEventInSideEffectRule{},
+			marble.WaitlessGroupsRule{}); err != nil {
+			t.Fatalf("side effect validation failed: %v", err)
+		}
+
+		sideEffectTimeline := timeline.New(sideEffectNode, timeline.WithTickDuration(h.tickDuration))
+		sideEffectTicks := len(sideEffectTimeline.Ticks())
+
+		if sideEffectTicks > expectedTicks {
+			t.Fatalf("side effect duration (%d ticks) exceeds expectation duration (%d ticks)", sideEffectTicks, expectedTicks)
+		}
+
+		rt := runtime.New(intercept,
 			runtime.WithClock(clk),
-			runtime.WithPlaceholderEvents(placeholders),
 			runtime.WithPayloadsMapping(h.payloadMap),
 			runtime.WithEventsMapping(h.eventMap),
 			runtime.WithBaseTickDuration(h.tickDuration))
 
 		if err := rt.RunAll(h.sideEffect); err != nil {
-			t.Fatalf("failed to parse side effect marble: %v", err)
+			t.Fatalf("failed to run side effect: %v", err)
 		}
 		clk.Stop()
 
 	} else {
+		// No side effect: start clock and wait for full expectation duration
 		clk.Start()
 		defer clk.Stop()
-		if len(placeholders) > 1 {
-			t.Fatalf("specify a side effect to publish multiple placeholder events")
+
+		// Calculate total duration from timeline
+		totalDuration := time.Duration(0)
+		for _, tick := range expectedTimeline.Ticks() {
+			totalDuration += tick.Duration
 		}
-		if len(placeholders) == 0 {
-			t.Fatalf("specify a side effect to publish a placeholder event")
-		}
-		intercept.Publish(placeholders[0])
+
+		time.Sleep(totalDuration)
 	}
 
 	intercept.Finish()

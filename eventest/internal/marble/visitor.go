@@ -5,7 +5,7 @@ type Visitor interface {
 	// Leaf nodes
 	VisitEvent(*EventNode)
 	VisitWait(*WaitNode)
-	VisitPlaceholder(*PlaceholderNode)
+	VisitInitEvent(*InitEventNode)
 	VisitFollowup(*FollowupNode)
 
 	// Composite nodes
@@ -16,9 +16,9 @@ type Visitor interface {
 // BaseVisitor provides no-op implementations for all Visit methods
 type BaseVisitor struct{}
 
-func (v *BaseVisitor) VisitEvent(*EventNode)             {}
-func (v *BaseVisitor) VisitWait(*WaitNode)               {}
-func (v *BaseVisitor) VisitPlaceholder(*PlaceholderNode) {}
-func (v *BaseVisitor) VisitFollowup(*FollowupNode)       {}
-func (v *BaseVisitor) VisitSequence(*SequenceNode)       {}
-func (v *BaseVisitor) VisitGroup(*GroupNode)             {}
+func (v *BaseVisitor) VisitEvent(*EventNode)         {}
+func (v *BaseVisitor) VisitWait(*WaitNode)           {}
+func (v *BaseVisitor) VisitInitEvent(*InitEventNode) {}
+func (v *BaseVisitor) VisitFollowup(*FollowupNode)   {}
+func (v *BaseVisitor) VisitSequence(*SequenceNode)   {}
+func (v *BaseVisitor) VisitGroup(*GroupNode)         {}

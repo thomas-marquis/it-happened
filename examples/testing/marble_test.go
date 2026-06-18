@@ -2,6 +2,7 @@ package main_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/thomas-marquis/it-happened/event"
@@ -67,18 +68,21 @@ func TestWithMarbleTesting(t *testing.T) {
 		bus := inmemory.NewBus(done)
 
 		svc := newCustomerService(bus)
-		th := eventest.NewHarness(bus, "^--/regSucc<-regReq",
-			eventest.WithSideEffect("     ---/regSucc<-regReq"),
+		th := eventest.NewHarness(bus, "^---b",
+			eventest.WithSideEffect("a---b"),
 			eventest.WithPayloads(map[string]event.Payload{
-				"regSucc": customerRegistrationSucceeded{Customer: c},
+				"a": customerRegistrationRequested{Name: "John", Age: 30},
+				"b": customerRegistrationSucceeded{Customer: c},
 			}),
 			//eventest.WithMatchers(map[string]event.Matcher{
-			//	"regReq": event.HasPayload(customerRegistrationRequested{Name: "John", Age: 30}),
+			//	"a": event.HasPayload(customerRegistrationRequested{Name: "John", Age: 30}),
 			//}),
 		)
 
 		// When & Then
-		th.PublishAndWait(t, event.New(customerRegistrationRequested{Name: "John", Age: 30}))
+		th.RunAndWait()
+		// Give time for async processing
+		time.Sleep(100 * time.Millisecond)
 		assert.Len(t, svc.List(), 1)
 	})
 

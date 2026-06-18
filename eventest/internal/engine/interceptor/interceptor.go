@@ -26,7 +26,7 @@ var (
 	_ event.Bus = (*Interceptor)(nil)
 )
 
-func NewInterceptor(t *testing.T, bus event.Bus, clock clock2.Clock) *Interceptor {
+func New(t *testing.T, bus event.Bus, clock clock2.Clock) *Interceptor {
 	it := &Interceptor{
 		actualBus:             bus,
 		t:                     t,
@@ -110,11 +110,12 @@ func (r *InterceptorRecorder) FromMarble(seq string) *InterceptorRecorder {
 	r.expectedNode = node
 
 	if err := marble.Validate(node,
+		marble.MandatoryInitEventRule{},
 		marble.WaitlessGroupsRule{}); err != nil {
 		panic(err)
 	}
 
-	tl := timeline2.NewTimeline(node)
+	tl := timeline2.New(node)
 	r.timeline = tl
 
 	for _, tick := range tl.Ticks() {

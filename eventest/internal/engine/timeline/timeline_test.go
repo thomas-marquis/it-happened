@@ -35,7 +35,7 @@ func TestTimeline(t *testing.T) {
 		}
 
 		// Then
-		tl := timeline.NewTimeline(node)
+		tl := timeline.New(node)
 		res := tl.Ticks()
 
 		// Then
@@ -59,7 +59,7 @@ func TestTimeline(t *testing.T) {
 		}
 
 		// When
-		tl := timeline.NewTimeline(node)
+		tl := timeline.New(node)
 		res := tl.Ticks()
 
 		// Then
@@ -96,7 +96,7 @@ func TestTimeline(t *testing.T) {
 		}
 
 		// When
-		tl := timeline.NewTimeline(node)
+		tl := timeline.New(node)
 		res := tl.Ticks()
 
 		// Then
@@ -145,7 +145,7 @@ func TestTimeline(t *testing.T) {
 		}
 
 		// When
-		tl := timeline.NewTimeline(node, timeline.WithSeed(42))
+		tl := timeline.New(node, timeline.WithSeed(42))
 		res := tl.Ticks()
 
 		// Then
@@ -172,7 +172,7 @@ func TestTimeline(t *testing.T) {
 		}
 
 		// When
-		tl := timeline.NewTimeline(node)
+		tl := timeline.New(node)
 		res := tl.Ticks()
 
 		// Then
@@ -216,7 +216,7 @@ func TestTimeline(t *testing.T) {
 		}
 
 		// When
-		tl := timeline.NewTimeline(node)
+		tl := timeline.New(node)
 		res := tl.Ticks()
 
 		// Then

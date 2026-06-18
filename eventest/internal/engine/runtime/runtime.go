@@ -37,7 +37,7 @@ type Runtime struct {
 	placeholderEvents []event.Event
 }
 
-func NewRuntime(bus event.Bus, opts ...Option) *Runtime {
+func New(bus event.Bus, opts ...Option) *Runtime {
 	clock := clock2.NewClock()
 
 	r := &Runtime{
@@ -107,13 +107,13 @@ func (r *Runtime) Run(marbleSeq string) (*RunningSession, error) {
 
 func (r *Runtime) RunFromNode(node marble.Node) (*RunningSession, error) {
 	if err := marble.Validate(node,
-		marble.StartEventAnywhereRule{},
+		marble.NoInitEventInSideEffectRule{},
 		marble.WaitlessGroupsRule{},
 	); err != nil {
 		return nil, err
 	}
 
-	tl := timeline.NewTimeline(node,
+	tl := timeline.New(node,
 		timeline.WithTickDuration(r.baseTickDuration),
 		timeline.WithPlaceholderEvents(r.placeholderEvents))
 	ticks := tl.Ticks()
@@ -174,11 +174,11 @@ func (s *RunningSession) Next() error {
 			toEvt := event.NewFollowup(from, to)
 			s.bus.Publish(toEvt)
 			s.rt.publishedEvents[o.NewEvent] = toEvt
-		case marble.PlaceholderEventOp:
+		case marble.InitEventOp:
 			evt := s.placeholders.Front()
 			if evt == nil {
 				return errors.Join(ErrRuntime,
-					errors.New("no more placeholder events"))
+					errors.New("no more init events"))
 			}
 			s.bus.Publish(evt.Value.(event.Event))
 		}

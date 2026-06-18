@@ -73,15 +73,51 @@ func TestNotEmptyRule(t *testing.T) {
 	})
 }
 
-func TestStartEventAtBeginningRule(t *testing.T) {
-	t.Run("should fail if more than one start event", func(t *testing.T) {
+func TestMandatoryInitEventRule(t *testing.T) {
+	t.Run("should pass if expectation has exactly one initEvent at the beginning", func(t *testing.T) {
 		// Given
-		rule := marble.StartEventAtBeginningRule{}
-		// We use a manual sequence node since ParseAsNode might fail on ^^
+		rule := marble.MandatoryInitEventRule{}
+		node, _ := marble.ParseAsNode("^abc")
+
+		// When
+		err := rule.Validate(node)
+
+		// Then
+		assert.NoError(t, err)
+	})
+
+	t.Run("should pass if initEvent is inside a group at the beginning", func(t *testing.T) {
+		// Given
+		rule := marble.MandatoryInitEventRule{}
+		node, _ := marble.ParseAsNode("(^abc)")
+
+		// When
+		err := rule.Validate(node)
+
+		// Then
+		assert.NoError(t, err)
+	})
+
+	t.Run("should fail if no initEvent", func(t *testing.T) {
+		// Given
+		rule := marble.MandatoryInitEventRule{}
+		node, _ := marble.ParseAsNode("abc")
+
+		// When
+		err := rule.Validate(node)
+
+		// Then
+		assert.ErrorIs(t, err, marble.ErrSemantic)
+		assert.Contains(t, err.Error(), "expectation must contain exactly one initEvent (^) at the beginning")
+	})
+
+	t.Run("should fail if more than one initEvent", func(t *testing.T) {
+		// Given
+		rule := marble.MandatoryInitEventRule{}
 		node := &marble.SequenceNode{
 			Children: []marble.Node{
-				&marble.PlaceholderNode{},
-				&marble.PlaceholderNode{},
+				&marble.InitEventNode{},
+				&marble.InitEventNode{},
 			},
 		}
 
@@ -90,39 +126,16 @@ func TestStartEventAtBeginningRule(t *testing.T) {
 
 		// Then
 		assert.ErrorIs(t, err, marble.ErrSemantic)
-		assert.Contains(t, err.Error(), "a timeline can have at most one start event")
+		assert.Contains(t, err.Error(), "expectation must contain exactly one initEvent (^)")
 	})
 
-	t.Run("should fail if group contains multiple start events", func(t *testing.T) {
+	t.Run("should fail if initEvent is not at the beginning", func(t *testing.T) {
 		// Given
-		rule := marble.StartEventAtBeginningRule{}
-		node := &marble.SequenceNode{
-			Children: []marble.Node{
-				&marble.GroupNode{
-					Ordered: true,
-					Children: []marble.Node{
-						&marble.PlaceholderNode{},
-						&marble.PlaceholderNode{},
-					},
-				},
-			},
-		}
-
-		// When
-		err := rule.Validate(node)
-
-		// Then
-		assert.ErrorIs(t, err, marble.ErrSemantic)
-		assert.Contains(t, err.Error(), "a timeline can have at most one start event")
-	})
-
-	t.Run("should fail if start event is not at the beginning", func(t *testing.T) {
-		// Given
-		rule := marble.StartEventAtBeginningRule{}
+		rule := marble.MandatoryInitEventRule{}
 		node := &marble.SequenceNode{
 			Children: []marble.Node{
 				&marble.EventNode{Name: "a"},
-				&marble.PlaceholderNode{},
+				&marble.InitEventNode{},
 			},
 		}
 
@@ -131,75 +144,55 @@ func TestStartEventAtBeginningRule(t *testing.T) {
 
 		// Then
 		assert.ErrorIs(t, err, marble.ErrSemantic)
-		assert.Contains(t, err.Error(), "the start event must be at the beginning of the timeline")
-	})
-
-	t.Run("should pass if start event is at the beginning", func(t *testing.T) {
-		// Given
-		rule := marble.StartEventAtBeginningRule{}
-		node, _ := marble.ParseAsNode("^a")
-
-		// When
-		err := rule.Validate(node)
-
-		// Then
-		assert.NoError(t, err)
-	})
-
-	t.Run("should pass if start event is inside a group at the beginning", func(t *testing.T) {
-		// Given
-		rule := marble.StartEventAtBeginningRule{}
-		node, _ := marble.ParseAsNode("[^]a")
-
-		// When
-		err := rule.Validate(node)
-
-		// Then
-		assert.NoError(t, err)
-	})
-
-	t.Run("should pass if no start event", func(t *testing.T) {
-		// Given
-		rule := marble.StartEventAtBeginningRule{}
-		node, _ := marble.ParseAsNode("a")
-
-		// When
-		err := rule.Validate(node)
-
-		// Then
-		assert.NoError(t, err)
+		assert.Contains(t, err.Error(), "initEvent (^) must be the first element in the expectation")
 	})
 }
 
-func TestStartEventAnywhereRule(t *testing.T) {
-	t.Run("should fail if more than one start event", func(t *testing.T) {
+func TestNoInitEventInSideEffectRule(t *testing.T) {
+	t.Run("should pass if side effect has no initEvent", func(t *testing.T) {
 		// Given
-		rule := marble.StartEventAnywhereRule{}
-		node := &marble.SequenceNode{
-			Children: []marble.Node{
-				&marble.PlaceholderNode{},
-				&marble.PlaceholderNode{},
-			},
-		}
+		rule := marble.NoInitEventInSideEffectRule{}
+		node, _ := marble.ParseAsNode("abc")
+
+		// When
+		err := rule.Validate(node)
+
+		// Then
+		assert.NoError(t, err)
+	})
+
+	t.Run("should fail if side effect contains initEvent", func(t *testing.T) {
+		// Given
+		rule := marble.NoInitEventInSideEffectRule{}
+		node, _ := marble.ParseAsNode("^abc")
 
 		// When
 		err := rule.Validate(node)
 
 		// Then
 		assert.ErrorIs(t, err, marble.ErrSemantic)
-		assert.Contains(t, err.Error(), "a timeline can have at most one start event")
+		assert.Contains(t, err.Error(), "side effect must not contain initEvent (^)")
 	})
 
-	t.Run("should pass if start event is anywhere", func(t *testing.T) {
+	t.Run("should fail if side effect contains initEvent in group", func(t *testing.T) {
 		// Given
-		rule := marble.StartEventAnywhereRule{}
-		node := &marble.SequenceNode{
-			Children: []marble.Node{
-				&marble.EventNode{Name: "a"},
-				&marble.PlaceholderNode{},
-				&marble.EventNode{Name: "b"},
-			},
-		}
+		rule := marble.NoInitEventInSideEffectRule{}
+		node, _ := marble.ParseAsNode("(^ab)")
+
+		// When
+		err := rule.Validate(node)
+
+		// Then
+		assert.ErrorIs(t, err, marble.ErrSemantic)
+		assert.Contains(t, err.Error(), "side effect must not contain initEvent (^)")
+	})
+}
+
+func TestSideEffectDurationRule(t *testing.T) {
+	t.Run("should pass if side effect duration <= expectation duration", func(t *testing.T) {
+		// Given
+		rule := marble.SideEffectDurationRule{ExpectedDuration: 5}
+		node, _ := marble.ParseAsNode("abc") // 3 ticks
 
 		// When
 		err := rule.Validate(node)
@@ -208,15 +201,16 @@ func TestStartEventAnywhereRule(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("should pass if no start event", func(t *testing.T) {
+	t.Run("should fail if side effect duration > expectation duration", func(t *testing.T) {
 		// Given
-		rule := marble.StartEventAnywhereRule{}
-		node, _ := marble.ParseAsNode("a")
+		rule := marble.SideEffectDurationRule{ExpectedDuration: 2}
+		node, _ := marble.ParseAsNode("abc") // 3 ticks
 
 		// When
 		err := rule.Validate(node)
 
 		// Then
-		assert.NoError(t, err)
+		assert.ErrorIs(t, err, marble.ErrSemantic)
+		assert.Contains(t, err.Error(), "side effect duration (3 ticks) exceeds expectation duration (2 ticks)")
 	})
 }

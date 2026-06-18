@@ -27,7 +27,7 @@ Marble supports combining all its features in complex sequences:
 ```
 
 This translates to:
-1. Start event (`^`)
+1. initEvent (`^`) - marks the start of the timeline
 2. Event `a`
 3. Unordered group: `b` and `c` in any order (single tick)
 4. Ordered group: `d`, then unordered group (`e` is followup of `f`), then `g` - all in order (single tick)
@@ -40,7 +40,7 @@ This translates to:
 Use `/` prefix for multi-character event names:
 
 ```
-/login /auth.success /dashboard.load
+^/login /auth.success /dashboard.load
 ```
 
 This is especially useful when event names would otherwise be ambiguous or when you need descriptive names.
@@ -50,7 +50,7 @@ This is especially useful when event names would otherwise be ambiguous or when 
 Deeply nested groups are supported:
 
 ```
-[ a ( b [ c d ] e ) f ]
+^[ a ( b [ c d ] e ) f ]
 ```
 
 This creates:
@@ -68,10 +68,10 @@ This creates:
 Followup events can appear anywhere, including within groups:
 
 ```
-[ a<-b c<-d ]
+^[ a<-b c<-d ]
 ```
 
-In an ordered group, the followup relationships must still be respected within the ordering constraints.
+In an ordered group, the followup relationships must still be respected within the ordering constraints. Note: expectations MUST start with initEvent (^).
 
 ---
 
@@ -620,7 +620,7 @@ func TestHTTPHandler(t *testing.T) {
 // TestUserRegistration tests the complete user registration flow
 // Marble: ^ /user.registered (/email.sent /sms.sent) /user.activated
 // This means:
-//   1. Start event
+//   1. initEvent
 //   2. User registered
 //   3. Unordered group: email and SMS can arrive in any order
 //   4. User activated

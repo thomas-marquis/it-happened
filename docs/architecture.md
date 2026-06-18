@@ -119,11 +119,11 @@ The eventest package provides a testing framework for event-driven systems:
 
 The `marble` package implements the Marble language for describing event sequences:
 
-- **Node Types**: Hierarchical AST nodes (EventNode, WaitNode, StartNode, FollowupNode, SequenceNode, GroupNode)
+- **Node Types**: Hierarchical AST nodes (EventNode, WaitNode, InitEventNode, FollowupNode, SequenceNode, GroupNode)
 - **Visitor Pattern**: Interface for traversing the AST (Visitor, BaseVisitor)
 - **Parser**: Converts marble strings to AST nodes (ParseAsNode, Parse)
 - **Conversions**: Converts between AST nodes and Op lists (ToOpList, SequenceNodeFromOps)
-- **Validation**: Semantic validation rules (Rule interface, WaitlessGroupsRule, StartEventAnywhereRule, etc.)
+- **Validation**: Semantic validation rules (Rule interface, WaitlessGroupsRule, MandatoryInitEventRule, NoInitEventInSideEffectRule, SideEffectDurationRule, etc.)
 - **Helpers**: String representation, debugging utilities
 
 #### AST Node Hierarchy
@@ -135,7 +135,7 @@ Node (interface)
 │
 ├── WaitNode (leaf)
 │
-├── StartNode (leaf)
+├── InitEventNode (leaf)
 │
 ├── FollowupNode (leaf)
 │   ├── NewEvent: string
@@ -157,7 +157,7 @@ The Visitor pattern allows for flexible traversal and processing of the AST:
 type Visitor interface {
     VisitEvent(*EventNode)
     VisitWait(*WaitNode)
-    VisitStart(*StartNode)
+    VisitInitEvent(*InitEventNode)
     VisitFollowup(*FollowupNode)
     VisitSequence(*SequenceNode)
     VisitGroup(*GroupNode)
@@ -300,7 +300,7 @@ type Node interface {
 type Visitor interface {
     VisitEvent(*EventNode)
     VisitWait(*WaitNode)
-    VisitStart(*StartNode)
+    VisitInitEvent(*InitEventNode)
     VisitFollowup(*FollowupNode)
     VisitSequence(*SequenceNode)
     VisitGroup(*GroupNode)

@@ -30,7 +30,7 @@ func TestRuntime_RunAll(t *testing.T) {
 
 		gomock.InOrder(call1, call2, call3)
 
-		rt := runtime.NewRuntime(mockBus, runtime.WithPayloadsMapping(map[string]event.Payload{
+		rt := runtime.New(mockBus, runtime.WithPayloadsMapping(map[string]event.Payload{
 			"a": fakePayload("abc"),
 			"b": fakePayload("def"),
 			"c": fakePayload("ghi"),
@@ -59,7 +59,7 @@ func TestRuntime_RunAll(t *testing.T) {
 		gomock.InOrder(call1, call2, callX, call3, call4)
 		gomock.InOrder(call1, call2, callY, call3, call4)
 
-		rt := runtime.NewRuntime(mockBus,
+		rt := runtime.New(mockBus,
 			runtime.WithEventsMapping(map[string]event.Event{
 				"c": event.New(fakePayload("ghi")),
 			}),
@@ -89,7 +89,7 @@ func TestRuntime_RunAll(t *testing.T) {
 
 		gomock.InOrder(call1, call2, call3)
 
-		rt := runtime.NewRuntime(mockBus)
+		rt := runtime.New(mockBus)
 
 		// When
 		err := rt.RunAll("abc")
@@ -105,7 +105,7 @@ func TestRuntime_Run(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		mockBus := mocksevent.NewMockBus(ctrl)
 
-		rt := runtime.NewRuntime(mockBus, runtime.WithBaseTickDuration(1*time.Second))
+		rt := runtime.New(mockBus, runtime.WithBaseTickDuration(1*time.Second))
 
 		// When & Then
 		sess, err := rt.Run("ab-[cd]-e")
@@ -158,7 +158,7 @@ func TestRuntime_Run(t *testing.T) {
 		evtA := event.New(fakePayload("abc"))
 		evtX := event.New(fakePayload("xyz"))
 
-		rt := runtime.NewRuntime(mockBus,
+		rt := runtime.New(mockBus,
 			runtime.WithEventsMapping(map[string]event.Event{
 				"a": evtA,
 				"x": evtX,
@@ -187,22 +187,21 @@ func TestRuntime_Run(t *testing.T) {
 		assert.ErrorIs(t, sess.Next(), runtime.SessionEnded)
 	})
 
-	t.Run("should publish the start event when provided", func(t *testing.T) {
+	t.Run("should publish events without initEvent", func(t *testing.T) {
 		// Given
 		ctrl := gomock.NewController(t)
 		mockBus := mocksevent.NewMockBus(ctrl)
 
-		// TODO: add an expectation for the start event
 		call1 := mockBus.EXPECT().Publish(gomockevent.PayloadEq(runtime.DefaultPayload("a")))
 		call2 := mockBus.EXPECT().Publish(gomockevent.PayloadEq(runtime.DefaultPayload("b")))
 		call3 := mockBus.EXPECT().Publish(gomockevent.PayloadEq(runtime.DefaultPayload("c")))
 
 		gomock.InOrder(call1, call2, call3)
 
-		rt := runtime.NewRuntime(mockBus)
+		rt := runtime.New(mockBus)
 
-		// When
-		err := rt.RunAll("^abc")
+		// When - side effect should not contain initEvent
+		err := rt.RunAll("abc")
 
 		// Then
 		assert.NoError(t, err)
@@ -219,7 +218,7 @@ func TestRuntime_Run(t *testing.T) {
 
 		gomock.InOrder(call1, call2, call3)
 
-		rt := runtime.NewRuntime(mockBus)
+		rt := runtime.New(mockBus)
 
 		// When
 		err := rt.RunAll("abc")

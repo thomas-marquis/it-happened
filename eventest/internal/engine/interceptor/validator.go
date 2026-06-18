@@ -45,9 +45,14 @@ func (v *InterceptorValidator) VisitWait(n *marble.WaitNode) {
 	v.validateEmptyTick(v.currentTick)
 }
 
-func (v *InterceptorValidator) VisitPlaceholder(n *marble.PlaceholderNode) {
-	// Start event is usually not verified in the same way, but we can check if it was published
-	// For now, we skip it as it's often used for initialization
+func (v *InterceptorValidator) VisitInitEvent(n *marble.InitEventNode) {
+	v.validateInitEvent(v.currentTick)
+}
+
+func (v *InterceptorValidator) validateInitEvent(tickIdx int) {
+	if tickIdx != 0 {
+		v.errors = append(v.errors, fmt.Errorf("initEvent must be at tick 0, but found at tick %d", tickIdx))
+	}
 }
 
 func (v *InterceptorValidator) VisitFollowup(n *marble.FollowupNode) {

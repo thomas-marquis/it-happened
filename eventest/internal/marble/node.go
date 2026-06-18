@@ -33,12 +33,12 @@ type WaitNode struct {
 func (n *WaitNode) Accept(v Visitor)   { v.VisitWait(n) }
 func (n *WaitNode) Position() Position { return n.pos }
 
-type PlaceholderNode struct {
+type InitEventNode struct {
 	pos Position
 }
 
-func (n *PlaceholderNode) Accept(v Visitor)   { v.VisitPlaceholder(n) }
-func (n *PlaceholderNode) Position() Position { return n.pos }
+func (n *InitEventNode) Accept(v Visitor)   { v.VisitInitEvent(n) }
+func (n *InitEventNode) Position() Position { return n.pos }
 
 type FollowupNode struct {
 	NewEvent string

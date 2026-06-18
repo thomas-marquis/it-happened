@@ -36,7 +36,7 @@ func TestMarbleParser(t *testing.T) {
 		{
 			marble: "^abc",
 			ops: []marble.Op{
-				marble.PlaceholderEventOp{},
+				marble.InitEventOp{},
 				marble.EventOp{Name: "a"},
 				marble.EventOp{Name: "b"},
 				marble.EventOp{Name: "c"},

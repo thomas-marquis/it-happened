@@ -163,20 +163,16 @@ func TestUserCreationFlow(t *testing.T) {
     bus := inmemory.NewBus(done, nil)
     
     // Create a harness that expects a specific event sequence
-    // "abc" means: event a, then event b, then event c
-    harness := eventest.NewHarness(bus, "abc")
+    // "^abc" means: initEvent (^), then event a, then event b, then event c
+    // The initEvent (^) is mandatory and marks the start of the timeline
+    harness := eventest.NewHarness(bus, "^abc")
     
-    // Run the test
-    harness.Run(t, func(bus event.Bus, clock eventest.Clock) {
-        // Your test code here
-        bus.Publish(event.New(eventest.DefaultPayload("a")))
-        bus.Publish(event.New(eventest.DefaultPayload("b")))
-        bus.Publish(event.New(eventest.DefaultPayload("c")))
-    })
+    // Run the test - no need to pass initEvent anymore
+    harness.RunAndWait(t)
 }
 ```
 
-The `DefaultPayload` is a convenience type provided by eventest for testing. It implements the `Payload` interface and uses the string as both the type and payload value.
+The harness will automatically validate the expected sequence against actual events published to the bus.
 
 ### Step 3: Understanding the Test Result
 
@@ -191,22 +187,22 @@ The Marble language is a declarative syntax for describing event sequences. Here
 ### Simple Events
 
 ```
-abc
+^abc
 ```
-Three events (a, b, c) each in their own time tick.
+initEvent (^), then three events (a, b, c) each in their own time tick. Note: expectations MUST start with initEvent (^).
 
 ### Waits
 
 ```
-a-b-c
+^-b-c
 ```
-Event a, wait one tick, event b, wait one tick, event c.
+initEvent (^), event a, wait one tick, event b, wait one tick, event c.
 
 You can also use underscores for waits:
 ```
-a___b
+^a___b
 ```
-Event a, wait three ticks (each `_` is treated as one tick), event b.
+initEvent (^), event a, wait three ticks (each `_` is treated as one tick), event b.
 
 ### Groups
 
@@ -214,29 +210,34 @@ Groups allow multiple events to occur within a single time tick.
 
 **Ordered Group** (events must occur in order):
 ```
-[ab]c
+^[ab]c
 ```
-Events a and b in order within one tick, then c in the next tick.
+initEvent (^), then events a and b in order within one tick, then c in the next tick.
 
 **Unordered Group** (events can occur in any order):
 ```
-(ab)c
+^(ab)c
 ```
-Events a and b in any order within one tick, then c in the next tick.
+initEvent (^), then events a and b in any order within one tick, then c in the next tick.
 
 ### Nested Groups
 
 ```
-[(ab)c]d
+^[(ab)c]d
 ```
-Ordered group containing an unordered group (a and b in any order) followed by c, all within one tick, then d.
+initEvent (^), then ordered group containing an unordered group (a and b in any order) followed by c, all within one tick, then d.
 
-### Start Event
+```
+^[ a (bc) d ]
+```
+initEvent (^), then ordered group with nested unordered group: a, then b and c in any order, then d, all in one tick.
+
+### initEvent
 
 ```
 ^abc
 ```
-Start event, then a, b, c. The start event marks the beginning of the timeline.
+initEvent (^), then a, b, c. The initEvent marks the beginning of the timeline and is mandatory for expectations.
 
 ### Followup Events in Marble
 
@@ -268,9 +269,10 @@ func TestWithCustomPayloads(t *testing.T) {
     done := make(chan struct{})
     bus := inmemory.NewBus(done, nil)
     
+    // Expectation MUST start with initEvent (^)
     harness := eventest.NewHarness(
         bus, 
-        "abc",
+        "^abc",
         eventest.WithPayloads(map[string]event.Payload{
             "a": MyPayload{Data: "test-a"},
             "b": MyPayload{Data: "test-b"},
@@ -278,11 +280,14 @@ func TestWithCustomPayloads(t *testing.T) {
         }),
     )
     
-    harness.Run(t, func(bus event.Bus, clock eventest.Clock) {
-        bus.Publish(event.New(MyPayload{Data: "test-a"}))
-        bus.Publish(event.New(MyPayload{Data: "test-b"}))
-        bus.Publish(event.New(MyPayload{Data: "test-c"}))
-    })
+    // Publish the events - they will be matched against the expectation
+    // No need to manually advance the clock - RunAndWait handles it
+    bus.Publish(event.New(MyPayload{Data: "test-a"}))
+    bus.Publish(event.New(MyPayload{Data: "test-b"}))
+    bus.Publish(event.New(MyPayload{Data: "test-c"}))
+    
+    // Call RunAndWait to validate
+    harness.RunAndWait(t)
 }
 ```
 
@@ -295,17 +300,20 @@ func TestWithCustomMatchers(t *testing.T) {
     done := make(chan struct{})
     bus := inmemory.NewBus(done, nil)
     
+    // Expectation MUST start with initEvent (^)
     harness := eventest.NewHarness(
         bus,
-        "a",
+        "^a",
         eventest.WithMatchers(map[string]event.Matcher{
             "a": event.HasPayload(MyPayload{Data: "expected"}),
         }),
     )
     
-    harness.Run(t, func(bus event.Bus, clock eventest.Clock) {
-        bus.Publish(event.New(MyPayload{Data: "expected"}))
-    })
+    // Publish the event
+    bus.Publish(event.New(MyPayload{Data: "expected"}))
+    
+    // Call RunAndWait to validate
+    harness.RunAndWait(t)
 }
 ```
 
@@ -318,17 +326,22 @@ func TestWithSideEffect(t *testing.T) {
     done := make(chan struct{})
     bus := inmemory.NewBus(done, nil)
     
-    // First execute "x" as a side effect, then expect "a"
+    // Expectation MUST start with initEvent (^)
+    // Side effect MUST NOT contain initEvent (^)
+    // Use "-x" to have the side effect start with a wait (aligning with expectation's initEvent)
     harness := eventest.NewHarness(
         bus,
-        "a",
-        eventest.WithSideEffect("x"),
+        "^a",
+        eventest.WithSideEffect("-x"),
     )
     
-    harness.Run(t, func(bus event.Bus, clock eventest.Clock) {
-        // Side effect "x" has already been executed
-        bus.Publish(event.New(eventest.DefaultPayload("a")))
-    })
+    // The side effect "-x" will be executed automatically
+    // It publishes event x at tick 1 (after the wait at tick 0)
+    // The expectation expects event a at tick 1
+    bus.Publish(event.New(eventest.DefaultPayload("a")))
+    
+    // Call RunAndWait to validate
+    harness.RunAndWait(t)
 }
 ```
 
@@ -337,21 +350,27 @@ func TestWithSideEffect(t *testing.T) {
 Configure the duration of each tick:
 
 ```go
+import "time"
+
 func TestWithCustomTickDuration(t *testing.T) {
     done := make(chan struct{})
     bus := inmemory.NewBus(done, nil)
     
+    // Expectation MUST start with initEvent (^)
     harness := eventest.NewHarness(
         bus,
-        "a-b",
+        "^-ab",
         eventest.WithTickDuration(100*time.Millisecond),
     )
     
-    harness.Run(t, func(bus event.Bus, clock eventest.Clock) {
-        bus.Publish(event.New(eventest.DefaultPayload("a")))
-        clock.Forward(100 * time.Millisecond) // Advance to next tick
-        bus.Publish(event.New(eventest.DefaultPayload("b")))
-    })
+    // Publish events - they will be matched against the expectation
+    bus.Publish(event.New(eventest.DefaultPayload("a")))
+    // Wait for tick duration
+    time.Sleep(100 * time.Millisecond)
+    bus.Publish(event.New(eventest.DefaultPayload("b")))
+    
+    // Call RunAndWait to validate
+    harness.RunAndWait(t)
 }
 ```
 
@@ -404,21 +423,22 @@ func TestUserCreationWithWelcomeEmail(t *testing.T) {
         }).
         ListenWithWorkers(1)
     
-    // Create a harness that expects: user.created, then welcome.email.sent
+    // Create a harness that expects: initEvent, then user.created, then welcome.email.sent
+    // The expectation MUST start with initEvent (^)
     harness := eventest.NewHarness(
         bus,
-        "ab",
+        "^ab",
         eventest.WithPayloads(map[string]event.Payload{
             "a": UserCreated{UserID: "123"},
             "b": WelcomeEmailSent{UserID: "123"},
         }),
     )
     
-    // Run the test
-    harness.Run(t, func(bus event.Bus, clock eventest.Clock) {
-        // Publish user created event
-        bus.Publish(event.New(UserCreated{UserID: "123"}))
-    })
+    // Publish user created event - the welcome email will be sent automatically by the subscriber
+    bus.Publish(event.New(UserCreated{UserID: "123"}))
+    
+    // Call RunAndWait to validate
+    harness.RunAndWait(t)
 }
 ```
 
@@ -438,7 +458,7 @@ Now that you've learned the basics, check out:
 
 **Problem**: Test fails with "no corresponding tick"
 
-**Solution**: Make sure your test publishes events in the correct order and at the right times. Remember that each character in a marble string represents a separate tick unless grouped.
+**Solution**: Make sure your test publishes events in the correct order and at the right times. Remember that each character in a marble string represents a separate tick unless grouped. Also ensure expectations start with initEvent (^).
 
 **Problem**: Type assertion fails in subscriber
 

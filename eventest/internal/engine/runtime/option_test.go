@@ -25,7 +25,7 @@ func TestWithEventsMapping(t *testing.T) {
 
 		// When & Then
 		assert.PanicsWithValue(t, "the event 'a' has already been defined as a payload", func() {
-			runtime.NewRuntime(mockBus,
+			runtime.New(mockBus,
 				runtime.WithPayloadsMapping(plMap),
 				runtime.WithEventsMapping(evtMap), // <- panic!!
 			)
@@ -48,7 +48,7 @@ func TestWithPayloadsMapping(t *testing.T) {
 
 		// When & Then
 		assert.PanicsWithValue(t, "the payload corresponding to the event 'a' has already been defined as an event", func() {
-			runtime.NewRuntime(mockBus,
+			runtime.New(mockBus,
 				runtime.WithEventsMapping(evtMap),
 				runtime.WithPayloadsMapping(plMap), // <- panic!!
 			)

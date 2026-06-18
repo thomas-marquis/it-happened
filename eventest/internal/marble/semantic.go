@@ -1,6 +1,9 @@
 package marble
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 var (
 	ErrSemantic = errors.New("semantic error")
@@ -22,77 +25,109 @@ func (r NotEmptyRule) Validate(node Node) error {
 	return nil
 }
 
-type StartEventAtBeginningRule struct{}
+type initEventVisitor struct {
+	BaseVisitor
+	count int
+}
 
-func (r StartEventAtBeginningRule) Validate(node Node) error {
-	v := &placeholderEventVisitor{}
+func (v *initEventVisitor) VisitInitEvent(*InitEventNode) {
+	v.count++
+}
+
+func (v *initEventVisitor) VisitSequence(n *SequenceNode) {
+	for _, child := range n.Children {
+		child.Accept(v)
+	}
+}
+
+func (v *initEventVisitor) VisitGroup(n *GroupNode) {
+	for _, child := range n.Children {
+		child.Accept(v)
+	}
+}
+
+// MandatoryInitEventRule ensures expectation chain starts with exactly one initEvent at position 0
+type MandatoryInitEventRule struct{}
+
+func (r MandatoryInitEventRule) Validate(node Node) error {
+	v := &initEventVisitor{}
 	node.Accept(v)
 
-	if v.count > 1 {
-		return errors.Join(ErrSemantic, errors.New("a timeline can have at most one start event"))
+	// Must have exactly one initEvent
+	if v.count != 1 {
+		if v.count == 0 {
+			return errors.Join(ErrSemantic, errors.New("expectation must contain exactly one initEvent (^) at the beginning"))
+		}
+		return errors.Join(ErrSemantic, errors.New("expectation must contain exactly one initEvent (^)"))
 	}
 
-	if v.count == 1 {
-		seq, ok := node.(*SequenceNode)
-		if !ok || len(seq.Children) == 0 {
-			return nil // Should be caught by NotEmptyRule
-		}
-		if !isFirstNodeStart(seq.Children[0]) {
-			return errors.Join(ErrSemantic, errors.New("the start event must be at the beginning of the timeline"))
-		}
+	// First node must be initEvent (directly or nested in group)
+	seq, ok := node.(*SequenceNode)
+	if !ok || len(seq.Children) == 0 {
+		return nil // Should be caught by NotEmptyRule
+	}
+	if !isFirstNodeInitEvent(seq.Children[0]) {
+		return errors.Join(ErrSemantic, errors.New("initEvent (^) must be the first element in the expectation"))
 	}
 
 	return nil
 }
 
-func isFirstNodeStart(n Node) bool {
+// isFirstNodeInitEvent checks if a node is or contains an InitEventNode as its first element
+func isFirstNodeInitEvent(n Node) bool {
 	switch node := n.(type) {
-	case *PlaceholderNode:
+	case *InitEventNode:
 		return true
 	case *GroupNode:
 		if len(node.Children) > 0 {
-			return isFirstNodeStart(node.Children[0])
+			return isFirstNodeInitEvent(node.Children[0])
 		}
 	case *SequenceNode:
 		if len(node.Children) > 0 {
-			return isFirstNodeStart(node.Children[0])
+			return isFirstNodeInitEvent(node.Children[0])
 		}
 	}
 	return false
 }
 
-type StartEventAnywhereRule struct{}
+// NoInitEventInSideEffectRule ensures side effect chain never contains initEvent
+type NoInitEventInSideEffectRule struct{}
 
-func (r StartEventAnywhereRule) Validate(node Node) error {
-	v := &placeholderEventVisitor{}
+func (r NoInitEventInSideEffectRule) Validate(node Node) error {
+	v := &initEventVisitor{}
 	node.Accept(v)
 
-	if v.count > 1 {
-		return errors.Join(ErrSemantic, errors.New("at most one placeholder event is expected"))
+	if v.count > 0 {
+		return errors.Join(ErrSemantic, errors.New("side effect must not contain initEvent (^)"))
 	}
 
 	return nil
 }
 
-type placeholderEventVisitor struct {
-	BaseVisitor
-	count int
+// SideEffectDurationRule ensures side effect duration does not exceed expectation duration
+type SideEffectDurationRule struct {
+	ExpectedDuration int
 }
 
-func (v *placeholderEventVisitor) VisitPlaceholder(*PlaceholderNode) {
-	v.count++
-}
+func (r SideEffectDurationRule) Validate(node Node) error {
+	// Calculate the number of ticks in the side effect
+	sideEffectTicks := countTicks(node)
 
-func (v *placeholderEventVisitor) VisitSequence(n *SequenceNode) {
-	for _, child := range n.Children {
-		child.Accept(v)
+	if sideEffectTicks > r.ExpectedDuration {
+		return errors.Join(ErrSemantic,
+			fmt.Errorf("side effect duration (%d ticks) exceeds expectation duration (%d ticks)", sideEffectTicks, r.ExpectedDuration))
 	}
+
+	return nil
 }
 
-func (v *placeholderEventVisitor) VisitGroup(n *GroupNode) {
-	for _, child := range n.Children {
-		child.Accept(v)
+// countTicks counts the number of top-level ticks in a node
+func countTicks(node Node) int {
+	seq, ok := node.(*SequenceNode)
+	if !ok {
+		return 1 // Single node = one tick
 	}
+	return len(seq.Children)
 }
 
 type WaitlessGroupsRule struct{}

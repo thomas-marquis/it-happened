@@ -29,19 +29,25 @@ func TestInterceptor(t *testing.T) {
 
 		clock := clock.NewClock()
 		tt := &testing.T{}
-		it := interceptor.NewInterceptor(tt, mockBus, clock)
+		it := interceptor.New(tt, mockBus, clock)
 
 		// When
-		it.EXPECT().FromMarble("abc")
+		it.EXPECT().FromMarble("^abc")
 
 		clock.Start()
 
+		// Tick 0: initEvent (no actual event published, just a marker)
+		clock.Forward(timeline.DefaultTickDuration)
+
+		// Tick 1: event "a"
 		it.Publish(event.New(runtime.DefaultPayload("a")))
 		clock.Forward(timeline.DefaultTickDuration)
 
+		// Tick 2: event "b"
 		it.Publish(event.New(runtime.DefaultPayload("b")))
 		clock.Forward(timeline.DefaultTickDuration)
 
+		// Tick 3: event "c"
 		it.Publish(event.New(runtime.DefaultPayload("c")))
 		clock.Forward(timeline.DefaultTickDuration)
 
@@ -61,10 +67,10 @@ func TestInterceptor(t *testing.T) {
 		bus := inmemory.NewBus(done)
 
 		tt := &testing.T{}
-		it := interceptor.NewInterceptor(tt, bus, clock)
+		it := interceptor.New(tt, bus, clock)
 
 		// When
-		it.EXPECT().FromMarble("abc")
+		it.EXPECT().FromMarble("^abc")
 
 		clock.Start()
 
@@ -90,19 +96,22 @@ func TestInterceptor(t *testing.T) {
 
 		clock := clock.NewClock()
 		tt := &testing.T{}
-		it := interceptor.NewInterceptor(tt, mockBus, clock)
+		it := interceptor.New(tt, mockBus, clock)
 
 		// When
-		it.EXPECT().FromMarble("[ab](cd)")
+		it.EXPECT().FromMarble("^[ab](cd)")
 
 		clock.Start()
 
-		// Tick 0: [ab]
+		// Tick 0: initEvent (no actual event)
+		clock.Forward(timeline.DefaultTickDuration)
+
+		// Tick 1: [ab]
 		it.Publish(event.New(runtime.DefaultPayload("a")))
 		it.Publish(event.New(runtime.DefaultPayload("b")))
 		clock.Forward(timeline.DefaultTickDuration)
 
-		// Tick 1: (cd)
+		// Tick 2: (cd)
 		it.Publish(event.New(runtime.DefaultPayload("d")))
 		it.Publish(event.New(runtime.DefaultPayload("c")))
 		clock.Forward(timeline.DefaultTickDuration)
@@ -123,14 +132,17 @@ func TestInterceptor(t *testing.T) {
 
 		clock := clock.NewClock()
 		tt := &testing.T{}
-		it := interceptor.NewInterceptor(tt, mockBus, clock)
+		it := interceptor.New(tt, mockBus, clock)
 
 		// When
-		it.EXPECT().FromMarble("[a(bc)]")
+		it.EXPECT().FromMarble("^[a(bc)]")
 
 		clock.Start()
 
-		// Tick 0: [a(bc)]
+		// Tick 0: initEvent (no actual event)
+		clock.Forward(timeline.DefaultTickDuration)
+
+		// Tick 1: [a(bc)]
 		it.Publish(event.New(runtime.DefaultPayload("a")))
 		it.Publish(event.New(runtime.DefaultPayload("c")))
 		it.Publish(event.New(runtime.DefaultPayload("b")))

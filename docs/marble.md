@@ -10,7 +10,7 @@ Marble is a domain-specific language for describing event sequences and timeline
 
 | Character | Name | Description |
 |-----------|------|-------------|
-| `^` | Start Event | Marks the beginning of a timeline (optional) |
+| `^` | initEvent | Marks the beginning of a timeline (MANDATORY for expectations) |
 | `-` | Wait | Represents a single time tick with no events |
 | `_` | Multi-Wait | One or more consecutive underscores represent a single wait tick (treated same as `-`) |
 | `a-z`, `A-Z` | Event Labels | Single character identifiers for events |
@@ -22,8 +22,8 @@ Marble is a domain-specific language for describing event sequences and timeline
 ### Grammar
 
 ```
-Marble       ::= (StartEvent? | Event | Wait | Group | EventWithFollowup | Whitespace)*
-StartEvent   ::= '^'
+Marble       ::= (InitEvent | Event | Wait | Group | EventWithFollowup | Whitespace)*
+InitEvent    ::= '^'
 Event        ::= Label
 Label        ::= ('/' [a-zA-Z0-9]+) | [a-zA-Z]
 Wait         ::= '-' | '_'+
@@ -36,11 +36,12 @@ Whitespace   ::= ' ' | '\t' | '\n' | '\r'
 
 ### Operators
 
-#### Start Event (`^`)
-- Must appear at the beginning of the marble string if present
-- Represents the initialization of the timeline
-- Only one start event is allowed per timeline
-- Example: `^abc`
+#### initEvent (`^`)
+- **MUST** appear at the beginning of expectation marble strings
+- **MUST NOT** appear in side effect marble strings
+- Marks the start of the timeline at tick 0
+- Only one initEvent is allowed per timeline
+- Example: `^abc` (expectation), `abc` or `-abc` (side effect)
 
 #### Event (`a`, `/eventName`)
 - Single character labels: `a`, `b`, `c`, etc.
@@ -124,7 +125,26 @@ Event a, then event b which is a followup of a, then event c.
 ```
 ^a-(bc)[de]f
 ```
-Start event, event a, wait, unordered group (b and c in any order), ordered group (d then e), event f.
+initEvent, event a, wait, unordered group (b and c in any order), ordered group (d then e), event f.
+
+## Expectation vs Side Effect
+
+In the context of the harness API, there are two types of marble sequences:
+
+### Expectation Marble
+- **MUST** start with initEvent (`^`)
+- Defines the expected event sequence
+- Determines the test duration
+- Example: `"^abc"`
+
+### Side Effect Marble
+- **MUST NOT** contain initEvent (`^`)
+- Defines the events to be published by the runtime
+- Must complete within the expectation duration
+- May start with a wait (`-`) to align with the expectation's initEvent
+- Example: `"-abc"` or `"abc"`
+
+Both sequences start executing at the same absolute time (tick 0). The initEvent in the expectation and a leading wait in the side effect both represent tick 0 without publishing an event.
 
 ## Semantic Rules
 
@@ -132,10 +152,10 @@ The following rules are enforced during validation:
 
 1. **Waitless Groups**: Wait operators (`-`, `_`) cannot be used inside groups. Groups represent a single time tick, so all events must occur simultaneously.
 
-2. **Start Event Rules** (configurable):
-   - `StartEventAtBeginningRule`: If a start event is present, it must be at the beginning of the timeline
-   - `StartEventAnywhereRule`: At most one start event can exist anywhere in the timeline
-   - `UniqueStartEventRule`: Exactly one start event must be present
+2. **initEvent Rules**:
+   - `MandatoryInitEventRule`: Expectation MUST contain exactly one initEvent at the beginning
+   - `NoInitEventInSideEffectRule`: Side effect MUST NOT contain any initEvent
+   - `SideEffectDurationRule`: Side effect duration must not exceed expectation duration
 
 3. **Non-Empty Timeline**: A timeline must have at least one operation.
 

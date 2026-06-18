@@ -25,7 +25,7 @@ type Timeline struct {
 	placeholderEvents []event.Event
 }
 
-func NewTimeline(node marble.Node, opts ...Option) *Timeline {
+func New(node marble.Node, opts ...Option) *Timeline {
 	t := &Timeline{
 		events: make(map[string]event.Event),
 		randGen: rand.New(

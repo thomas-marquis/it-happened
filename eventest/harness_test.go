@@ -57,10 +57,11 @@ func TestHarness_Publish_SimpleEventSequence(t *testing.T) {
 
 		tt := &testing.T{}
 
-		// When
+		// When - expectation must start with ^, side effect must not contain ^
+		// Side effect "-abc" starts with wait to align with expectation's initEvent at tick 0
 		eventest.NewHarness(bus, "^abc",
 			eventest.WithSideEffect("-abc")).
-			PublishAndWait(tt, event.New(dp("init event")))
+			RunAndWait(tt)
 
 		// Then
 		assert.False(t, tt.Failed())
@@ -74,10 +75,11 @@ func TestHarness_Publish_SimpleEventSequence(t *testing.T) {
 
 		tt := &testing.T{}
 
-		// When
+		// When - expectation must start with ^, side effect must not contain ^
+		// Side effect "-abd" starts with wait to align with expectation's initEvent at tick 0
 		eventest.NewHarness(bus, "^abc",
-			eventest.WithSideEffect("abc")).
-			PublishAndWait(tt, event.New(dp("init event")))
+			eventest.WithSideEffect("-abd")). // Different last event
+			RunAndWait(tt)
 
 		// Then
 		assert.True(t, tt.Failed())

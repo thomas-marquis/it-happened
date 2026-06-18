@@ -11,7 +11,7 @@ type Op interface {
 const (
 	WaitOpType OpType = iota
 	EventOpType
-	PlaceholderEventOpType
+	InitEventOpType
 	EventWithFollowupOpType
 
 	OrderedGroupStartType
@@ -50,17 +50,17 @@ func (o EventOp) String() string {
 	return o.Name
 }
 
-type PlaceholderEventOp struct{}
+type InitEventOp struct{}
 
-func (o PlaceholderEventOp) Type() OpType {
-	return PlaceholderEventOpType
+func (o InitEventOp) Type() OpType {
+	return InitEventOpType
 }
 
-func (o PlaceholderEventOp) ToNode() Node {
-	return &PlaceholderNode{}
+func (o InitEventOp) ToNode() Node {
+	return &InitEventNode{}
 }
 
-func (o PlaceholderEventOp) String() string {
+func (o InitEventOp) String() string {
 	return "^"
 }
 
