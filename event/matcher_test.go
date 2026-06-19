@@ -9,27 +9,27 @@ import (
 
 type fakePayload string
 
-func (fakePayload) Type() event.Type {
+func (fakePayload) EventType() event.Type {
 	return "fake.payload"
 }
 
 type fakePayload2 struct{}
 
-func (fakePayload2) Type() event.Type {
+func (fakePayload2) EventType() event.Type {
 	return "fake.payload.2"
 }
 
 func TestIsFollowupOf(t *testing.T) {
 	t.Run("should match when event is a followup of at least one of the given events", func(t *testing.T) {
 		// Given
-		events := []event.Event{
+		events := []event.ChainableEvent{
 			event.New(fakePayload("event1")),
 			event.New(fakePayload("event2")),
 		}
 
 		m := event.IsFollowupOf(events...)
 
-		incoming := event.NewFollowup(events[0], fakePayload2{})
+		incoming := events[0].NewFollowup(fakePayload2{})
 
 		// When
 		res := m.Match(incoming)
@@ -40,7 +40,7 @@ func TestIsFollowupOf(t *testing.T) {
 
 	t.Run("should not match when event is not a followup of at least one of the given events", func(t *testing.T) {
 		// Given
-		events := []event.Event{
+		events := []event.ChainableEvent{
 			event.New(fakePayload("event1")),
 			event.New(fakePayload("event2")),
 		}
@@ -58,7 +58,7 @@ func TestIsFollowupOf(t *testing.T) {
 
 	t.Run("should not match the same event as the given ones", func(t *testing.T) {
 		e := event.New(fakePayload("event2"))
-		events := []event.Event{
+		events := []event.ChainableEvent{
 			event.New(fakePayload("event1")),
 			e,
 		}

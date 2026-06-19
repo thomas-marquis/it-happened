@@ -1,34 +1,67 @@
 # Concepts
 
+This section explains the core concepts of the it-happened library. Each concept is described in simple, non-technical language to help you understand the building blocks of event-driven applications.
+
 ## Event
-An **Event** is the fundamental unit of information in the system. It represents a specific occurrence or state change. Each event contains:
-- **ID**: A unique identifier (UUID) for the specific event instance.
-- **Type**: A string that categorizes the event, used for filtering and matching.
-- **Payload**: The actual data or state associated with the occurrence.
-- **Context**: A Go context used for cancellation and carrying metadata across asynchronous boundaries.
-- **Ref**: A reference identifier used to logically link related events together.
+
+An Event represents something that happened in your application. It is the fundamental building block of event-driven architecture. Each event has a unique identifier, a type that categorizes it, and carries data in its payload. Events are immutable once created, ensuring consistency throughout their lifecycle.
+
+## Type
+
+A Type is a label or category for an event. It allows you to classify and identify different kinds of events in your system. Types make it possible to filter events and route them to the appropriate handlers based on their purpose or domain.
+
+## Payload
+
+A Payload is the data carried by an event. It contains the actual information about what happened. Every payload knows its event type, which helps the system understand how to process the event's data.
+
+## Chainable
+
+Chainable is the ability of an event to be part of a sequence or chain. When events are chainable, they can be linked together to represent a series of related occurrences. This allows tracking workflows that span multiple steps across your application.
+
+## ChainableEvent
+
+A ChainableEvent is an event that supports chaining. It combines the basic event capabilities with the ability to create followup events and track its position within a chain. This makes it possible to build complex, multi-step processes from individual events.
+
+## Chain
+
+A Chain is a sequence of related events that share a common reference. Think of it as a conversation or workflow where each step produces a new event. Chains allow you to track the progression of a process from start to finish, even when the steps are processed asynchronously.
+
+## ChainRef
+
+ChainRef is the unique identifier that links all events in a chain together. Every event in the same chain shares the same ChainRef, which is typically the ID of the first event in that chain. This reference allows the system to correlate related events across time and space.
+
+## ChainPosition
+
+ChainPosition indicates where an event sits within its chain. The first event has position 0, the next event in the same chain has position 1, and so on. This helps you understand the order of events in a multi-step process and track progress through a chain.
+
+## Followup
+
+A Followup is a new event created as a direct result of a previous event in a chain. It shares the same ChainRef as its parent but has an incremented position. Followups allow you to build event sequences where each step naturally leads to the next.
 
 ## Bus
-The **Bus** is the central communication hub of the library. It follows the publish-subscribe pattern, allowing decoupled components to interact without direct dependencies.
-- **Publish**: Broadcasts an event to all interested subscribers.
-- **Subscribe**: Creates a subscription that filters events using **Matchers**.
 
-## Followup events
-A **Followup event** is an event that is logically connected to a previous event. They are typically used for:
-- Request-response patterns.
-- Multi-step workflows.
-- Signaling the result of an action.
+The Bus is the central communication hub of the library. It enables different parts of your application to communicate without knowing about each other. Components publish events to the bus, and other components subscribe to receive events they're interested in, creating a decoupled architecture.
 
-Technically, a followup event is created with the same **Ref** as its predecessor. This shared reference allows subscribers to track the "conversation" or "chain" of events even as they are processed asynchronously.
+## Subscriber
 
-## Events carrier
-An **Events carrier** is a specialized event payload that acts as an orchestrator for multiple events. Instead of representing a single occurrence, a carrier manages a group of events and monitors their lifecycle.
+A Subscriber receives and processes events from the bus. It allows you to register callback functions that will be invoked when specific types of events occur. Subscribers can match events using different criteria to filter only the events they care about.
 
-The library provides two primary carrier types:
-- **All**: Dispatches a set of events in parallel (respecting concurrency limits) and waits for all of them to be completed.
-- **Sequence**: Dispatches events one by one, waiting for each event to be resolved before proceeding to the next one.
+## Matcher
 
-### Outcome Factory
-The **Outcome Factory** (referred to as `DoneEventFactory` in the code) is a critical concept for carriers. It is a function provided to the carrier that determines what "summary" event should be published once the carrier's mission is complete. It receives all the followup events collected during the process and produces a single final event that represents the cumulative result of the carrier's execution.
+A Matcher is a filter that determines which events a subscriber should receive. It examines each event and decides whether it matches the subscriber's criteria. Matchers enable precise event routing and allow subscribers to focus only on relevant events.
 
+## Option
 
+An Option is a way to configure how events and carriers are created. Using the functional options pattern, you can specify settings like context, timeout, or concurrency limits. Options provide flexibility without requiring complex constructors with many parameters.
+
+## Notifier
+
+A Notifier receives notifications whenever an event is published to the bus. It allows you to monitor event activity without subscribing to specific events. The default implementation is a no-operation notifier that discards all notifications.
+
+## Carrier
+
+A Carrier is a special type of event that can dispatch multiple other events to the bus. It acts as an orchestrator, managing a group of events and their lifecycle. Carriers are useful when you need to publish several related events as a single unit.
+
+## CompletionCondition
+
+A CompletionCondition is a rule that determines when an event dispatched by a carrier is considered complete. It's a function that compares the original sent event with received events and returns true when the appropriate completion criteria are met. This allows carriers to track the progress of their dispatched events.
