@@ -1,12 +1,11 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 0.0.0 → 1.0.0 (MAJOR: Initial constitution for it-happened project)
+Version change: 1.0.0 → 1.1.0 (MINOR: Added test naming convention rule)
 Added sections:
-  - Core Principles (7 principles defined)
-  - Development Workflow
-  - Quality Standards
-Removed sections: None
+  - Test Naming Convention in Quality Standards > Testing
+Modified sections:
+  - Quality Standards > Testing (added test naming rule)
 Templates requiring updates: 
   - ✅ constitution-template.md (referenced but not modified - this is the working copy)
   - ⚠ spec-template.md (no changes needed - aligns with principles)
@@ -62,7 +61,7 @@ Code review MUST verify compliance with all principles in this constitution. Com
 
 ## Quality Standards
 
-**Testing**: Use testify/assert for assertions and testify/require for setup preconditions. Structure tests with t.Run() subtests and Given/When/Then comments. Mock dependencies using gomock.
+**Testing**: Use testify/assert for assertions and testify/require for setup preconditions. Structure tests with t.Run() subtests and Given/When/Then comments. Mock dependencies using gomock. Test names in t.Run() MUST follow the pattern: `should <do or return something>... when <some specific case or condition>`. Except the Given/When/Then, avoid writing comments in the tests
 
 **Documentation**: All public APIs MUST be documented with Go doc comments. Examples MUST be provided in the examples/ directory for all significant features.
 
@@ -79,4 +78,4 @@ Amendments to this Constitution require:
 2. Approval through PR review process
 3. Migration plan for any breaking changes to established practices
 
-**Version**: 1.0.0 | **Ratified**: 2026-06-19 | **Last Amended**: 2026-06-19
+**Version**: 1.1.0 | **Ratified**: 2026-06-19 | **Last Amended**: 2026-06-19

@@ -166,8 +166,15 @@ func (c *All) Dispatch(bus event.Bus) {
 			bus.Publish(c.OnTimeout)
 			return
 		case <-t.C:
-			if len(evtProcessed) == len(c.Carried) && allEventsHasBeenProcessed(evtProcessed) {
-				bus.Publish(c.DoneEventFactory(receivedEvents))
+			mu.Lock()
+			allProcessed := len(evtProcessed) == len(c.Carried) && allEventsHasBeenProcessed(evtProcessed)
+			mu.Unlock()
+			if allProcessed {
+				mu.Lock()
+				received := make([]event.Event, len(receivedEvents))
+				copy(received, receivedEvents)
+				mu.Unlock()
+				bus.Publish(c.DoneEventFactory(received))
 				return
 			}
 		}

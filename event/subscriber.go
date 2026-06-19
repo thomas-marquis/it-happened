@@ -1,16 +1,28 @@
 package event
 
-import "sync"
+import (
+	"sync"
+	"sync/atomic"
+)
 
 // Subscriber manages event subscriptions and callback execution.
 // It matches incoming events against registered matchers and invokes the corresponding callbacks.
 type Subscriber struct {
 	sync.RWMutex
 
-	registered map[Matcher]func(Event)
-	events     chan Event
-	started    bool
-	done       chan struct{}
+	registered   map[Matcher][]func(Event)
+	cancellable  map[Matcher][]*cancellableCallback
+	events       chan Event
+	started      bool
+	done         chan struct{}
+	detached     bool
+	nextCancelID uint64
+}
+
+// cancellableCallback wraps a callback with a unique ID for cancellation
+type cancellableCallback struct {
+	id       uint64
+	callback func(Event)
 }
 
 // NewSubscriber creates a new Subscriber that listens on the given event channel.
@@ -24,9 +36,10 @@ type Subscriber struct {
 //	A new Subscriber instance ready to register callbacks
 func NewSubscriber(event chan Event) *Subscriber {
 	return &Subscriber{
-		registered: make(map[Matcher]func(Event)),
-		events:     event,
-		done:       make(chan struct{}),
+		registered:  make(map[Matcher][]func(Event)),
+		cancellable: make(map[Matcher][]*cancellableCallback),
+		events:      event,
+		done:        make(chan struct{}),
 	}
 }
 
@@ -34,6 +47,9 @@ func NewSubscriber(event chan Event) *Subscriber {
 //
 // The callback will be invoked when an event matching the matcher is received.
 // This method panics if called after listening has started.
+//
+// Note: Callbacks registered via On() persist until the Subscriber is detached.
+// For subscriptions requiring individual cleanup, use OnWithCancel() instead.
 //
 // Parameters:
 //
@@ -50,16 +66,75 @@ func (s *Subscriber) On(matcher Matcher, callback func(Event)) *Subscriber {
 
 	s.Lock()
 	defer s.Unlock()
-	if _, exists := s.registered[matcher]; exists {
-		return s
+	if _, exists := s.registered[matcher]; !exists {
+		s.registered[matcher] = make([]func(Event), 0)
 	}
 
-	s.registered[matcher] = callback
+	s.registered[matcher] = append(s.registered[matcher], callback)
 	return s
 }
 
-// listen is the internal event processing loop.
-// It continuously receives events and invokes matching callbacks.
+// OnWithCancel registers a callback for events matching the given matcher
+// and returns a function to cancel/unregister that specific callback.
+//
+// The callback will be invoked when an event matching the matcher is received.
+// Unlike On(), this method allows fine-grained removal of individual callbacks
+// without detaching the entire subscriber.
+//
+// Parameters:
+//
+//	matcher - The matcher that determines which events trigger the callback
+//	callback - The function to invoke when a matching event is received
+//
+// Returns:
+//
+//	A function that, when called, removes this specific callback
+func (s *Subscriber) OnWithCancel(matcher Matcher, callback func(Event)) func() {
+	if s.started {
+		panic("cannot register callback after listening started")
+	}
+
+	s.Lock()
+	defer s.Unlock()
+
+	// Generate a unique ID for this callback
+	id := atomic.AddUint64(&s.nextCancelID, 1)
+	cc := &cancellableCallback{
+		id:       id,
+		callback: callback,
+	}
+
+	// Add to cancellable map
+	if _, exists := s.cancellable[matcher]; !exists {
+		s.cancellable[matcher] = make([]*cancellableCallback, 0)
+	}
+	s.cancellable[matcher] = append(s.cancellable[matcher], cc)
+
+	// Return cancellation function
+	return func() {
+		s.Lock()
+		defer s.Unlock()
+		if s.detached {
+			// Subscriber has been detached, all callbacks are already cleared
+			return
+		}
+		if callbacks, exists := s.cancellable[matcher]; exists {
+			for i, cc := range callbacks {
+				if cc.id == id {
+					// Remove by swapping with last element and slicing
+					callbacks[i] = callbacks[len(callbacks)-1]
+					s.cancellable[matcher] = callbacks[:len(callbacks)-1]
+					// Clean up empty matcher entries
+					if len(s.cancellable[matcher]) == 0 {
+						delete(s.cancellable, matcher)
+					}
+					break
+				}
+			}
+		}
+	}
+}
+
 func (s *Subscriber) listen() {
 	for {
 		select {
@@ -67,17 +142,21 @@ func (s *Subscriber) listen() {
 			return
 		case event := <-s.events:
 			s.RLock()
-			handlers := make(map[Matcher]func(Event), len(s.registered))
-			for m, cb := range s.registered {
-				handlers[m] = cb
-			}
-			s.RUnlock()
-
-			for matcher, callback := range handlers {
+			for matcher, callbacks := range s.registered {
 				if matcher.Match(event) {
-					callback(event)
+					for _, callback := range callbacks {
+						callback(event)
+					}
 				}
 			}
+			for matcher, cancellables := range s.cancellable {
+				if matcher.Match(event) {
+					for _, cc := range cancellables {
+						cc.callback(event)
+					}
+				}
+			}
+			s.RUnlock()
 		}
 	}
 }
@@ -110,17 +189,21 @@ func (s *Subscriber) ListenNonBlocking() {
 				return
 			case event := <-s.events:
 				s.RLock()
-				handlers := make(map[Matcher]func(Event), len(s.registered))
-				for m, cb := range s.registered {
-					handlers[m] = cb
-				}
-				s.RUnlock()
-
-				for matcher, callback := range handlers {
+				for matcher, callbacks := range s.registered {
 					if matcher.Match(event) {
-						go callback(event)
+						for _, callback := range callbacks {
+							go callback(event)
+						}
 					}
 				}
+				for matcher, cancellables := range s.cancellable {
+					if matcher.Match(event) {
+						for _, cc := range cancellables {
+							go cc.callback(event)
+						}
+					}
+				}
+				s.RUnlock()
 			}
 		}
 	}()
@@ -145,12 +228,33 @@ func (s *Subscriber) Accept(event Event) bool {
 			return true
 		}
 	}
+	for matcher := range s.cancellable {
+		if matcher.Match(event) {
+			return true
+		}
+	}
 	return false
 }
 
 // Detach stops the subscriber and releases its resources.
 //
-// This method closes the done channel, which signals all listener goroutines to exit.
+// This method closes the done channel, which signals all listener goroutines to exit,
+// and clears all registered callbacks to prevent memory leaks.
+// This method is idempotent and safe to call multiple times.
 func (s *Subscriber) Detach() {
+	s.Lock()
+	defer s.Unlock()
+
+	if s.detached {
+		return
+	}
+
+	s.registered = make(map[Matcher][]func(Event))
+	s.cancellable = make(map[Matcher][]*cancellableCallback)
 	close(s.done)
+	s.detached = true
+}
+
+func (s *Subscriber) Detached() bool {
+	return s.detached
 }

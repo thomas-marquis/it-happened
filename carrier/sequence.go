@@ -121,17 +121,15 @@ func (c *Sequence) doDispatch(ctx context.Context, bus event.Bus) (receivedEvent
 			case <-finished:
 				currIdx++
 				if currIdx == len(c.Carried) {
-					sub.Detach()
+					bus.Unsubscribe(sub)
 					return
 				}
 				workload <- c.Carried[currIdx]
 			case <-ctx.Done():
 				bus.Publish(c.OnTimeout)
-				sub.Detach()
-				return
 			}
 
-			sub.Detach()
+			bus.Unsubscribe(sub)
 		case <-ctx.Done():
 			return
 		}

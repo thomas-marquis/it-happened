@@ -44,7 +44,10 @@ The Bus is the central communication hub of the library. It enables different pa
 
 ## Subscriber
 
-A Subscriber receives and processes events from the bus. It allows you to register callback functions that will be invoked when specific types of events occur. Subscribers can match events using different criteria to filter only the events they care about.
+A Subscriber receives and processes events from the bus. It allows you to register callback functions that will be invoked when specific types of events occur.
+Subscribers can match events using different criteria to filter only the events they care about.
+
+A subscriber is persisted in the bus until it has been unsubscribed.
 
 ## Matcher
 

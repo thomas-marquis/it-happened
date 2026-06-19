@@ -4,7 +4,7 @@
 
 ## Current Plan
 
-**Active Feature**: [Documentation Improvement](specs/001-doc-improvement/plan.md)
+**Active Feature**: [Test Coverage Improvement](specs/002-test-coverage-improvement/plan.md)
 
 ## Project Overview
 
@@ -51,7 +51,7 @@ All development MUST comply with the project constitution at `.specify/memory/co
 ## Development Workflow
 
 1. **Test-First**: Write tests before implementation
-2. **Mock Generation**: Use `go generate ./...` to generate/update mocks in internal/mocks/ directory
+2. **Mock Generation**: Use `go generate ./...` to generate/update mocks in internal/mocks/ directory (should be kept under version control)
 3. **Testing**: Run `go test ./...` to execute all tests
 4. **Linting**: Run `./tools/lint.sh` before committing
 5. **CI**: All GitHub Actions workflows must pass

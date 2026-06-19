@@ -117,7 +117,7 @@ func (m *isFollowup) Match(event Event) bool {
 	}
 
 	for _, e := range m.events {
-		if e.ID() != evt.ID() && e.ChainRef() == evt.ChainRef() {
+		if e.ID() != evt.ID() && e.ChainRef() == evt.ChainRef() && e.ChainPosition() < evt.ChainPosition() {
 			return true
 		}
 	}
