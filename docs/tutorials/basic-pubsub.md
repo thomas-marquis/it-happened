@@ -92,7 +92,7 @@ The event will be delivered to all subscribers that have matching callbacks.
 
 See the complete, runnable example:
 
-📁 [examples/basic-pubsub/main.go](../../../examples/basic-pubsub/main.go)
+📁 [examples/basic-pubsub/main.go](https://github.com/thomas-marquis/it-happened/blob/main/examples/basic-pubsub/main.go)
 
 To run it:
 

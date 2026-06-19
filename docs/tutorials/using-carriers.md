@@ -54,16 +54,10 @@ func (p NotificationPayload) EventType() event.Type {
 }
 
 // Create the events
-events := []event.Payload{
-    NotificationPayload{Message: "Welcome email"},
-    NotificationPayload{Message: "Password reset"},
-    NotificationPayload{Message: "Account verified"},
-}
-
-// Convert to ChainableEvent
-var carriedEvents []event.ChainableEvent
-for _, e := range events {
-    carriedEvents = append(carriedEvents, event.New(e))
+events := []event.ChainableEvent{
+    event.New(NotificationPayload{Message: "Welcome email"}),
+    event.New(NotificationPayload{Message: "Password reset"}),
+    event.New(NotificationPayload{Message: "Account verified"}),
 }
 ```
 
@@ -75,7 +69,7 @@ The done event factory is a function that creates the completion event when all 
 func doneFactory(received []event.Event) event.Event {
     return event.New(BatchResultPayload{
         Processed: len(received),
-        Total:     len(carriedEvents),
+        Total:     len(events),
     })
 }
 ```
@@ -84,7 +78,7 @@ func doneFactory(received []event.Event) event.Event {
 
 ```go
 allCarrier := carrier.NewAll(
-    carriedEvents,
+    events,
     doneFactory,
     event.New(TimeoutPayload{Message: "Carrier timed out"}),
     carrier.WithMaxConcurrency(2),  // Process 2 at a time
@@ -104,7 +98,7 @@ The `All` carrier will:
 
 ```go
 sequenceCarrier := carrier.NewSequence(
-    carriedEvents,
+    events,
     doneFactory,
     event.New(TimeoutPayload{Message: "Sequence timed out"}),
     carrier.WithTimeout(5*time.Second),
@@ -125,7 +119,7 @@ The `Sequence` carrier will:
 
 See the complete, runnable example:
 
-📁 [examples/using-carriers/main.go](../../../examples/using-carriers/main.go)
+📁 [examples/using-carriers/main.go](https://github.com/thomas-marquis/it-happened/blob/main/examples/using-carriers/main.go)
 
 To run it:
 

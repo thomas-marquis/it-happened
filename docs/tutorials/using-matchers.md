@@ -98,7 +98,7 @@ This is useful for tracking specific chains of events.
 
 See the complete, runnable example:
 
-📁 [examples/using-matchers/main.go](../../../examples/using-matchers/main.go)
+📁 [examples/using-matchers/main.go](https://github.com/thomas-marquis/it-happened/blob/main/examples/using-matchers/main.go)
 
 To run it:
 

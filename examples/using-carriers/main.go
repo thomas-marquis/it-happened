@@ -54,16 +54,10 @@ func main() {
 	sub.ListenWithWorkers(1)
 
 	// Create some simple events to carry
-	events := []event.Payload{
-		SimplePayload{Name: "Event 1"},
-		SimplePayload{Name: "Event 2"},
-		SimplePayload{Name: "Event 3"},
-	}
-
-	// Convert to ChainableEvent
-	var carriedEvents []event.ChainableEvent
-	for _, e := range events {
-		carriedEvents = append(carriedEvents, event.New(e))
+	events := []event.ChainableEvent{
+		event.New(SimplePayload{Name: "Event 1"}),
+		event.New(SimplePayload{Name: "Event 2"}),
+		event.New(SimplePayload{Name: "Event 3"}),
 	}
 
 	// Example: Using All carrier to dispatch all events
@@ -72,7 +66,7 @@ func main() {
 	fmt.Println("Publishing carrier with 3 events...")
 
 	allCarrier := carrier.NewAll(
-		carriedEvents,
+		events,
 		func(received []event.Event) event.Event {
 			// This function is called when all carried events are completed
 			// For this demo, we'll just return a done event
@@ -91,18 +85,12 @@ func main() {
 	// Reset counter for sequence demo
 	count = 0
 
-	// Create fresh events for sequence carrier
-	var carriedEvents2 []event.ChainableEvent
-	for _, e := range events {
-		carriedEvents2 = append(carriedEvents2, event.New(e))
-	}
-
 	// Example: Using Sequence carrier to dispatch events one at a time
 	fmt.Println("\n=== Sequence Carrier (Sequential Dispatch) ===")
 	fmt.Println("Publishing carrier with 3 events...")
 
 	sequenceCarrier := carrier.NewSequence(
-		carriedEvents2,
+		events,
 		func(received []event.Event) event.Event {
 			return event.New(DonePayload{Count: len(received)})
 		},

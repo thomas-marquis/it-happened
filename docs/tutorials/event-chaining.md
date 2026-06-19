@@ -84,7 +84,7 @@ sub.On(event.Is("order.processed"), func(e event.Event) {
 You can inspect the chain information on any event:
 
 ```go
-sub.On(event.Is("order.completed"), func(e event.Event) {
+sub.On(event.IsOneOf("order.created", "order.processed", "order.completed"), func(e event.Event) {
     if chainableEvt, ok := e.(event.ChainableEvent); ok {
         fmt.Printf("ChainRef: %s, Position: %d\n", 
             chainableEvt.ChainRef(), 
@@ -99,7 +99,7 @@ This will show that all events in the chain share the same ChainRef, but each ha
 
 See the complete, runnable example:
 
-📁 [examples/event-chaining/main.go](../../../examples/event-chaining/main.go)
+📁 [examples/event-chaining/main.go](https://github.com/thomas-marquis/it-happened/blob/main/examples/event-chaining/main.go)
 
 To run it:
 
