@@ -77,7 +77,7 @@ func TestSubscriber_Detach(t *testing.T) {
 		eventChan <- event.New(fakePayload("test"))
 		assert.Equal(t, uint32(1), cnt.Load(), "handler should not be called after detach")
 
-		assert.True(t, sub.Accept(event.New(fakePayload("test"))), "subscriber should still accept matching events after detach")
+		assert.False(t, sub.Accept(event.New(fakePayload("test"))), "subscriber should not accept matching events after detach")
 	})
 }
 
@@ -209,7 +209,7 @@ func TestSubscriber_ListenNonBlocking(t *testing.T) {
 		}
 
 		sub.Detach()
-		assert.True(t, sub.Closed())
+		assert.True(t, sub.Detached())
 	})
 }
 
@@ -232,5 +232,252 @@ func TestSubscriber_PanicAfterListenStarted(t *testing.T) {
 
 		// Then
 		sub.On(event.IsAny(), func(evt event.Event) {})
+	})
+}
+
+func TestSubscriber_DetachClearsCallbacks(t *testing.T) {
+	t.Run("should clear all registered callbacks when Detach is called", func(t *testing.T) {
+		// Given
+		eventChan := make(chan event.Event, 10)
+		sub := event.NewSubscriber(eventChan)
+
+		matcher := event.Is("fake.payload")
+		callback1 := func(evt event.Event) {}
+		callback2 := func(evt event.Event) {}
+
+		sub.On(matcher, callback1)
+		sub.On(matcher, callback2)
+
+		// When
+		sub.Detach()
+
+		// Then
+		// After Detach(), the registered map should be empty
+		// This will fail initially until implementation is added
+		assert.False(t, sub.Accept(event.New(fakePayload("test"))), "subscriber should not accept events after Detach clears callbacks")
+	})
+}
+
+func TestSubscriber_NoCallbacksAfterDetach(t *testing.T) {
+	t.Run("should not invoke any callbacks after Detach is called", func(t *testing.T) {
+		// Given
+		eventChan := make(chan event.Event, 10)
+		sub := event.NewSubscriber(eventChan)
+
+		matcher := event.Is("fake.payload")
+		var called bool
+		sub.On(matcher, func(evt event.Event) {
+			called = true
+		})
+
+		sub.ListenWithWorkers(1)
+
+		// When
+		sub.Detach()
+		eventChan <- event.New(fakePayload("test"))
+
+		// Then
+		// Give some time for the event to be processed
+		time.Sleep(10 * time.Millisecond)
+		assert.False(t, called, "callback should not be invoked after Detach")
+	})
+}
+
+func TestSubscriber_DetachIdempotent(t *testing.T) {
+	t.Run("should be safe to call Detach multiple times", func(t *testing.T) {
+		// Given
+		eventChan := make(chan event.Event, 10)
+		sub := event.NewSubscriber(eventChan)
+
+		// When
+		sub.Detach()
+		sub.Detach() // Second call
+
+		// Then
+		assert.True(t, sub.Detached(), "subscriber should be closed after first Detach")
+		// Should not panic
+	})
+}
+
+func TestSubscriber_OnWithCancel_ReturnsCancelFunction(t *testing.T) {
+	t.Run("should return a cancel function when OnWithCancel is called", func(t *testing.T) {
+		// Given
+		eventChan := make(chan event.Event, 10)
+		sub := event.NewSubscriber(eventChan)
+
+		// When
+		cancel := sub.OnWithCancel(event.Is("fake.payload"), func(evt event.Event) {})
+
+		// Then
+		assert.NotNil(t, cancel, "OnWithCancel should return a cancel function")
+		assert.NotPanics(t, func() {
+			cancel()
+		}, "cancel function should not panic when called")
+	})
+}
+
+func TestSubscriber_OnWithCancel_RemovesSpecificCallback(t *testing.T) {
+	t.Run("should remove the specific callback when cancel is called", func(t *testing.T) {
+		// Given
+		eventChan := make(chan event.Event, 10)
+		sub := event.NewSubscriber(eventChan)
+
+		matcher := event.Is("fake.payload")
+		var called1, called2 bool
+
+		cancel1 := sub.OnWithCancel(matcher, func(evt event.Event) {
+			called1 = true
+		})
+		sub.OnWithCancel(matcher, func(evt event.Event) {
+			called2 = true
+		})
+
+		sub.ListenWithWorkers(1)
+		defer sub.Detach()
+
+		// When
+		cancel1()
+		eventChan <- event.New(fakePayload("test"))
+		time.Sleep(10 * time.Millisecond)
+
+		// Then
+		assert.False(t, called1, "first callback should not be called after cancel")
+		assert.True(t, called2, "second callback should still be called")
+	})
+}
+
+func TestSubscriber_OnWithCancel_MultipleIndependent(t *testing.T) {
+	t.Run("should allow multiple OnWithCancel callbacks to be independent", func(t *testing.T) {
+		// Given
+		eventChan := make(chan event.Event, 10)
+		sub := event.NewSubscriber(eventChan)
+
+		matcher := event.Is("fake.payload")
+		var called1, called2, called3 bool
+
+		cancel1 := sub.OnWithCancel(matcher, func(evt event.Event) { called1 = true })
+		cancel2 := sub.OnWithCancel(matcher, func(evt event.Event) { called2 = true })
+		_ = sub.OnWithCancel(matcher, func(evt event.Event) { called3 = true })
+
+		sub.ListenWithWorkers(1)
+		defer sub.Detach()
+
+		// When - cancel only the first two
+		cancel1()
+		cancel2()
+		eventChan <- event.New(fakePayload("test"))
+		time.Sleep(10 * time.Millisecond)
+
+		// Then
+		assert.False(t, called1, "first callback should not be called")
+		assert.False(t, called2, "second callback should not be called")
+		assert.True(t, called3, "third callback should still be called")
+	})
+}
+
+func TestSubscriber_OnWithCancel_CancelIdempotent(t *testing.T) {
+	t.Run("should be safe to call cancel function multiple times", func(t *testing.T) {
+		// Given
+		eventChan := make(chan event.Event, 10)
+		sub := event.NewSubscriber(eventChan)
+
+		var called bool
+		cancel := sub.OnWithCancel(event.Is("fake.payload"), func(evt event.Event) {
+			called = true
+		})
+
+		sub.ListenWithWorkers(1)
+		defer sub.Detach()
+
+		// When
+		cancel()
+		cancel() // Second call - should be idempotent
+		eventChan <- event.New(fakePayload("test"))
+		time.Sleep(10 * time.Millisecond)
+
+		// Then
+		assert.False(t, called, "callback should not be called after cancel")
+	})
+}
+
+func TestSubscriber_OnWithCancel_ConcurrentCancellation(t *testing.T) {
+	t.Run("should be thread-safe when canceling concurrently", func(t *testing.T) {
+		// Given
+		eventChan := make(chan event.Event, 100)
+		sub := event.NewSubscriber(eventChan)
+
+		matcher := event.Is("fake.payload")
+		var wg sync.WaitGroup
+		callCount := atomic.Int32{}
+
+		// Create many callbacks
+		cancels := make([]func(), 100)
+		for i := 0; i < 100; i++ {
+			cancels[i] = sub.OnWithCancel(matcher, func(evt event.Event) {
+				callCount.Add(1)
+			})
+		}
+
+		sub.ListenWithWorkers(4)
+		defer sub.Detach()
+
+		// When - cancel all concurrently
+		wg.Add(100)
+		for i := 0; i < 100; i++ {
+			go func(idx int) {
+				defer wg.Done()
+				cancels[idx]()
+			}(i)
+		}
+		wg.Wait()
+
+		// Send an event
+		eventChan <- event.New(fakePayload("test"))
+		time.Sleep(50 * time.Millisecond)
+
+		// Then - no callbacks should have been called
+		assert.Equal(t, int32(0), callCount.Load(), "no callbacks should be called after all are cancelled")
+	})
+}
+
+func TestSubscriber_OnWithCancel_DetachAfterCancel(t *testing.T) {
+	t.Run("should work correctly when Detach is called after cancel", func(t *testing.T) {
+		// Given
+		eventChan := make(chan event.Event, 10)
+		sub := event.NewSubscriber(eventChan)
+
+		cancel := sub.OnWithCancel(event.Is("fake.payload"), func(evt event.Event) {
+			// callback
+		})
+
+		// When
+		cancel()
+		sub.Detach()
+
+		// Then
+		assert.True(t, sub.Detached(), "subscriber should be closed")
+		// Should not panic
+	})
+}
+
+func TestSubscriber_OnWithCancel_CancelAfterDetach(t *testing.T) {
+	t.Run("should be safe to call cancel after Detach", func(t *testing.T) {
+		// Given
+		eventChan := make(chan event.Event, 10)
+		sub := event.NewSubscriber(eventChan)
+
+		cancel := sub.OnWithCancel(event.Is("fake.payload"), func(evt event.Event) {
+			// callback
+		})
+
+		// When
+		sub.Detach()
+		// Should not panic
+		assert.NotPanics(t, func() {
+			cancel()
+		}, "cancel should be safe to call after Detach")
+
+		// Then
+		assert.True(t, sub.Detached(), "subscriber should be closed")
 	})
 }

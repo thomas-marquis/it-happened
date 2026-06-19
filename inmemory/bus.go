@@ -101,6 +101,22 @@ func (b *inMemoryBus) Subscribe() *event.Subscriber {
 	return subscriber
 }
 
+func (b *inMemoryBus) Unsubscribe(sub *event.Subscriber) {
+	b.Lock()
+	defer b.Unlock()
+
+	if !sub.Detached() {
+		sub.Detach()
+	}
+
+	for channel, subscriber := range b.subscribers {
+		if subscriber == sub {
+			delete(b.subscribers, channel)
+			break
+		}
+	}
+}
+
 // Publish publishes an event to all subscribers.
 //
 // If the event payload implements the Carrier interface, it dispatches the carrier's events
