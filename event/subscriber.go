@@ -7,7 +7,7 @@ import "sync"
 type Subscriber struct {
 	sync.RWMutex
 
-	registered map[Matcher]func(Event)
+	registered map[Matcher][]func(Event)
 	events     chan Event
 	started    bool
 	done       chan struct{}
@@ -24,7 +24,7 @@ type Subscriber struct {
 //	A new Subscriber instance ready to register callbacks
 func NewSubscriber(event chan Event) *Subscriber {
 	return &Subscriber{
-		registered: make(map[Matcher]func(Event)),
+		registered: make(map[Matcher][]func(Event)),
 		events:     event,
 		done:       make(chan struct{}),
 	}
@@ -50,16 +50,14 @@ func (s *Subscriber) On(matcher Matcher, callback func(Event)) *Subscriber {
 
 	s.Lock()
 	defer s.Unlock()
-	if _, exists := s.registered[matcher]; exists {
-		return s
+	if _, exists := s.registered[matcher]; !exists {
+		s.registered[matcher] = make([]func(Event), 0)
 	}
 
-	s.registered[matcher] = callback
+	s.registered[matcher] = append(s.registered[matcher], callback)
 	return s
 }
 
-// listen is the internal event processing loop.
-// It continuously receives events and invokes matching callbacks.
 func (s *Subscriber) listen() {
 	for {
 		select {
@@ -67,17 +65,14 @@ func (s *Subscriber) listen() {
 			return
 		case event := <-s.events:
 			s.RLock()
-			handlers := make(map[Matcher]func(Event), len(s.registered))
-			for m, cb := range s.registered {
-				handlers[m] = cb
-			}
-			s.RUnlock()
-
-			for matcher, callback := range handlers {
+			for matcher, callbacks := range s.registered {
 				if matcher.Match(event) {
-					callback(event)
+					for _, callback := range callbacks {
+						callback(event)
+					}
 				}
 			}
+			s.RUnlock()
 		}
 	}
 }
@@ -110,17 +105,14 @@ func (s *Subscriber) ListenNonBlocking() {
 				return
 			case event := <-s.events:
 				s.RLock()
-				handlers := make(map[Matcher]func(Event), len(s.registered))
-				for m, cb := range s.registered {
-					handlers[m] = cb
-				}
-				s.RUnlock()
-
-				for matcher, callback := range handlers {
+				for matcher, callbacks := range s.registered {
 					if matcher.Match(event) {
-						go callback(event)
+						for _, callback := range callbacks {
+							go callback(event)
+						}
 					}
 				}
+				s.RUnlock()
 			}
 		}
 	}()
@@ -153,4 +145,13 @@ func (s *Subscriber) Accept(event Event) bool {
 // This method closes the done channel, which signals all listener goroutines to exit.
 func (s *Subscriber) Detach() {
 	close(s.done)
+}
+
+func (s *Subscriber) Closed() bool {
+	select {
+	case _, ok := <-s.done:
+		return !ok
+	default:
+		return false
+	}
 }

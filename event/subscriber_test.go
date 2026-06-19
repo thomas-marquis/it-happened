@@ -1,7 +1,10 @@
 package event_test
 
 import (
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/thomas-marquis/it-happened/event"
@@ -15,114 +18,147 @@ func (fakePayload3) EventType() event.Type {
 }
 
 func TestSubscriber_Register(t *testing.T) {
-	t.Run("Given subscriber, When it registers a handler with a matcher, Then handler is invoked for matching events", func(t *testing.T) {
+	t.Run("should call the registered callback when an event matching the registered matcher is published", func(t *testing.T) {
 		// Given
 		eventChan := make(chan event.Event, 10)
 		sub := event.NewSubscriber(eventChan)
 
 		matcher := event.Is("fake.payload")
 
-		// When - register handler BEFORE starting to listen
+		var (
+			cnt atomic.Uint32
+			wg  sync.WaitGroup
+		)
+		wg.Add(1)
 		result := sub.On(matcher, func(evt event.Event) {
-			// Handler called
+			cnt.Add(1)
+			wg.Done()
 		})
 
-		// Start listening
 		sub.ListenWithWorkers(1)
 		defer sub.Detach()
 
-		// Publish a matching event
-		matchingEvent := event.New(fakePayload("test"))
+		// When
+		eventChan <- event.New(fakePayload("test"))
+		wg.Wait()
 
-		// Then - verify handler was registered
-		assert.True(t, sub.Accept(matchingEvent), "subscriber should accept matching events")
-
-		// Verify the On method returned the subscriber for chaining
+		// Then
+		assert.True(t, sub.Accept(event.New(fakePayload("test"))), "subscriber should accept matching events")
 		assert.Equal(t, sub, result, "On should return the subscriber for chaining")
 	})
 }
 
-func TestSubscriber_Unregister(t *testing.T) {
-	t.Run("Given subscriber with registered handler, When it unsubscribes, Then handler is no longer invoked", func(t *testing.T) {
+func TestSubscriber_Detach(t *testing.T) {
+	t.Run("should no longer invoke a registered callback when detached", func(t *testing.T) {
 		// Given
-		eventChan := make(chan event.Event, 10)
+		eventChan := make(chan event.Event, 1)
 		sub := event.NewSubscriber(eventChan)
 
 		matcher := event.Is("fake.payload")
 
-		// Register handler BEFORE starting to listen
+		var (
+			cnt atomic.Uint32
+			wg  sync.WaitGroup
+		)
+		wg.Add(1)
 		sub.On(matcher, func(evt event.Event) {
-			// Handler called
+			cnt.Add(1)
+			wg.Done()
 		})
 
-		// Start listening
 		sub.ListenWithWorkers(1)
 
-		// When - detach the subscriber (unregister all handlers)
-		// This should stop all listeners
-		sub.Detach()
+		// When & Then
+		eventChan <- event.New(fakePayload("test"))
+		wg.Wait()
+		assert.Equal(t, uint32(1), cnt.Load(), "handler should be called once")
 
-		// Then - verify that the subscriber's Accept method still works
-		// (it doesn't depend on the listening state)
+		sub.Detach()
+		eventChan <- event.New(fakePayload("test"))
+		assert.Equal(t, uint32(1), cnt.Load(), "handler should not be called after detach")
+
 		assert.True(t, sub.Accept(event.New(fakePayload("test"))), "subscriber should still accept matching events after detach")
 	})
 }
 
 func TestSubscriber_MultipleHandlers(t *testing.T) {
-	t.Run("Given subscriber with multiple handlers, When matching event is published, Then all matching handlers are invoked", func(t *testing.T) {
+	t.Run("should invoke all matching handlers when multiple handlers are registered with the same matcher", func(t *testing.T) {
 		// Given
-		eventChan := make(chan event.Event, 10)
+		eventChan := make(chan event.Event, 1)
 		sub := event.NewSubscriber(eventChan)
 
 		matcher := event.Is("fake.payload")
 
-		// Register multiple handlers for the same matcher BEFORE starting to listen
+		var (
+			wg1, wg2 sync.WaitGroup
+			w1Done   = make(chan struct{})
+			w2Done   = make(chan struct{})
+		)
+
+		wg1.Add(1)
 		sub.On(matcher, func(evt event.Event) {
-			// Handler 1 called
+			wg1.Done()
+			close(w1Done)
+			println("handler 1")
 		})
+		wg2.Add(1)
 		sub.On(matcher, func(evt event.Event) {
-			// Handler 2 called
+			wg2.Done()
+			close(w2Done)
 		})
 
-		// Start listening
 		sub.ListenWithWorkers(1)
 		defer sub.Detach()
 
-		// Then - verify both handlers are registered
+		// Then
 		assert.True(t, sub.Accept(event.New(fakePayload("test"))), "subscriber should accept matching events")
+		eventChan <- event.New(fakePayload("test"))
 
-		// Note: We can't easily test that both handlers are called without
-		// complex synchronization, but we can verify they were registered
+		wg1.Wait()
+		select {
+		case <-w1Done:
+			println("handler 1")
+		case <-time.After(time.Second):
+			t.Fatal("timeout waiting for handler 1")
+		}
+
+		wg2.Wait()
+		select {
+		case <-w2Done:
+			println("handler 2")
+		case <-time.After(time.Second):
+			t.Fatal("timeout waiting for handler 2")
+		}
 	})
 }
 
 func TestSubscriber_NonMatching(t *testing.T) {
-	t.Run("Given subscriber with handler for specific matcher, When non-matching event is published, Then handler is NOT invoked", func(t *testing.T) {
+	t.Run("should not invoke a callback when the matcher does not match the event", func(t *testing.T) {
 		// Given
 		eventChan := make(chan event.Event, 10)
 		sub := event.NewSubscriber(eventChan)
 
 		matcher := event.Is("fake.payload")
 
-		// Register handler for specific matcher BEFORE starting to listen
+		var called bool
 		sub.On(matcher, func(evt event.Event) {
-			// Handler called
+			called = true
 		})
 
-		// Start listening
 		sub.ListenWithWorkers(1)
 		defer sub.Detach()
 
-		// When - check with non-matching event
+		// When
 		nonMatchingEvent := event.New(fakePayload2{})
 
 		// Then
 		assert.False(t, sub.Accept(nonMatchingEvent), "subscriber should not accept non-matching events")
+		assert.False(t, called, "handler should not be called")
 	})
 }
 
 func TestSubscriber_Accept(t *testing.T) {
-	t.Run("Given subscriber with registered matchers, When Accept is called, Then it returns true if any matcher matches", func(t *testing.T) {
+	t.Run("should returns true if any matcher matches the event", func(t *testing.T) {
 		// Given
 		eventChan := make(chan event.Event, 10)
 		sub := event.NewSubscriber(eventChan)
@@ -130,15 +166,12 @@ func TestSubscriber_Accept(t *testing.T) {
 		matcher1 := event.Is("fake.payload")
 		matcher2 := event.Is("fake.payload.2")
 
-		// Register handlers with different matchers
 		sub.On(matcher1, func(evt event.Event) {})
 		sub.On(matcher2, func(evt event.Event) {})
 
-		// Then - verify Accept works correctly
+		// When & Then
 		assert.True(t, sub.Accept(event.New(fakePayload("test"))), "should accept fake.payload events")
 		assert.True(t, sub.Accept(event.New(fakePayload2{})), "should accept fake.payload.2 events")
-		// fakePayload always has type "fake.payload", so it will match matcher1
-		// We need a truly different type - use IsAny matcher to test the negative case
 		assert.False(t, sub.Accept(event.New(fakePayload3{})), "should not accept different event types")
 	})
 }
@@ -146,26 +179,47 @@ func TestSubscriber_Accept(t *testing.T) {
 func TestSubscriber_ListenNonBlocking(t *testing.T) {
 	t.Run("Given subscriber, When ListenNonBlocking is called, Then it starts listening in a goroutine", func(t *testing.T) {
 		// Given
-		eventChan := make(chan event.Event, 10)
+		eventChan := make(chan event.Event)
+		//defer close(eventChan)
+
 		sub := event.NewSubscriber(eventChan)
 
-		// When/Then - should not panic
+		sub.On(event.IsAny(), func(evt event.Event) {
+			time.Sleep(200 * time.Millisecond)
+		})
+
+		// When/Then
 		assert.NotPanics(t, func() {
 			sub.ListenNonBlocking()
-			// Give it time to start
-			// Close the channel to allow the goroutine to exit
-			close(eventChan)
 		})
+
+		done := make(chan struct{})
+		go func() {
+			eventChan <- event.New(fakePayload("test"))
+			eventChan <- event.New(fakePayload("test"))
+			eventChan <- event.New(fakePayload("test"))
+			eventChan <- event.New(fakePayload2{})
+			close(done)
+		}()
+
+		select {
+		case <-done:
+		case <-time.After(100 * time.Millisecond):
+			t.Fatal("timeout waiting for events")
+		}
+
+		sub.Detach()
+		assert.True(t, sub.Closed())
 	})
 }
 
 func TestSubscriber_PanicAfterListenStarted(t *testing.T) {
-	t.Run("Given subscriber after listening started, When On is called, Then it panics", func(t *testing.T) {
+	t.Run("should panic when a callback is registered after the listening has started", func(t *testing.T) {
 		// Given
 		eventChan := make(chan event.Event, 10)
 		sub := event.NewSubscriber(eventChan)
 
-		// Start listening
+		// When
 		sub.ListenWithWorkers(1)
 		defer func() {
 			if r := recover(); r != nil {
@@ -176,7 +230,7 @@ func TestSubscriber_PanicAfterListenStarted(t *testing.T) {
 			}
 		}()
 
-		// When/Then - should panic
+		// Then
 		sub.On(event.IsAny(), func(evt event.Event) {})
 	})
 }

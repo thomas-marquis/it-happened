@@ -47,6 +47,7 @@ func TestEvent_NewFollowup(t *testing.T) {
 		assert.Equal(t, parent.ChainRef(), followup.ChainRef())
 		assert.Equal(t, uint(1), followup.ChainPosition())
 		assert.NotEqual(t, parent.ID(), followup.ID())
+		assert.Equal(t, parent.ID(), followup.ChainRef())
 	})
 }
 
