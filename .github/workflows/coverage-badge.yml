@@ -66,13 +66,13 @@ jobs:
           
           # Create badge SVG
           cat > badge.svg << EOF
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="100" height="20">
-  <rect width="100" height="20" rx="3" fill="#555"/>
-  <rect width="60" height="20" rx="3" fill="#${COLOR}"/>
-  <text x="50" y="14" text-anchor="middle" fill="white" font-size="11" font-family="Verdana, Geneva, DejaVu Sans, sans-serif">Coverage</text>
-  <text x="30" y="14" text-anchor="middle" fill="white" font-size="11" font-family="Verdana, Geneva, DejaVu Sans, sans-serif">${COVERAGE}%</text>
-</svg>
-EOF
+          <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="100" height="20">
+            <rect width="100" height="20" rx="3" fill="#555"/>
+            <rect width="60" height="20" rx="3" fill="#${COLOR}"/>
+            <text x="50" y="14" text-anchor="middle" fill="white" font-size="11" font-family="Verdana, Geneva, DejaVu Sans, sans-serif">Coverage</text>
+            <text x="30" y="14" text-anchor="middle" fill="white" font-size="11" font-family="Verdana, Geneva, DejaVu Sans, sans-serif">${COVERAGE}%</text>
+          </svg>
+          EOF
           
           # For shields.io style badge, we'll use their URL format
           # But we need to update the README with the actual percentage
