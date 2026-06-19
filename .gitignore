@@ -26,6 +26,7 @@ go.work.sum
 
 # env file
 .env
+.env.*
 
 # Editor/IDE
 .idea/
@@ -33,3 +34,24 @@ go.work.sum
 .cache/
 .junie/
 /.run/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+
+# Go build artifacts
+vendor/
+*.exe
+*.test
+*.out
+
+# Coverage files
+coverage.*
+*.coverprofile
+profile.cov
+
+# Mock files
+mocks/
+internal/mocks/

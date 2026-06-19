@@ -72,3 +72,40 @@ func TestIsFollowupOf(t *testing.T) {
 		assert.False(t, res)
 	})
 }
+
+func TestIsOneOf(t *testing.T) {
+	t.Run("should match when event type matches one of the given types", func(t *testing.T) {
+		// Given
+		m := event.IsOneOf("fake.payload", "other.payload", "fake.payload.2")
+		evt := event.New(fakePayload("test"))
+
+		// When
+		res := m.Match(evt)
+
+		// Then
+		assert.True(t, res)
+	})
+
+	t.Run("should not match when event type does not match any of the given types", func(t *testing.T) {
+		// Given
+		m := event.IsOneOf("other.payload", "different.payload")
+		evt := event.New(fakePayload("test"))
+
+		// When
+		res := m.Match(evt)
+
+		// Then
+		assert.False(t, res)
+	})
+}
+
+func TestIsAny(t *testing.T) {
+	t.Run("should match any event", func(t *testing.T) {
+		// Given
+		m := event.IsAny()
+
+		// When/Then - should match all event types
+		assert.True(t, m.Match(event.New(fakePayload("test"))))
+		assert.True(t, m.Match(event.New(fakePayload2{})))
+	})
+}

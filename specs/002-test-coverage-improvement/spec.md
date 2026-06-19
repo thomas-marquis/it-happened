@@ -14,6 +14,7 @@
 
 - Q: How should the coverage badge be implemented? → A: Generate badge via GitHub Actions
 - Q: What local coverage computation method should be documented for maintainers? → A: Add a Makefile target
+- Q: Should we explicitly verify event order for Sequence carrier? → A: Yes, add explicit order verification acceptance scenarios
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -45,9 +46,14 @@ Developers need to be able to write reliable unit tests for event carrier implem
 **Acceptance Scenarios**:
 
 1. **Given** a test for the All carrier, **When** Dispatch is called, **Then** all events in the carrier are published to the bus
-2. **Given** a test for the Sequence carrier, **When** Dispatch is called, **Then** events are published sequentially to the bus
-3. **Given** a test with carrier options, **When** a carrier is created with timeout/concurrency options, **Then** the carrier respects these configuration values
-4. **Given** a test with completion conditions, **When** a custom completion condition is set, **Then** the carrier uses it to determine event completion
+2. **Given** a test for the All carrier with followup events, **When** all followup events are emitted, **Then** the completion event is published
+3. **Given** a test for the All carrier with timeout, **When** the timeout duration is exceeded, **Then** the timeout event is published
+4. **Given** a test for the Sequence carrier, **When** Dispatch is called, **Then** events are published sequentially to the bus
+5. **Given** a test for the Sequence carrier with multiple events, **When** Dispatch is called, **Then** events are published in the exact order they were added to the carrier
+6. **Given** a test for the Sequence carrier with followup events, **When** all followup events are emitted, **Then** the completion event is published
+7. **Given** a test for the Sequence carrier with timeout, **When** the timeout duration is exceeded, **Then** the timeout event is published
+8. **Given** a test with carrier options, **When** a carrier is created with timeout/concurrency options, **Then** the carrier respects these configuration values
+9. **Given** a test with completion conditions, **When** a custom completion condition is set, **Then** the carrier uses it to determine event completion
 
 ---
 
@@ -106,11 +112,13 @@ The project must achieve a minimum test coverage threshold (to be determined) ac
 
 - What happens when testing concurrent event publishing with the inmemory bus? (Tests must handle synchronization properly)
 - How do we test that event carriers correctly dispatch events when the bus has no subscribers? (Events should still be published without errors)
-- What happens when a carrier's timeout is exceeded during dispatch? (Should be tested with controlled timing)
+- What happens when a carrier's timeout is exceeded during dispatch? (Tests must verify timeout event is published)
 - How do we test that subscribers correctly handle events with nil payloads? (Edge case in event creation)
 - What happens when multiple goroutines publish and subscribe simultaneously? (Tests must be thread-safe and detect race conditions)
-- How do we verify that the All carrier dispatches events in parallel? (Need to test concurrent execution)
-- How do we verify that the Sequence carrier dispatches events sequentially? (Need to test ordered execution)
+- How do we verify that the All carrier dispatches events in parallel? (Need to test concurrent execution with order not preserved)
+- How do we verify that the Sequence carrier dispatches events sequentially in the exact expected order? (Need to test ordered execution)
+- How do we verify that both All and Sequence carriers correctly handle followup event emission? (Tests must verify completion events are published)
+- How do we simulate and verify timeout scenarios for both carrier types? (Tests must verify timeout events are published)
 
 ## Requirements *(mandatory)*
 
@@ -119,26 +127,30 @@ The project must achieve a minimum test coverage threshold (to be determined) ac
 - **FR-001**: The inmemory bus MUST have comprehensive unit tests covering Publish, Subscribe, and concurrent operations
 - **FR-002**: The inmemory bus tests MUST verify that published events are delivered to all matching subscribers
 - **FR-003**: The inmemory bus tests MUST verify thread-safety under concurrent publish and subscribe operations
-- **FR-004**: The All carrier MUST have unit tests covering Dispatch with multiple events
-- **FR-005**: The Sequence carrier MUST have unit tests covering Dispatch with ordered event delivery
-- **FR-006**: All carrier implementations MUST have tests for configuration options (timeout, concurrency, completion conditions)
-- **FR-007**: The notifier component MUST have unit tests for notification delivery
-- **FR-008**: Event options MUST have unit tests for all configuration possibilities
-- **FR-009**: The subscriber component MUST have unit tests for handler registration, matching, and unsubscription
-- **FR-010**: All new tests MUST follow the project's existing test conventions (testify/assert, t.Run subtests, Given/When/Then comments)
-- **FR-011**: All new tests MUST be able to run with `go test ./...` without errors
-- **FR-012**: CONTRIBUTE.md MUST be updated with a new "Testing Strategy" section
-- **FR-013**: The Testing Strategy section MUST include specific guidance for testing asynchronous components
-- **FR-014**: The Testing Strategy section MUST include examples for testing event buses
-- **FR-015**: The Testing Strategy section MUST include examples for testing event carriers
-- **FR-016**: The Testing Strategy section MUST document best practices for mocking with gomock
-- **FR-017**: The Testing Strategy section MUST explain how to test concurrent operations safely
-- **FR-018**: All tests MUST achieve at least 80% code coverage for their respective packages
-- **FR-019**: All tests MUST pass the existing linting checks in ./tools/lint.sh
-- **FR-020**: A GitHub Actions workflow MUST be created to generate a coverage badge
-- **FR-021**: README.md MUST be updated to display the coverage badge
-- **FR-022**: CONTRIBUTE.md Testing Strategy section MUST document how maintainers can compute coverage locally
-- **FR-023**: A Makefile target MUST be added for local coverage computation
+- **FR-004**: The All carrier MUST have unit tests covering Dispatch with multiple events in parallel
+- **FR-005**: The All carrier tests MUST verify that event order is NOT preserved (dispatches in parallel)
+- **FR-006**: The Sequence carrier MUST have unit tests covering Dispatch with ordered event delivery
+- **FR-007**: The Sequence carrier MUST have unit tests verifying events are published in the exact order they were added
+- **FR-008**: All carrier implementations MUST have tests for followup event emission scenarios
+- **FR-009**: All carrier implementations MUST have tests for timeout scenarios
+- **FR-010**: All carrier implementations MUST have tests for configuration options (timeout, concurrency, completion conditions)
+- **FR-011**: The notifier component MUST have unit tests for notification delivery
+- **FR-012**: Event options MUST have unit tests for all configuration possibilities
+- **FR-013**: The subscriber component MUST have unit tests for handler registration, matching, and unsubscription
+- **FR-014**: All new tests MUST follow the project's existing test conventions (testify/assert, t.Run subtests, Given/When/Then comments)
+- **FR-015**: All new tests MUST be able to run with `go test ./...` without errors
+- **FR-016**: CONTRIBUTE.md MUST be updated with a new "Testing Strategy" section
+- **FR-017**: The Testing Strategy section MUST include specific guidance for testing asynchronous components
+- **FR-018**: The Testing Strategy section MUST include examples for testing event buses
+- **FR-019**: The Testing Strategy section MUST include examples for testing event carriers
+- **FR-020**: The Testing Strategy section MUST document best practices for mocking with gomock
+- **FR-021**: The Testing Strategy section MUST explain how to test concurrent operations safely
+- **FR-022**: All tests MUST achieve at least 80% code coverage for their respective packages
+- **FR-023**: All tests MUST pass the existing linting checks in ./tools/lint.sh
+- **FR-024**: A GitHub Actions workflow MUST be created to generate a coverage badge
+- **FR-025**: README.md MUST be updated to display the coverage badge
+- **FR-026**: CONTRIBUTE.md Testing Strategy section MUST document how maintainers can compute coverage locally
+- **FR-027**: A Makefile target MUST be added for local coverage computation
 
 ### Key Entities *(include if feature involves data)*
 
