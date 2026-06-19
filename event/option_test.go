@@ -8,6 +8,8 @@ import (
 	"github.com/thomas-marquis/it-happened/event"
 )
 
+type kType string
+
 func TestOption_Apply(t *testing.T) {
 	t.Run("Given event with options applied, When options are applied, Then they correctly configure the event properties", func(t *testing.T) {
 		// Given
@@ -29,8 +31,8 @@ func TestOption_Apply(t *testing.T) {
 func TestOption_Compose(t *testing.T) {
 	t.Run("Given multiple options, When applied to the same event, Then all options are applied in order", func(t *testing.T) {
 		// Given
-		ctx1 := context.WithValue(context.Background(), "key1", "value1")
-		ctx2 := context.WithValue(context.Background(), "key2", "value2")
+		ctx1 := context.WithValue(context.Background(), kType("key1"), "value1")
+		ctx2 := context.WithValue(context.Background(), kType("key2"), "value2")
 		ref1 := "ref1"
 		ref2 := "ref2"
 
@@ -78,7 +80,7 @@ func TestOption_NilContext(t *testing.T) {
 	t.Run("Given event with nil context, When WithContext is called with nil, Then it uses background context", func(t *testing.T) {
 		// Given/When
 		evt := event.New(fakePayload("test"),
-			event.WithContext(nil),
+			event.WithContext(nil), // nolint:staticcheck
 		)
 
 		// Then

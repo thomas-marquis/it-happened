@@ -38,25 +38,6 @@ func setupBus(t *testing.T) (func(), event.Bus) {
 	return func() { close(done) }, bus
 }
 
-// setupSubscriber creates a subscriber on the given bus that collects received events.
-// t.Helper() is called to mark this as a helper function.
-func setupSubscriber(t *testing.T, bus event.Bus, matcher event.Matcher, workers int) (*event.Subscriber, *[]event.Event, *sync.Mutex, *sync.WaitGroup) {
-	t.Helper()
-	var received []event.Event
-	var mu sync.Mutex
-	var wg sync.WaitGroup
-
-	sub := bus.Subscribe().On(matcher, func(evt event.Event) {
-		mu.Lock()
-		received = append(received, evt)
-		mu.Unlock()
-		wg.Done()
-	})
-	sub.ListenWithWorkers(workers)
-
-	return sub, &received, &mu, &wg
-}
-
 // waitForEvents waits for the waitgroup and returns the received events.
 // t.Helper() is called to mark this as a helper function.
 func waitForEvents(t *testing.T, wg *sync.WaitGroup, timeout time.Duration) chan struct{} {

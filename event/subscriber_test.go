@@ -419,7 +419,6 @@ func TestSubscriber_OnWithCancel_ConcurrentCancellation(t *testing.T) {
 		var wg sync.WaitGroup
 		callCount := atomic.Int32{}
 
-		// Create many callbacks
 		cancels := make([]func(), 100)
 		for i := 0; i < 100; i++ {
 			cancels[i] = sub.OnWithCancel(matcher, func(evt event.Event) {
@@ -430,7 +429,7 @@ func TestSubscriber_OnWithCancel_ConcurrentCancellation(t *testing.T) {
 		sub.ListenWithWorkers(4)
 		defer sub.Detach()
 
-		// When - cancel all concurrently
+		// When
 		wg.Add(100)
 		for i := 0; i < 100; i++ {
 			go func(idx int) {
@@ -440,11 +439,10 @@ func TestSubscriber_OnWithCancel_ConcurrentCancellation(t *testing.T) {
 		}
 		wg.Wait()
 
-		// Send an event
 		eventChan <- event.New(fakePayload("test"))
 		time.Sleep(50 * time.Millisecond)
 
-		// Then - no callbacks should have been called
+		// Then
 		assert.Equal(t, int32(0), callCount.Load(), "no callbacks should be called after all are cancelled")
 	})
 }

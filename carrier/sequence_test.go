@@ -121,7 +121,8 @@ func TestSequenceCarrier_OrderedDispatch(t *testing.T) {
 				payload := evt.Payload().(testPayload)
 				// Parse the number from the payload
 				var index int
-				fmt.Sscanf(string(payload), "event%d", &index)
+				_, err := fmt.Sscanf(string(payload), "event%d", &index)
+				require.NoError(t, err)
 				receivedOrder = append(receivedOrder, index)
 				mu.Unlock()
 				// Publish a followup to allow sequence to continue
@@ -296,7 +297,8 @@ func TestSequenceCarrier_SequentialOrder(t *testing.T) {
 				mu.Lock()
 				payload := evt.Payload().(testPayload)
 				var index int
-				fmt.Sscanf(string(payload), "event%d", &index)
+				_, err := fmt.Sscanf(string(payload), "event%d", &index)
+				require.NoError(t, err)
 				receivedOrder = append(receivedOrder, index)
 				mu.Unlock()
 				// Publish a followup to allow sequence to continue
