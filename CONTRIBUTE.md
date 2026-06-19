@@ -74,12 +74,12 @@ All test files should follow these conventions:
 - **Organization**: Each test function should contain a single subtest using `t.Run()` with a descriptive name.
 - **Structure**: Use Given/When/Then comments to clearly separate test phases:
   ```go
-  t.Run("Given <setup>, When <action>, Then <expected result>", func(t *testing.T) {
-      // Given: Setup test conditions
+  t.Run("should ... when ...", func(t *testing.T) {
+      // Given
       
-      // When: Execute the operation under test
+      // When
       
-      // Then: Verify the results
+      // Then
   })
   ```
 - **Subtests**: For complex scenarios, nest additional `t.Run()` calls within the main test function to test multiple cases.

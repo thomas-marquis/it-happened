@@ -1,6 +1,6 @@
 # Feature Specification: Subscriber Unsubscribe Capability
 
-**Feature ID**: 003 | **Status**: Draft | **Date**: 2026-06-19 | **Author**: Thomas Marquis
+**Feature ID**: 003 | **Status**: Implemented | **Date**: 2026-06-19 | **Author**: Thomas Marquis | **Implementation Date**: 2026-06-19
 
 ## Overview
 
@@ -186,5 +186,20 @@ None identified at this time.
 
 ---
 
-**Approval Status**: Pending  
-**Next Steps**: Proceed to implementation planning (/speckit-plan)
+**Approval Status**: Approved  
+**Next Steps**: N/A - Implementation Complete
+
+---
+
+## Implementation Notes
+
+**Documentation Updates Required**:
+- [ ] Update README.md to document the new `OnWithCancel()` method
+- [ ] Add usage examples in the `examples/` directory demonstrating fine-grained subscription cancellation
+- [ ] Update any existing documentation that references Subscriber cleanup behavior
+
+**Related Changes**:
+- Fixed a bug in `carrier/sequence.go` where `close(finished)` could be called multiple times, causing a panic. Added `sync.Once` protection.
+
+**Breaking Changes**:
+- `Detach()` now clears all registered callbacks, which means `Accept()` will return `false` for all events after Detach(). This is intentional to fix memory leaks. Existing code that relied on `Accept()` returning true after Detach() will need to be updated.

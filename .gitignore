@@ -51,7 +51,3 @@ vendor/
 coverage.*
 *.coverprofile
 profile.cov
-
-# Mock files
-mocks/
-internal/mocks/

@@ -1,199 +1,274 @@
 ---
-description: "Task list for Subscriber Unsubscribe Capability feature implementation"
+
+description: "Task list for documentation updates - Feature 003: Subscriber Unsubscribe Capability"
 ---
 
-# Tasks: Subscriber Unsubscribe Capability
-
-**Feature ID**: 003 | **Branch**: `feat/subscriber-unsubscribe` | **Date**: 2026-06-19
+# Tasks: Subscriber Unsubscribe Capability - Documentation Updates
 
 **Input**: Design documents from `/specs/003-subscriber-unsubscribe/`
 
-**Prerequisites**: plan.md (required), spec.md (required)
+**Prerequisites**: plan.md, spec.md
 
-**Tests**: Tests are INCLUDED per project's Test-First Development principle (II. NON-NEGOTIABLE)
+**Tests**: Not applicable - documentation only tasks
 
-**Organization**: Tasks are grouped by user story to enable independent implementation and testing.
+**Organization**: Tasks are grouped by documentation area to enable focused updates.
+
+**NOTE**: This tasks.md focuses EXCLUSIVELY on documentation updates (README, docs/, CONTRIBUTE.md, examples/, mkdocs.yml). No code modification tasks are included per user request.
 
 ## Format: `[ID] [P?] [Story] Description`
 
 - **[P]**: Can run in parallel (different files, no dependencies)
-- **[Story]**: Which user story this task belongs to (e.g., US1, US2)
+- **[Story]**: Which user story this task belongs to (US-001, US-002)
 - Include exact file paths in descriptions
 
 ---
 
-## Phase 1: Setup (Shared Infrastructure)
+## Phase 1: Setup (Documentation Planning)
 
-**Purpose**: No shared infrastructure needed - using existing project structure
+**Purpose**: Understand the feature and plan documentation updates
 
-- [X] T001 Verify Go 1.25+ environment is available
+- [ ] T001 Review feature spec.md Implementation Notes section for documentation requirements
+- [ ] T002 Inventory existing documentation that references Subscriber behavior
+- [ ] T003 Create checklist of all documentation files needing updates
 
----
-
-## Phase 2: Foundational (Blocking Prerequisites)
-
-**Purpose**: Core changes that all user stories depend on
-
-- [X] T002 [P] Review existing Subscriber implementation in event/subscriber.go
-- [X] T003 [P] Review existing test patterns in event/*_test.go files
+**Checkpoint**: All documentation requirements identified and prioritized
 
 ---
 
-## Phase 3: User Story 1 - Clean up temporary subscriptions in Sequence carrier [US-001]
+## Phase 2: README.md Updates
 
-**Goal**: Fix memory leaks from dynamic subscriptions in carrier/Sequence by ensuring Detach() clears all callbacks
+**Purpose**: Update the main README to reflect new OnWithCancel() functionality and Detach() behavior change
 
-**Independent Test Criteria**: 
-- Detach() clears the registered callbacks map
-- No callbacks fire after Detach() is called
-- Sequence carrier processes multiple events without memory leaks
+**Goal**: Library users understand the new subscription management capabilities from the README
 
-### Tests
-- [X] T101 [P] [US-001] Write test: Detach() clears all registered callbacks in event/subscriber_test.go
-- [X] T102 [P] [US-001] Write test: No callbacks invoked after Detach() in event/subscriber_test.go
-- [X] T103 [P] [US-001] Write test: Detach() is idempotent in event/subscriber_test.go
-- [X] T104 [P] [US-001] Write test: Sequence carrier doesn't leak memory with repeated usage in carrier/sequence_test.go
+**Independent Test**: README.md renders correctly on GitHub, all links are valid
 
-### Implementation
-- [X] T105 [US-001] Implement Detach() to clear registered map in event/subscriber.go
+- [ ] T004 [P] Update Features section in README.md to mention fine-grained subscription cancellation
+- [ ] T005 [P] Add OnWithCancel() method to Usage examples in README.md
+- [ ] T006 [P] Document Detach() behavior change in README.md (clears all callbacks)
+- [ ] T007 [P] Add code example showing OnWithCancel() usage pattern in README.md
+- [ ] T008 [P] Update README.md examples reference to include new subscription examples
 
-**Dependencies**: T101, T102, T103 (tests must fail before implementation)
-
-**Parallel Opportunities**: T101-T104 can run in parallel (different test scenarios)
+**Checkpoint**: README.md fully updated with new feature information
 
 ---
 
-## Phase 4: User Story 2 - Remove specific event handlers dynamically [US-002]
+## Phase 3: Core Documentation Updates (docs/)
 
-**Goal**: Enable fine-grained removal of individual callbacks via OnWithCancel() method
+**Purpose**: Update project documentation to include new subscription management capabilities
 
-**Independent Test Criteria**: 
-- OnWithCancel() returns a working cancellation function
-- Calling cancel function stops the specific callback
-- Other callbacks on the same Subscriber remain active
-- Multiple callbacks can be independently cancelled
+**Goal**: All documentation reflects the new API and behavior accurately
 
-### Tests
-- [X] T201 [P] [US-002] Write test: OnWithCancel() returns cancel function in event/subscriber_test.go
-- [X] T202 [P] [US-002] Write test: Cancel function removes specific callback in event/subscriber_test.go
-- [X] T203 [P] [US-002] Write test: Multiple OnWithCancel() callbacks are independent in event/subscriber_test.go
-- [X] T204 [P] [US-002] Write test: Cancel function is idempotent in event/subscriber_test.go
-- [X] T205 [P] [US-002] Write test: Concurrent cancellation is thread-safe in event/subscriber_test.go
-- [X] T206 [P] [US-002] Write test: Detach() after cancel works correctly in event/subscriber_test.go
-- [X] T207 [P] [US-002] Write test: Cancel after Detach() is safe (no-op) in event/subscriber_test.go
+**Independent Test**: `mkdocs build` completes without errors, all internal links work
 
-### Implementation
-- [X] T208 [US-002] Implement OnWithCancel() method in event/subscriber.go
+### Concept Documentation
 
-**Dependencies**: T201-T207 (tests must fail before implementation)
+- [ ] T009 [P] [US-001] [US-002] Update docs/concepts.md Subscriber section to explain callback persistence
+- [ ] T010 [P] [US-001] [US-002] Add OnWithCancel() method description in docs/concepts.md
+- [ ] T011 [P] [US-001] [US-002] Document Detach() behavior change in docs/concepts.md
+- [ ] T012 [P] [US-001] [US-002] Add new "Subscription Management" concept section in docs/concepts.md
 
-**Parallel Opportunities**: T201-T207 can run in parallel (different test scenarios)
+### Tutorial Documentation
 
----
+- [ ] T013 [P] [US-001] [US-002] Create docs/tutorials/subscription-management.md with comprehensive OnWithCancel() tutorial
+- [ ] T014 [P] [US-001] Update docs/tutorials/basic-pubsub.md to reference OnWithCancel() as advanced feature
+- [ ] T015 [P] [US-002] Update docs/tutorials/using-carriers.md to show memory management with new API
 
-## Phase 5: Documentation & Polish
+### API References
 
-**Purpose**: Final touches and cross-cutting concerns
+- [ ] T016 [P] [US-001] [US-002] Update docs/references.md to include OnWithCancel() in API documentation
 
-- [X] T301 [P] Update On() Go doc comment to document persistence until Detach() in event/subscriber.go
-- [X] T302 [P] Add Go doc comment for OnWithCancel() method in event/subscriber.go
-- [X] T303 [P] Add Go doc comment for modified Detach() behavior in event/subscriber.go
+**Checkpoint**: All docs/ files updated with subscription management content
 
 ---
 
-## Phase 6: Integration & Verification
+## Phase 4: Examples Directory
 
-**Purpose**: Ensure all components work together correctly
+**Purpose**: Provide runnable examples demonstrating the new functionality
 
-- [X] T401 Run all existing tests to verify no regressions: `go test ./...`
-- [X] T402 Run all new tests to verify functionality: `go test ./event/... -run TestSubscriber`
-- [ ] T403 Run all tests with race detector: `go test -race ./...` (Skipped - requires more time)
-- [X] T404 Run lint script: `./tools/lint.sh` (Skipped - golangci-lint not installed)
-- [X] T405 Verify carrier/Sequence tests still pass in carrier/sequence_test.go
+**Goal**: Users can see practical usage patterns for OnWithCancel() and proper cleanup
 
-**Dependencies**: All Phase 3-5 tasks must be complete
+**Independent Test**: Each example compiles and runs successfully with `go run`
 
----
+- [ ] T017 [P] [US-001] Create examples/subscription-cancellation/main.go demonstrating OnWithCancel()
+- [ ] T018 [P] [US-001] Create example showing temporary subscriptions with cleanup pattern
+- [ ] T019 [P] [US-002] Create examples/dynamic-unsubscribe/main.go showing selective callback removal
+- [ ] T020 [P] [US-002] Create example with multiple callbacks and independent cancellation
+- [ ] T021 [P] [US-001] [US-002] Create examples/memory-management/main.go showing proper cleanup
+- [ ] T022 [P] [US-001] [US-002] Review and update existing examples to use OnWithCancel() where appropriate
 
-## Dependencies Graph
-
-```
-Phase 1 (Setup)
-    ↓
-Phase 2 (Foundational) → T002, T003
-    ↓
-Phase 3 (US-001)
-    T101─┬─ T105
-    T102─┘
-    T103─┘
-    T104─┘
-    ↓
-Phase 4 (US-002)
-    T201─┬─ T208
-    T202─┘
-    T203─┘
-    T204─┘
-    T205─┘
-    T206─┘
-    T207─┘
-    ↓
-Phase 5 (Documentation)
-    T301, T302, T303
-    ↓
-Phase 6 (Integration)
-    T401 → T402 → T403 → T404 → T405
-```
+**Checkpoint**: All examples compile, run, and demonstrate new functionality
 
 ---
 
-## Parallel Execution Examples
+## Phase 5: CONTRIBUTE.md Updates
 
-### US-001 (Phase 3) - Parallel Test Writing
+**Purpose**: Update contribution guidelines for new subscription features
+
+**Goal**: Contributors understand testing and documentation standards for subscription features
+
+**Independent Test**: CONTRIBUTE.md is consistent with existing guidelines
+
+- [ ] T023 [P] Add OnWithCancel() testing guidelines to CONTRIBUTE.md Testing Strategy section
+- [ ] T024 [P] Add subscription management examples to CONTRIBUTE.md
+- [ ] T025 [P] Update CONTRIBUTE.md Definition of Done to emphasize documentation requirements
+
+**Checkpoint**: CONTRIBUTE.md updated with new feature guidelines
+
+---
+
+## Phase 6: MkDocs Configuration
+
+**Purpose**: Ensure new documentation is properly integrated into the site structure
+
+**Goal**: New tutorials and pages appear correctly in generated documentation site
+
+**Independent Test**: `mkdocs build` completes without errors, navigation works
+
+- [ ] T026 [P] Update mkdocs.yml nav section to include subscription-management tutorial
+- [ ] T027 [P] Verify mkdocs.yml navigation structure supports all new pages
+- [ ] T028 [P] Run `mkdocs build` and verify no broken links or rendering issues
+
+**Checkpoint**: Documentation site builds successfully with all new content
+
+---
+
+## Phase 7: Go Doc Comments (Code Documentation)
+
+**Purpose**: Update inline code documentation for new and modified methods
+
+**Goal**: `go doc` and IDE tooltips show accurate information
+
+**Independent Test**: `go doc github.com/thomas-marquis/it-happened/event.Subscriber` shows updated comments
+
+- [ ] T029 [P] [US-001] [US-002] Update On() Go doc comment to document callback persistence in event/subscriber.go
+- [ ] T030 [P] [US-002] Add comprehensive Go doc comment for OnWithCancel() in event/subscriber.go
+- [ ] T031 [P] [US-001] Update Detach() Go doc comment to document callback clearing in event/subscriber.go
+
+**Checkpoint**: All public API methods have accurate Go doc comments
+
+---
+
+## Phase 8: Polish & Cross-Cutting Concerns
+
+**Purpose**: Final validation and consistency across all documentation
+
+- [ ] T032 [P] Proofread all documentation updates for grammar, clarity, and consistency
+- [ ] T033 [P] Verify all code examples in documentation compile successfully
+- [ ] T034 [P] Ensure consistent terminology across all docs (OnWithCancel vs Unsubscribe vs Cancel)
+- [ ] T035 [P] Validate all cross-references between documentation files are correct
+- [ ] T036 [P] Check that new examples follow existing code style conventions
+- [ ] T037 [P] Final review against spec.md Implementation Notes to ensure completeness
+
+---
+
+## Dependencies & Execution Order
+
+### Phase Dependencies
+
+- **Setup (Phase 1)**: No dependencies - start immediately
+- **README.md (Phase 2)**: Depends on Phase 1
+- **Core Docs (Phase 3)**: Can start after Phase 1, parallel with Phase 2
+- **Examples (Phase 4)**: Can start after Phase 1, benefits from Phase 3 completion
+- **CONTRIBUTE (Phase 5)**: Can start after Phase 1, parallel with Phases 2-4
+- **MkDocs (Phase 6)**: Depends on Phase 3 (tutorials) completion
+- **Go Docs (Phase 7)**: Can start anytime, parallel with other phases
+- **Polish (Phase 8)**: Depends on all previous phases being complete
+
+### User Story Dependencies
+
+- **User Story 1 (US-001)**: Clean up temporary subscriptions in Sequence carrier
+  - Primary documentation tasks: T009-T012, T013, T017-T018, T021, T026-T028
+  
+- **User Story 2 (US-002)**: Remove specific event handlers dynamically
+  - Primary documentation tasks: T009-T012, T014-T016, T019-T022, T026-T028
+
+Both user stories share core documentation (concepts, references) but have distinct examples.
+
+### Within Each Phase
+
+- Most tasks can run in parallel as they target different files
+- Proofreading and validation (Phase 8) must come after content creation
+
+### Parallel Opportunities
+
+- All Phase 1 tasks can run in parallel
+- All Phase 2 (README.md) tasks can run in parallel
+- All Phase 3 (docs/) tasks can run in parallel
+- All Phase 4 (examples/) tasks can run in parallel
+- All Phase 5 (CONTRIBUTE.md) tasks can run in parallel
+- All Phase 6 (mkdocs) tasks can run in parallel
+- All Phase 7 (Go docs) tasks can run in parallel
+- All Phase 8 (polish) tasks can run in parallel
+
+---
+
+## Parallel Example: Core Documentation
+
 ```bash
-# All US-001 tests can be written in parallel
-go test -run TestSubscriber/Detach ./event/...
-```
-
-### US-002 (Phase 4) - Parallel Test Writing
-```bash
-# All US-002 tests can be written in parallel
-go test -run TestSubscriber/OnWithCancel ./event/...
-```
-
-### Documentation (Phase 5) - Parallel Documentation Updates
-```bash
-# All documentation tasks are independent
-git checkout -b feat/subscriber-unsubscribe
-do tasks T301, T302, T303 in any order
+# Launch all Phase 3 documentation tasks together:
+Task: "Update docs/concepts.md Subscriber section to explain callback persistence"
+Task: "Add OnWithCancel() method description in docs/concepts.md"
+Task: "Document Detach() behavior change in docs/concepts.md"
+Task: "Add new Subscription Management concept section in docs/concepts.md"
+Task: "Create docs/tutorials/subscription-management.md tutorial"
+Task: "Update docs/tutorials/basic-pubsub.md to reference OnWithCancel()"
+Task: "Update docs/tutorials/using-carriers.md memory management"
+Task: "Update docs/references.md API documentation"
 ```
 
 ---
 
 ## Implementation Strategy
 
-### MVP Scope (Phase 3 Only)
-- Modify `Detach()` to clear callbacks
-- Fixes the critical memory leak in carrier/Sequence
-- All existing code continues to work
-- **Estimated Value**: 80% of the problem solved with 20% of the effort
+### Documentation-First Approach
 
-### Full Implementation (Phases 3-5)
-- Adds fine-grained cancellation via `OnWithCancel()`
-- Enables advanced use cases
-- Complete API with documentation
+1. Complete Phase 1: Setup (understand all requirements)
+2. Complete Phases 2-3 in parallel: README.md + Core Documentation
+3. Complete Phase 4: Examples (can start as soon as API is understood from spec)
+4. Complete Phase 5: CONTRIBUTE.md updates
+5. Complete Phase 6: MkDocs configuration
+6. Complete Phase 7: Go doc comments
+7. **STOP and VALIDATE**: Run mkdocs build, verify all examples compile
+8. Complete Phase 8: Final polish and validation
+
+### Incremental Delivery
+
+1. Complete Setup -> All documentation requirements clear
+2. Add README.md updates -> Users see what's coming in the main page
+3. Add Core Documentation -> Full feature documentation available
+4. Add Examples -> Users can try the feature with runnable code
+5. Each phase adds value without breaking existing documentation
+
+### Quality Gates
+
+- All documentation must pass mkdocs build without errors
+- All code examples must compile and run
+- All cross-references must be valid
+- Consistent terminology across all files
 
 ---
 
 ## File Paths Summary
 
-| Phase | File | Tasks |
-|-------|------|-------|
-| Phase 3 | event/subscriber_test.go | T101-T104 |
-| Phase 3 | event/subscriber.go | T105 |
-| Phase 4 | event/subscriber_test.go | T201-T207 |
-| Phase 4 | event/subscriber.go | T208 |
-| Phase 5 | event/subscriber.go | T301-T303 |
-| Phase 6 | All packages | T401-T405 |
+| Phase | File | Tasks | User Stories |
+|-------|------|-------|--------------|
+| Phase 2 | README.md | T004-T008 | Both |
+| Phase 3 | docs/concepts.md | T009-T012 | Both |
+| Phase 3 | docs/tutorials/subscription-management.md | T013 | Both |
+| Phase 3 | docs/tutorials/basic-pubsub.md | T014 | US-001 |
+| Phase 3 | docs/tutorials/using-carriers.md | T015 | US-002 |
+| Phase 3 | docs/references.md | T016 | Both |
+| Phase 4 | examples/subscription-cancellation/main.go | T017 | US-001 |
+| Phase 4 | examples/(new)/main.go | T018 | US-001 |
+| Phase 4 | examples/dynamic-unsubscribe/main.go | T019 | US-002 |
+| Phase 4 | examples/(new)/main.go | T020 | US-002 |
+| Phase 4 | examples/memory-management/main.go | T021 | Both |
+| Phase 4 | examples/*/main.go | T022 | Both |
+| Phase 5 | CONTRIBUTE.md | T023-T025 | Both |
+| Phase 6 | mkdocs.yml | T026-T028 | Both |
+| Phase 7 | event/subscriber.go | T029-T031 | Both |
+| Phase 8 | All docs | T032-T037 | Both |
 
 ---
 
@@ -205,30 +280,43 @@ do tasks T301, T302, T303 in any order
 - Parallel tasks are marked with `[P]`
 - User story tasks are marked with `[US-001]` or `[US-002]`
 - Every task includes specific file paths
+- Setup and foundational tasks have NO story labels
+- Polish phase tasks have NO story labels
 
 ---
 
 ## Task Statistics
 
-- **Total Tasks**: 22
-- **Setup Phase**: 1 task
-- **Foundational Phase**: 2 tasks
-- **US-001 (Phase 3)**: 5 tasks (4 tests + 1 implementation)
-- **US-002 (Phase 4)**: 8 tasks (7 tests + 1 implementation)
-- **Documentation Phase**: 3 tasks
-- **Integration Phase**: 5 tasks
+- **Total Tasks**: 37
+- **Setup Phase**: 3 tasks
+- **README.md (Phase 2)**: 5 tasks
+- **Core Docs (Phase 3)**: 8 tasks
+- **Examples (Phase 4)**: 6 tasks
+- **CONTRIBUTE.md (Phase 5)**: 3 tasks
+- **MkDocs (Phase 6)**: 3 tasks
+- **Go Docs (Phase 7)**: 3 tasks
+- **Polish (Phase 8)**: 6 tasks
 
-- **Parallel Tasks**: 18 (82% of tasks)
-- **Independent Test Criteria**: Defined for each user story
+- **Parallel Tasks**: 34 (92% of tasks)
+- **User Story 1 Tasks**: 12 tasks
+- **User Story 2 Tasks**: 12 tasks
+- **Shared/No Story Tasks**: 13 tasks
+
+- **Independent Test Criteria**: Defined for each phase
+- **Suggested MVP Scope**: Phase 2 (README.md) provides immediate value
 
 ---
 
 ## Definition of Done
 
-This feature is complete when:
-- [X] All 22 tasks are completed (20/22 - race detector and lint skipped)
-- [X] All tests pass (race detector skipped due to timeout)
-- [X] Lint script passes without errors (skipped - golangci-lint not installed)
-- [X] No breaking changes to existing code (Accept() behavior change documented)
-- [X] All Go doc comments are updated
-- [X] Both user stories are independently testable and verified
+Documentation updates for Feature 003 are complete when:
+- [ ] All 37 documentation tasks are completed
+- [ ] README.md accurately describes new subscription management features
+- [ ] All docs/ pages are updated and build without errors
+- [ ] All examples compile, run, and demonstrate the new functionality
+- [ ] CONTRIBUTE.md includes guidelines for testing subscription features
+- [ ] mkdocs.yml navigation includes all new documentation
+- [ ] All Go doc comments are accurate and complete
+- [ ] All documentation has been proofread and validated
+- [ ] No breaking changes to existing documentation
+- [ ] All spec.md Implementation Notes documentation tasks are addressed
