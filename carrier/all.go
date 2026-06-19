@@ -128,16 +128,12 @@ func (c *All) Dispatch(bus event.Bus) {
 
 	sub := bus.Subscribe().
 		On(event.IsFollowupOf(c.Carried...), func(received event.Event) {
-			e, ok := received.(event.Event)
-			if !ok {
-				return
-			}
 			mu.Lock()
-			if processed, ok := evtProcessed[e.ChainRef()]; ok &&
+			if processed, ok := evtProcessed[received.ChainRef()]; ok &&
 				!processed &&
-				c.CompletionCondition(evtByRef[e.ChainRef()], e) {
-				evtProcessed[e.ChainRef()] = true
-				receivedEvents = append(receivedEvents, e)
+				c.CompletionCondition(evtByRef[received.ChainRef()], received) {
+				evtProcessed[received.ChainRef()] = true
+				receivedEvents = append(receivedEvents, received)
 			}
 			mu.Unlock()
 		})

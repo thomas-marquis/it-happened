@@ -108,11 +108,8 @@ func IsFollowupOf(event ...Event) Matcher {
 
 // Match implements the Matcher interface for isFollowup.
 // It returns true if the event is a followup of any of the matcher's parent events.
-func (m *isFollowup) Match(event Event) bool {
-	evt, ok := event.(Event)
-	if !ok {
-		return false
-	} else if evt.ChainPosition() == 0 {
+func (m *isFollowup) Match(evt Event) bool {
+	if evt.ChainPosition() == 0 {
 		return false
 	}
 
