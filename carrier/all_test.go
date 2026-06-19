@@ -25,7 +25,7 @@ func TestAllCarrier_Dispatch(t *testing.T) {
 		var mu sync.Mutex
 		var wg sync.WaitGroup
 
-		eventsToCarry := []event.ChainableEvent{
+		eventsToCarry := []event.Event{
 			event.New(testPayload("event1")),
 			event.New(testPayload("event2")),
 			event.New(testPayload("event3")),
@@ -95,7 +95,7 @@ func TestAllCarrier_CompletionEvent(t *testing.T) {
 
 		event1 := event.New(testPayload("event1"))
 		event2 := event.New(testPayload("event2"))
-		eventsToCarry := []event.ChainableEvent{event1, event2}
+		eventsToCarry := []event.Event{event1, event2}
 
 		doneEvent := event.New(testPayload("done"))
 		timeoutEvent := event.New(testPayload("timeout"))
@@ -104,8 +104,7 @@ func TestAllCarrier_CompletionEvent(t *testing.T) {
 			On(event.Is("test.payload"), func(evt event.Event) {
 				if evt.ID() == event1.ID() || evt.ID() == event2.ID() {
 					// Publish a followup event which will trigger completion
-					chainable := evt.(event.ChainableEvent)
-					bus.Publish(chainable.NewFollowup(testPayload("followup")))
+					bus.Publish(evt.NewFollowup(testPayload("followup")))
 				}
 				if evt.ID() == doneEvent.ID() {
 					mu.Lock()
@@ -145,7 +144,7 @@ func TestAllCarrier_Timeout(t *testing.T) {
 		var timeoutReceived bool
 		var mu sync.Mutex
 
-		eventsToCarry := []event.ChainableEvent{
+		eventsToCarry := []event.Event{
 			event.New(testPayload2{Value: "event1"}),
 			event.New(testPayload2{Value: "event2"}),
 		}
@@ -211,7 +210,7 @@ func TestAllCarrier_ConcurrentProcessing(t *testing.T) {
 		sub.ListenWithWorkers(16)
 		defer sub.Detach()
 
-		var eventsToCarry []event.ChainableEvent
+		var eventsToCarry []event.Event
 		for i := 0; i < numEvents; i++ {
 			eventsToCarry = append(eventsToCarry, event.New(testPayload(fmt.Sprintf("event%d", i))))
 		}
@@ -262,7 +261,7 @@ func TestAllCarrier_EmptyEvents(t *testing.T) {
 		timeoutEvent := event.New(testPayload("timeout"))
 
 		carrierEvent := carrier.NewAll(
-			[]event.ChainableEvent{},
+			[]event.Event{},
 			func(received []event.Event) event.Event { return doneEvent },
 			timeoutEvent,
 		)
@@ -290,7 +289,7 @@ func TestAllCarrier_EmptyEvents(t *testing.T) {
 func TestAllCarrier_EventType(t *testing.T) {
 	t.Run("should have correct event type", func(t *testing.T) {
 		// Given
-		events := []event.ChainableEvent{
+		events := []event.Event{
 			event.New(testPayload("event1")),
 		}
 

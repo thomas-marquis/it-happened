@@ -13,7 +13,7 @@ import (
 // This ensures ordered processing of events in the sequence.
 type Sequence struct {
 	// Carried contains the events to be dispatched in sequence.
-	Carried []event.ChainableEvent
+	Carried []event.Event
 	// DoneEventFactory creates the completion event when all carried events are processed.
 	DoneEventFactory func(received []event.Event) event.Event
 	// OnTimeout is the event to publish if the sequence times out.
@@ -39,7 +39,7 @@ type Sequence struct {
 // Returns:
 //
 //	A new event that wraps the Sequence carrier
-func NewSequence(carried []event.ChainableEvent, doneEventFactory func(received []event.Event) event.Event, onTimeout event.Event, opts ...Option) event.Event {
+func NewSequence(carried []event.Event, doneEventFactory func(received []event.Event) event.Event, onTimeout event.Event, opts ...Option) event.Event {
 	c := &Sequence{
 		Carried:          carried,
 		DoneEventFactory: doneEventFactory,
@@ -93,7 +93,7 @@ func (c *Sequence) Dispatch(bus event.Bus) {
 // doDispatch handles the actual sequential dispatching of events.
 // It returns a slice of all received events that matched the completion condition.
 func (c *Sequence) doDispatch(ctx context.Context, bus event.Bus) (receivedEvents []event.Event) {
-	workload := make(chan event.ChainableEvent, 1)
+	workload := make(chan event.Event, 1)
 	defer close(workload)
 
 	var currIdx int

@@ -54,7 +54,7 @@ func main() {
 	sub.ListenWithWorkers(1)
 
 	// Create some simple events to carry
-	events := []event.ChainableEvent{
+	events := []event.Event{
 		event.New(SimplePayload{Name: "Event 1"}),
 		event.New(SimplePayload{Name: "Event 2"}),
 		event.New(SimplePayload{Name: "Event 3"}),

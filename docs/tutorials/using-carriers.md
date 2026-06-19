@@ -54,7 +54,7 @@ func (p NotificationPayload) EventType() event.Type {
 }
 
 // Create the events
-events := []event.ChainableEvent{
+events := []event.Event{
     event.New(NotificationPayload{Message: "Welcome email"}),
     event.New(NotificationPayload{Message: "Password reset"}),
     event.New(NotificationPayload{Message: "Account verified"}),
@@ -184,7 +184,6 @@ Carriers are useful for:
 - **Carrier**: A special event that dispatches multiple events (see [Concepts](../concepts.md#carrier))
 - **CompletionCondition**: Determines when a carried event is complete (see [Concepts](../concepts.md#completioncondition))
 - **ChainRef**: Links related events together (see [Concepts](../concepts.md#chainref))
-- **ChainableEvent**: Events that support chaining (see [Concepts](../concepts.md#chainableevent))
 
 ## Next Steps
 

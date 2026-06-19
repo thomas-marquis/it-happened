@@ -108,7 +108,7 @@ All exported types, interfaces, functions, and methods in the library must have 
 
 - **FR-001**: Documentation MUST be organized into four main sections: Quick Start, Concepts, Tutorials, and References
 - **FR-002**: Quick Start section MUST provide a minimal working example that demonstrates the core value proposition
-- **FR-003**: Concepts section MUST explain all global library concepts including: Event, Type, Payload, Chainable, ChainableEvent, Chain, ChainRef, ChainPosition, Followup, Bus, Subscriber, Matcher, Option, Notifier, Carrier, and CompletionCondition in simple, non-technical language
+- **FR-003**: Concepts section MUST explain all global library concepts including: Event, Type, Payload, Chain, ChainRef, ChainPosition, Followup, Bus, Subscriber, Matcher, Option, Notifier, Carrier, and CompletionCondition in simple, non-technical language
 - **FR-004**: Each concept explanation MUST be short (maximum 3-4 sentences) and focus on what it is and why it matters
 - **FR-005**: Tutorials section MUST cover the most important use cases only (event publishing/subscription, event chaining, using matchers, using carriers)
 - **FR-006**: Each tutorial MUST link to a corresponding runnable example in the examples/ folder

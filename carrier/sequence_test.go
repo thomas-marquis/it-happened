@@ -28,7 +28,7 @@ func TestSequenceCarrier_Dispatch(t *testing.T) {
 		// Track which events we're expecting
 		expectedIDs := make(map[string]bool)
 
-		eventsToCarry := []event.ChainableEvent{
+		eventsToCarry := []event.Event{
 			event.New(testPayload("event1")),
 			event.New(testPayload("event2")),
 			event.New(testPayload("event3")),
@@ -47,10 +47,7 @@ func TestSequenceCarrier_Dispatch(t *testing.T) {
 				mu.Lock()
 				receivedEvents = append(receivedEvents, evt)
 				mu.Unlock()
-				// Publish a followup to allow sequence to continue
-				if chainable, ok := evt.(event.ChainableEvent); ok {
-					bus.Publish(chainable.NewFollowup(testPayload("followup")))
-				}
+				bus.Publish(evt.NewFollowup(testPayload("followup")))
 				wg.Done()
 			})
 		sub.ListenWithWorkers(16)
@@ -103,7 +100,7 @@ func TestSequenceCarrier_OrderedDispatch(t *testing.T) {
 		expectedIDs := make(map[string]bool)
 
 		numEvents := 10
-		var eventsToCarry []event.ChainableEvent
+		var eventsToCarry []event.Event
 		for i := 0; i < numEvents; i++ {
 			evt := event.New(testPayload(fmt.Sprintf("event%d", i)))
 			eventsToCarry = append(eventsToCarry, evt)
@@ -125,10 +122,7 @@ func TestSequenceCarrier_OrderedDispatch(t *testing.T) {
 				require.NoError(t, err)
 				receivedOrder = append(receivedOrder, index)
 				mu.Unlock()
-				// Publish a followup to allow sequence to continue
-				if chainable, ok := evt.(event.ChainableEvent); ok {
-					bus.Publish(chainable.NewFollowup(testPayload("followup")))
-				}
+				bus.Publish(evt.NewFollowup(testPayload("followup")))
 				wg.Done()
 			})
 		sub.ListenWithWorkers(1)
@@ -174,7 +168,7 @@ func TestSequenceCarrier_CompletionEvent(t *testing.T) {
 		var doneReceived bool
 		var mu sync.Mutex
 
-		eventsToCarry := []event.ChainableEvent{
+		eventsToCarry := []event.Event{
 			event.New(testPayload("event1")),
 			event.New(testPayload("event2")),
 		}
@@ -189,11 +183,7 @@ func TestSequenceCarrier_CompletionEvent(t *testing.T) {
 					doneReceived = true
 					mu.Unlock()
 				}
-				if chainable, ok := evt.(event.ChainableEvent); ok {
-					bus.Publish(chainable.NewFollowup(testPayload2{Value: fmt.Sprintf("followup-%d", chainable.ChainPosition())}))
-				} else {
-					require.Fail(t, "expected event to be chainable", "event: %s", evt.ID())
-				}
+				bus.Publish(evt.NewFollowup(testPayload2{Value: fmt.Sprintf("followup-%d", evt.ChainPosition())}))
 			})
 		sub.ListenWithWorkers(1)
 		defer sub.Detach()
@@ -227,7 +217,7 @@ func TestSequenceCarrier_Timeout(t *testing.T) {
 		var mu sync.Mutex
 
 		// Create events that won't be processed (no subscribers for these)
-		eventsToCarry := []event.ChainableEvent{
+		eventsToCarry := []event.Event{
 			event.New(slowPayload{Value: "event1"}),
 			event.New(slowPayload{Value: "event2"}),
 		}
@@ -280,7 +270,7 @@ func TestSequenceCarrier_SequentialOrder(t *testing.T) {
 		// Track which events we're expecting
 		expectedIDs := make(map[string]bool)
 
-		var eventsToCarry []event.ChainableEvent
+		var eventsToCarry []event.Event
 		for i := 0; i < numEvents; i++ {
 			evt := event.New(testPayload(fmt.Sprintf("event%d", i)))
 			eventsToCarry = append(eventsToCarry, evt)
@@ -301,10 +291,7 @@ func TestSequenceCarrier_SequentialOrder(t *testing.T) {
 				require.NoError(t, err)
 				receivedOrder = append(receivedOrder, index)
 				mu.Unlock()
-				// Publish a followup to allow sequence to continue
-				if chainable, ok := evt.(event.ChainableEvent); ok {
-					bus.Publish(chainable.NewFollowup(testPayload("followup")))
-				}
+				bus.Publish(evt.NewFollowup(testPayload("followup")))
 				wg.Done()
 			})
 		sub.ListenWithWorkers(1)
@@ -337,7 +324,7 @@ func TestSequenceCarrier_SequentialOrder(t *testing.T) {
 func TestSequenceCarrier_EventType(t *testing.T) {
 	t.Run("should have correct event type", func(t *testing.T) {
 		// Given
-		events := []event.ChainableEvent{
+		events := []event.Event{
 			event.New(testPayload("event1")),
 		}
 
@@ -373,7 +360,7 @@ func TestSequenceCarrier_NoMemoryLeak(t *testing.T) {
 		numSequences := 100
 
 		for i := 0; i < numSequences; i++ {
-			eventsToCarry := []event.ChainableEvent{
+			eventsToCarry := []event.Event{
 				event.New(testPayload(fmt.Sprintf("event%d", i))),
 			}
 

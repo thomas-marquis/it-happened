@@ -53,16 +53,13 @@ func main() {
 			fmt.Printf("Order created: %s for $%.2f\n", payload.OrderID, payload.Amount)
 
 			// Create a followup event for processing
-			// The event returned by event.New() is a ChainableEvent
-			if chainableEvt, ok := e.(event.ChainableEvent); ok {
-				processingEvt := chainableEvt.NewFollowup(
-					OrderProcessedPayload{
-						OrderID: payload.OrderID,
-						Status:  "processing",
-					},
-				)
-				bus.Publish(processingEvt)
-			}
+			processingEvt := e.NewFollowup(
+				OrderProcessedPayload{
+					OrderID: payload.OrderID,
+					Status:  "processing",
+				},
+			)
+			bus.Publish(processingEvt)
 		}
 	})
 
@@ -72,15 +69,13 @@ func main() {
 			fmt.Printf("Order processed: %s with status: %s\n", payload.OrderID, payload.Status)
 
 			// Create a followup event for completion
-			if chainableEvt, ok := e.(event.ChainableEvent); ok {
-				completionEvt := chainableEvt.NewFollowup(
-					OrderCompletedPayload{
-						OrderID: payload.OrderID,
-						Total:   100.0, // In a real app, this would come from the processing
-					},
-				)
-				bus.Publish(completionEvt)
-			}
+			completionEvt := e.NewFollowup(
+				OrderCompletedPayload{
+					OrderID: payload.OrderID,
+					Total:   100.0, // In a real app, this would come from the processing
+				},
+			)
+			bus.Publish(completionEvt)
 		}
 	})
 

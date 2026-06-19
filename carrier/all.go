@@ -14,7 +14,7 @@ import (
 // under a maximum concurrency threshold.
 type All struct {
 	// Carried contains the events to be dispatched in parallel.
-	Carried []event.ChainableEvent
+	Carried []event.Event
 	// DoneEventFactory creates the completion event when all carried events are processed.
 	DoneEventFactory func(received []event.Event) event.Event
 	// OnTimeout is the event to publish if the carrier times out.
@@ -49,7 +49,7 @@ var (
 //
 //	A new event that wraps the All carrier
 func NewAll(
-	carried []event.ChainableEvent,
+	carried []event.Event,
 	doneEventFactory func(received []event.Event) event.Event,
 	onTimeout event.Event,
 	opts ...Option,
@@ -99,14 +99,14 @@ func (c *All) Dispatch(bus event.Bus) {
 	defer cancel()
 
 	evtProcessed := make(map[string]bool)
-	evtByRef := make(map[string]event.ChainableEvent)
+	evtByRef := make(map[string]event.Event)
 	receivedEvents := make([]event.Event, 0, len(c.Carried))
 	for _, evt := range c.Carried {
 		evtByRef[evt.ChainRef()] = evt
 	}
 	var mu sync.Mutex
 
-	workload := make(chan event.ChainableEvent)
+	workload := make(chan event.Event)
 	for range c.maxConcurrency {
 		go func() {
 			for {
@@ -128,7 +128,7 @@ func (c *All) Dispatch(bus event.Bus) {
 
 	sub := bus.Subscribe().
 		On(event.IsFollowupOf(c.Carried...), func(received event.Event) {
-			e, ok := received.(event.ChainableEvent)
+			e, ok := received.(event.Event)
 			if !ok {
 				return
 			}

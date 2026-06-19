@@ -23,19 +23,9 @@ type Payload interface {
 	EventType() Type
 }
 
-// Chainable is the interface for events that can be part of a chain.
-// A chain is a sequence of related events that share a common reference.
-type Chainable interface {
-	// ChainRef returns the unique reference identifier for the event chain.
-	// All events in the same chain share the same ChainRef.
-	ChainRef() string
-	// ChainPosition returns the position of this event within its chain.
-	// The first event in a chain has position 0, the next has position 1, etc.
-	ChainPosition() uint
-}
-
 // Event is the interface representing a domain event.
 // Events are the fundamental building blocks of event-driven applications.
+// An event is chainable, meaning it can be composed of other events to form a chain.
 type Event interface {
 	// ID returns the unique identifier of the event.
 	ID() string
@@ -45,20 +35,17 @@ type Event interface {
 	Payload() Payload
 	// Context returns the context associated with the event.
 	Context() context.Context
-}
-
-// ChainableEvent is the interface for events that support chaining.
-// It combines the Event and Chainable interfaces and adds the ability to create followups.
-type ChainableEvent interface {
-	Event
-	Chainable
-
+	// ChainRef returns the unique reference identifier for the event chain.
+	// All events in the same chain share the same ChainRef.
+	ChainRef() string
+	// ChainPosition returns the position of this event within its chain.
+	// The first event in a chain has position 0, the next has position 1, etc.
+	ChainPosition() uint
 	// NewFollowup creates a new event that is a followup of this event.
 	// The new event will share the same ChainRef and have an incremented position.
-	NewFollowup(newPayload Payload, opts ...Option) ChainableEvent
+	NewFollowup(newPayload Payload, opts ...Option) Event
 }
 
-// impl is the internal implementation of Event and ChainableEvent interfaces.
 type impl struct {
 	ctx context.Context
 
@@ -113,7 +100,7 @@ func (e *impl) MarshalJSON() ([]byte, error) {
 // A chain can be longer than two events.
 // Each event in a chain shares the same ChainRef -- which is basically the ID of the first event in the chain.
 // The position is incremented for each new event in the chain.
-func (e *impl) NewFollowup(newPayload Payload, opts ...Option) ChainableEvent {
+func (e *impl) NewFollowup(newPayload Payload, opts ...Option) Event {
 	prevRef := e.ref
 	if prevRef == "" {
 		prevRef = uuid.New().String()
@@ -133,16 +120,10 @@ func (e *impl) NewFollowup(newPayload Payload, opts ...Option) ChainableEvent {
 //
 //	payload - The payload containing the event data
 //	opts - Optional configuration options for the event
-//
-// Returns:
-//
-//	A new ChainableEvent instance
-func New(payload Payload, opts ...Option) ChainableEvent {
+func New(payload Payload, opts ...Option) Event {
 	return newEventImpl(payload, opts...)
 }
 
-// newEventImpl is the internal constructor for event implementations.
-// It creates a new impl instance with the given payload and applies all options.
 func newEventImpl(payload Payload, opts ...Option) *impl {
 	id := uuid.New().String()
 	e := &impl{
