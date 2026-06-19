@@ -4,7 +4,7 @@
 
 ## Current Plan
 
-**Active Feature**: [Documentation Improvement](specs/001-doc-improvement/plan.md)
+**Active Feature**: [Test Coverage Improvement](specs/002-test-coverage-improvement/plan.md)
 
 ## Project Overview
 
