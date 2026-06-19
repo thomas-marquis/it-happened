@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/thomas-marquis/it-happened.svg)](https://pkg.go.dev/github.com/thomas-marquis/it-happened)
 [![CI](https://github.com/thomas-marquis/it-happened/actions/workflows/ci.yaml/badge.svg)](https://github.com/thomas-marquis/it-happened/actions/workflows/ci.yaml)
-[![Coverage](https://img.shields.io/badge/Coverage-XX%25-brightgreen)](https://github.com/thomas-marquis/it-happened/actions/workflows/coverage-badge.yml)
+[![Coverage](https://img.shields.io/badge/Coverage-66%25-yellow)](https://github.com/thomas-marquis/it-happened/actions/workflows/coverage-badge.yml)
 [![License](https://img.shields.io/github/license/thomas-marquis/it-happened)](LICENSE)
 
 Event management library written in Go simplifying event driven application development
