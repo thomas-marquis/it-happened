@@ -42,7 +42,7 @@ func TestAllCarrier_Dispatch(t *testing.T) {
 		sub.ListenWithWorkers(16)
 		defer sub.Detach()
 
-		doneEvent := event.New(testPayload("done"))
+		doneEvent := event.New(testPayload2{Value: "done"})
 		timeoutEvent := event.New(testPayload("timeout"))
 
 		carrierEvent := carrier.NewAll(
@@ -73,6 +73,9 @@ func TestAllCarrier_Dispatch(t *testing.T) {
 				idSet[evt.ID()] = struct{}{}
 			}
 			assert.Len(t, idSet, len(eventsToCarry))
+			assert.Contains(t, idSet, eventsToCarry[0].ID())
+			assert.Contains(t, idSet, eventsToCarry[1].ID())
+			assert.Contains(t, idSet, eventsToCarry[2].ID())
 		case <-time.After(2 * time.Second):
 			assert.Fail(t, "timeout waiting for all events")
 		}
@@ -90,7 +93,6 @@ func TestAllCarrier_CompletionEvent(t *testing.T) {
 		var doneReceived bool
 		var mu sync.Mutex
 
-		// Create carried events with unique chain refs
 		event1 := event.New(testPayload("event1"))
 		event2 := event.New(testPayload("event2"))
 		eventsToCarry := []event.ChainableEvent{event1, event2}
@@ -98,8 +100,6 @@ func TestAllCarrier_CompletionEvent(t *testing.T) {
 		doneEvent := event.New(testPayload("done"))
 		timeoutEvent := event.New(testPayload("timeout"))
 
-		// Set up a subscriber that publishes followup events for the carried events
-		// This will trigger the completion condition
 		sub := bus.Subscribe().
 			On(event.Is("test.payload"), func(evt event.Event) {
 				if evt.ID() == event1.ID() || evt.ID() == event2.ID() {

@@ -323,12 +323,19 @@ func TestSubscriber_OnWithCancel_RemovesSpecificCallback(t *testing.T) {
 		sub := event.NewSubscriber(eventChan)
 
 		matcher := event.Is("fake.payload")
-		var called1, called2 bool
+		var (
+			called1, called2 bool
+			mu               sync.Mutex
+		)
 
 		cancel1 := sub.OnWithCancel(matcher, func(evt event.Event) {
+			mu.Lock()
+			defer mu.Unlock()
 			called1 = true
 		})
 		sub.OnWithCancel(matcher, func(evt event.Event) {
+			mu.Lock()
+			defer mu.Unlock()
 			called2 = true
 		})
 
@@ -341,8 +348,10 @@ func TestSubscriber_OnWithCancel_RemovesSpecificCallback(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 
 		// Then
+		mu.Lock()
 		assert.False(t, called1, "first callback should not be called after cancel")
 		assert.True(t, called2, "second callback should still be called")
+		mu.Unlock()
 	})
 }
 
