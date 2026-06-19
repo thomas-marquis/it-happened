@@ -29,22 +29,63 @@ func (testPayload2) EventType() event.Type {
 	return "test.payload.2"
 }
 
+// setupBus creates a new bus with a done channel that will be closed when the test completes.
+// t.Helper() is called to mark this as a helper function.
+func setupBus(t *testing.T) (func(), event.Bus) {
+	t.Helper()
+	done := make(chan struct{})
+	bus := inmemory.NewBus(done, &event.NopNotifier{})
+	return func() { close(done) }, bus
+}
+
+// setupSubscriber creates a subscriber on the given bus that collects received events.
+// t.Helper() is called to mark this as a helper function.
+func setupSubscriber(t *testing.T, bus event.Bus, matcher event.Matcher, workers int) (*event.Subscriber, *[]event.Event, *sync.Mutex, *sync.WaitGroup) {
+	t.Helper()
+	var received []event.Event
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	sub := bus.Subscribe().On(matcher, func(evt event.Event) {
+		mu.Lock()
+		received = append(received, evt)
+		mu.Unlock()
+		wg.Done()
+	})
+	sub.ListenWithWorkers(workers)
+
+	return sub, &received, &mu, &wg
+}
+
+// waitForEvents waits for the waitgroup and returns the received events.
+// t.Helper() is called to mark this as a helper function.
+func waitForEvents(t *testing.T, wg *sync.WaitGroup, timeout time.Duration) chan struct{} {
+	t.Helper()
+	doneCh := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(doneCh)
+	}()
+	return doneCh
+}
+
 func TestInmemoryBus_Publish(t *testing.T) {
-	t.Run("Given inmemory bus with registered subscriber, When event is published, Then subscriber receives the event", func(t *testing.T) {
+	t.Run("should deliver published event to subscriber", func(t *testing.T) {
 		// Given
-		done := make(chan struct{})
-		bus := inmemory.NewBus(done, &event.NopNotifier{})
+		closeBus, bus := setupBus(t)
+		defer closeBus()
+
+		wg := sync.WaitGroup{}
+		wg.Add(1)
 
 		var received event.Event
-		var receivedMutex sync.Mutex
-		var wg sync.WaitGroup
-		wg.Add(1)
+		var mu sync.Mutex
 
 		sub := bus.Subscribe().On(event.IsAny(), func(evt event.Event) {
 			defer wg.Done()
-			receivedMutex.Lock()
+			mu.Lock()
 			received = evt
-			receivedMutex.Unlock()
+			mu.Unlock()
 		})
 		sub.ListenWithWorkers(1)
 		defer sub.Detach()
@@ -55,38 +96,32 @@ func TestInmemoryBus_Publish(t *testing.T) {
 		bus.Publish(testEvent)
 
 		// Then
-		waitDone := make(chan struct{})
-		go func() {
-			wg.Wait()
-			close(waitDone)
-		}()
-
 		select {
-		case <-waitDone:
-			receivedMutex.Lock()
-			defer receivedMutex.Unlock()
+		case <-waitForEvents(t, &wg, time.Second):
+			mu.Lock()
+			defer mu.Unlock()
 			require.NotNil(t, received)
 			assert.Equal(t, testEvent.ID(), received.ID())
 			assert.Equal(t, testEvent.Type(), received.Type())
 		case <-time.After(time.Second):
 			assert.Fail(t, "timeout waiting for event")
 		}
-
-		close(done)
 	})
 }
 
 func TestInmemoryBus_MultipleSubscribers(t *testing.T) {
-	t.Run("Given inmemory bus with multiple subscribers, When event is published, Then all subscribers receive the event", func(t *testing.T) {
+	t.Run("should deliver published event to all subscribers", func(t *testing.T) {
 		// Given
-		done := make(chan struct{})
-		bus := inmemory.NewBus(done, &event.NopNotifier{})
+		closeBus, bus := setupBus(t)
+		defer closeBus()
 
-		// Create three subscribers
-		var received1, received2, received3 event.Event
-		var mutex1, mutex2, mutex3 sync.Mutex
+		testEvent := event.New(testPayload("test"))
+
 		var wg sync.WaitGroup
 		wg.Add(3)
+
+		var received1, received2, received3 event.Event
+		var mutex1, mutex2, mutex3 sync.Mutex
 
 		sub1 := bus.Subscribe().On(event.IsAny(), func(evt event.Event) {
 			defer wg.Done()
@@ -115,21 +150,12 @@ func TestInmemoryBus_MultipleSubscribers(t *testing.T) {
 		sub3.ListenWithWorkers(1)
 		defer sub3.Detach()
 
-		testEvent := event.New(testPayload("test"))
-
 		// When
 		bus.Publish(testEvent)
 
 		// Then
-		waitDone := make(chan struct{})
-		go func() {
-			wg.Wait()
-			close(waitDone)
-		}()
-
 		select {
-		case <-waitDone:
-			// Verify all subscribers received the same event
+		case <-waitForEvents(t, &wg, time.Second):
 			mutex1.Lock()
 			mutex2.Lock()
 			mutex3.Lock()
@@ -143,28 +169,26 @@ func TestInmemoryBus_MultipleSubscribers(t *testing.T) {
 		case <-time.After(time.Second):
 			assert.Fail(t, "timeout waiting for all subscribers")
 		}
-
-		close(done)
 	})
 }
 
 func TestInmemoryBus_ConcurrentPublish(t *testing.T) {
-	t.Run("Given inmemory bus with concurrent publish calls, When multiple events are published simultaneously, Then all events are delivered correctly without data races", func(t *testing.T) {
+	t.Run("should handle concurrent publish without data races", func(t *testing.T) {
 		// Given
-		done := make(chan struct{})
-		bus := inmemory.NewBus(done, &event.NopNotifier{})
+		closeBus, bus := setupBus(t)
+		defer closeBus()
 
 		var received []event.Event
-		var mutex sync.Mutex
+		var mu sync.Mutex
 
 		numEvents := 100
 		var wg sync.WaitGroup
 		wg.Add(numEvents)
 
 		sub := bus.Subscribe().On(event.IsAny(), func(evt event.Event) {
-			mutex.Lock()
+			mu.Lock()
 			received = append(received, evt)
-			mutex.Unlock()
+			mu.Unlock()
 			wg.Done()
 		})
 		sub.ListenWithWorkers(16)
@@ -173,27 +197,19 @@ func TestInmemoryBus_ConcurrentPublish(t *testing.T) {
 		// When
 		for i := 0; i < numEvents; i++ {
 			go func(idx int) {
-				eventPayload := testPayload2{Value: "event"}
-				evt := event.New(eventPayload)
+				evt := event.New(testPayload2{Value: "event"})
 				bus.Publish(evt)
 			}(i)
 		}
 
 		// Then
-		waitDone := make(chan struct{})
-		go func() {
-			wg.Wait()
-			close(waitDone)
-		}()
-
 		select {
-		case <-waitDone:
-			mutex.Lock()
-			defer mutex.Unlock()
+		case <-waitForEvents(t, &wg, 2*time.Second):
+			mu.Lock()
+			defer mu.Unlock()
 
 			require.Len(t, received, numEvents)
 
-			// Verify all events have unique IDs
 			idSet := make(map[string]struct{})
 			for _, evt := range received {
 				idSet[evt.ID()] = struct{}{}
@@ -202,23 +218,21 @@ func TestInmemoryBus_ConcurrentPublish(t *testing.T) {
 		case <-time.After(2 * time.Second):
 			assert.Fail(t, "timeout waiting for all events")
 		}
-
-		close(done)
 	})
 }
 
 func TestInmemoryBus_EventMatching(t *testing.T) {
-	t.Run("Given inmemory bus with subscribers using different matchers, When event is published, Then only subscribers with matching criteria receive the event", func(t *testing.T) {
+	t.Run("should deliver events only to subscribers with matching criteria", func(t *testing.T) {
 		// Given
-		done := make(chan struct{})
-		bus := inmemory.NewBus(done, &event.NopNotifier{})
+		closeBus, bus := setupBus(t)
+		defer closeBus()
+
+		var received1, received2, received3 event.Event
+		var mutex1, mutex2, mutex3 sync.Mutex
 
 		// Subscriber for type "test.payload"
-		var received1 event.Event
-		var mutex1 sync.Mutex
 		var wg1 sync.WaitGroup
 		wg1.Add(1)
-
 		sub1 := bus.Subscribe().On(event.Is("test.payload"), func(evt event.Event) {
 			defer wg1.Done()
 			mutex1.Lock()
@@ -229,11 +243,8 @@ func TestInmemoryBus_EventMatching(t *testing.T) {
 		defer sub1.Detach()
 
 		// Subscriber for type "test.payload.2"
-		var received2 event.Event
-		var mutex2 sync.Mutex
 		var wg2 sync.WaitGroup
 		wg2.Add(1)
-
 		sub2 := bus.Subscribe().On(event.Is("test.payload.2"), func(evt event.Event) {
 			defer wg2.Done()
 			mutex2.Lock()
@@ -244,11 +255,8 @@ func TestInmemoryBus_EventMatching(t *testing.T) {
 		defer sub2.Detach()
 
 		// Subscriber for all events
-		var received3 event.Event
-		var mutex3 sync.Mutex
 		var wg3 sync.WaitGroup
 		wg3.Add(1)
-
 		sub3 := bus.Subscribe().On(event.IsAny(), func(evt event.Event) {
 			defer wg3.Done()
 			mutex3.Lock()
@@ -258,7 +266,6 @@ func TestInmemoryBus_EventMatching(t *testing.T) {
 		sub3.ListenWithWorkers(1)
 		defer sub3.Detach()
 
-		// Create events of different types
 		event1 := event.New(testPayload("test1"))
 		event2 := event.New(testPayload2{Value: "test2"})
 
@@ -266,95 +273,67 @@ func TestInmemoryBus_EventMatching(t *testing.T) {
 		bus.Publish(event1)
 
 		// Then - verify event1 delivery
-		waitDone1 := make(chan struct{})
-		go func() {
-			wg1.Wait()
-			close(waitDone1)
-		}()
-
-		waitDone3a := make(chan struct{})
-		go func() {
-			wg3.Wait()
-			close(waitDone3a)
-		}()
-
 		select {
-		case <-waitDone1:
+		case <-waitForEvents(t, &wg1, time.Second):
 			mutex1.Lock()
 			assert.Equal(t, event1.ID(), received1.ID())
 			mutex1.Unlock()
 		case <-time.After(time.Second):
-			assert.Fail(t, "timeout waiting for subscriber 1 to receive event1")
+			assert.Fail(t, "timeout waiting for subscriber 1")
 		}
 
 		select {
-		case <-waitDone3a:
+		case <-waitForEvents(t, &wg3, time.Second):
 			mutex3.Lock()
 			assert.Equal(t, event1.ID(), received3.ID())
 			mutex3.Unlock()
 		case <-time.After(time.Second):
-			assert.Fail(t, "timeout waiting for subscriber 3 to receive event1")
+			assert.Fail(t, "timeout waiting for subscriber 3")
 		}
 
 		// Verify subscriber2 did NOT receive event1
-		time.Sleep(100 * time.Millisecond) // Give it time to potentially receive
+		time.Sleep(100 * time.Millisecond)
 		mutex2.Lock()
-		assert.Equal(t, event.Event(nil), received2, "subscriber2 should not receive test.payload events")
+		assert.Nil(t, received2, "subscriber2 should not receive test.payload events")
 		mutex2.Unlock()
 
-		// Reset for event2 - create new wg3 since the old one is done
+		// When - publish event2 (type: test.payload.2)
 		wg3 = sync.WaitGroup{}
 		wg3.Add(1)
-
-		// When - publish event2 (type: test.payload.2)
 		bus.Publish(event2)
 
 		// Then - verify event2 delivery
-		waitDone2 := make(chan struct{})
-		go func() {
-			wg2.Wait()
-			close(waitDone2)
-		}()
-
-		waitDone3b := make(chan struct{})
-		go func() {
-			wg3.Wait()
-			close(waitDone3b)
-		}()
-
 		select {
-		case <-waitDone2:
+		case <-waitForEvents(t, &wg2, time.Second):
 			mutex2.Lock()
 			assert.Equal(t, event2.ID(), received2.ID())
 			mutex2.Unlock()
 		case <-time.After(time.Second):
-			assert.Fail(t, "timeout waiting for subscriber 2 to receive event2")
+			assert.Fail(t, "timeout waiting for subscriber 2")
 		}
 
 		select {
-		case <-waitDone3b:
+		case <-waitForEvents(t, &wg3, time.Second):
 			mutex3.Lock()
 			assert.Equal(t, event2.ID(), received3.ID())
 			mutex3.Unlock()
 		case <-time.After(time.Second):
-			assert.Fail(t, "timeout waiting for subscriber 3 to receive event2")
+			assert.Fail(t, "timeout waiting for subscriber 3")
 		}
 
 		// Verify subscriber1 did NOT receive event2
-		time.Sleep(100 * time.Millisecond) // Give it time to potentially receive
+		time.Sleep(100 * time.Millisecond)
 		mutex1.Lock()
-		assert.Equal(t, event1.ID(), received1.ID(), "subscriber1 should not receive test.payload.2 events, still has event1")
+		assert.Equal(t, event1.ID(), received1.ID(), "subscriber1 should still have event1")
 		mutex1.Unlock()
-
-		close(done)
 	})
 }
 
 func TestInmemoryBus_Subscribe(t *testing.T) {
-	t.Run("Given inmemory bus, When Subscribe() is called, Then returns a valid Subscriber", func(t *testing.T) {
+	t.Run("should return a valid subscriber", func(t *testing.T) {
 		// Given
-		done := make(chan struct{})
-		bus := inmemory.NewBus(done, &event.NopNotifier{})
+		closeBus, bus := setupBus(t)
+		defer closeBus()
 
 		// When
 		sub := bus.Subscribe()
@@ -362,36 +341,33 @@ func TestInmemoryBus_Subscribe(t *testing.T) {
 		// Then
 		require.NotNil(t, sub)
 		assert.NotNil(t, sub)
-
-		close(done)
 	})
 }
 
 func TestInmemoryBus_ThreadSafety(t *testing.T) {
-	t.Run("Given inmemory bus with concurrent publish and subscribe operations, When operations execute simultaneously, Then no race conditions detected, all events delivered correctly", func(t *testing.T) {
+	t.Run("should handle concurrent publish and subscribe without race conditions", func(t *testing.T) {
 		// Given
-		done := make(chan struct{})
-		bus := inmemory.NewBus(done, &event.NopNotifier{})
+		closeBus, bus := setupBus(t)
+		defer closeBus()
 
 		numPublishers := 10
 		numEventsPerPublisher := 10
 		totalEvents := numPublishers * numEventsPerPublisher
 
 		var received []event.Event
-		var mutex sync.Mutex
+		var mu sync.Mutex
 		var wg sync.WaitGroup
 		wg.Add(totalEvents)
 
 		sub := bus.Subscribe().On(event.IsAny(), func(evt event.Event) {
-			mutex.Lock()
+			mu.Lock()
 			received = append(received, evt)
-			mutex.Unlock()
+			mu.Unlock()
 			wg.Done()
 		})
 		sub.ListenWithWorkers(16)
 		defer sub.Detach()
 
-		// When - concurrent publish and subscribe operations
 		var opWg sync.WaitGroup
 
 		// Publishers
@@ -419,20 +395,13 @@ func TestInmemoryBus_ThreadSafety(t *testing.T) {
 		opWg.Wait()
 
 		// Then
-		waitDone := make(chan struct{})
-		go func() {
-			wg.Wait()
-			close(waitDone)
-		}()
-
 		select {
-		case <-waitDone:
-			mutex.Lock()
-			defer mutex.Unlock()
+		case <-waitForEvents(t, &wg, 2*time.Second):
+			mu.Lock()
+			defer mu.Unlock()
 
 			require.Len(t, received, totalEvents)
 
-			// Verify all events have unique IDs
 			idSet := make(map[string]struct{})
 			for _, evt := range received {
 				idSet[evt.ID()] = struct{}{}
@@ -441,7 +410,5 @@ func TestInmemoryBus_ThreadSafety(t *testing.T) {
 		case <-time.After(2 * time.Second):
 			assert.Fail(t, "timeout waiting for all events")
 		}
-
-		close(done)
 	})
 }

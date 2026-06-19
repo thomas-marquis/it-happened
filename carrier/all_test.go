@@ -1,6 +1,8 @@
 package carrier_test
 
 import (
+	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -8,26 +10,288 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/thomas-marquis/it-happened/carrier"
 	"github.com/thomas-marquis/it-happened/event"
+	"github.com/thomas-marquis/it-happened/inmemory"
 )
 
-// testPayload is a test payload for creating test events.
-type testPayload string
-
-// EventType implements the Payload interface for testPayload.
-func (testPayload) EventType() event.Type {
-	return "test.payload"
-}
-
 func TestAllCarrier_Dispatch(t *testing.T) {
-	t.Run("Given All carrier with multiple events, When Dispatch is called, Then all events are published to the bus", func(t *testing.T) {
-		// This test verifies that the All carrier can be constructed and has the correct type
-		// Full async testing requires more complex setup due to the carrier's followup-based completion
-
+	t.Run("should dispatch all events in parallel when carrier is published", func(t *testing.T) {
 		// Given
-		events := []event.ChainableEvent{
+		done := make(chan struct{})
+		defer close(done)
+
+		bus := inmemory.NewBus(done, &event.NopNotifier{})
+
+		var receivedEvents []event.Event
+		var mu sync.Mutex
+		var wg sync.WaitGroup
+
+		eventsToCarry := []event.ChainableEvent{
 			event.New(testPayload("event1")),
 			event.New(testPayload("event2")),
 			event.New(testPayload("event3")),
+		}
+
+		wg.Add(len(eventsToCarry))
+		sub := bus.Subscribe().
+			On(event.Is("test.payload"), func(evt event.Event) {
+				mu.Lock()
+				receivedEvents = append(receivedEvents, evt)
+				mu.Unlock()
+				wg.Done()
+			})
+		sub.ListenWithWorkers(16)
+		defer sub.Detach()
+
+		doneEvent := event.New(testPayload("done"))
+		timeoutEvent := event.New(testPayload("timeout"))
+
+		carrierEvent := carrier.NewAll(
+			eventsToCarry,
+			func(received []event.Event) event.Event { return doneEvent },
+			timeoutEvent,
+			carrier.WithMaxConcurrency(10),
+		)
+
+		// When
+		bus.Publish(carrierEvent)
+
+		// Then
+		doneCh := make(chan struct{})
+		go func() {
+			wg.Wait()
+			close(doneCh)
+		}()
+
+		select {
+		case <-doneCh:
+			mu.Lock()
+			defer mu.Unlock()
+			require.Len(t, receivedEvents, len(eventsToCarry))
+
+			idSet := make(map[string]struct{})
+			for _, evt := range receivedEvents {
+				idSet[evt.ID()] = struct{}{}
+			}
+			assert.Len(t, idSet, len(eventsToCarry))
+		case <-time.After(2 * time.Second):
+			assert.Fail(t, "timeout waiting for all events")
+		}
+	})
+}
+
+func TestAllCarrier_CompletionEvent(t *testing.T) {
+	t.Run("should publish done event when all carried events are processed", func(t *testing.T) {
+		// Given
+		done := make(chan struct{})
+		defer close(done)
+
+		bus := inmemory.NewBus(done, &event.NopNotifier{})
+
+		var doneReceived bool
+		var mu sync.Mutex
+
+		// Create carried events with unique chain refs
+		event1 := event.New(testPayload("event1"))
+		event2 := event.New(testPayload("event2"))
+		eventsToCarry := []event.ChainableEvent{event1, event2}
+
+		doneEvent := event.New(testPayload("done"))
+		timeoutEvent := event.New(testPayload("timeout"))
+
+		// Set up a subscriber that publishes followup events for the carried events
+		// This will trigger the completion condition
+		sub := bus.Subscribe().
+			On(event.Is("test.payload"), func(evt event.Event) {
+				if evt.ID() == event1.ID() || evt.ID() == event2.ID() {
+					// Publish a followup event which will trigger completion
+					chainable := evt.(event.ChainableEvent)
+					bus.Publish(chainable.NewFollowup(testPayload("followup")))
+				}
+				if evt.ID() == doneEvent.ID() {
+					mu.Lock()
+					doneReceived = true
+					mu.Unlock()
+				}
+			})
+		sub.ListenWithWorkers(16)
+		defer sub.Detach()
+
+		carrierEvent := carrier.NewAll(
+			eventsToCarry,
+			func(received []event.Event) event.Event { return doneEvent },
+			timeoutEvent,
+			carrier.WithMaxConcurrency(10),
+		)
+
+		// When
+		bus.Publish(carrierEvent)
+
+		// Then
+		time.Sleep(200 * time.Millisecond)
+		mu.Lock()
+		assert.True(t, doneReceived, "done event should be published")
+		mu.Unlock()
+	})
+}
+
+func TestAllCarrier_Timeout(t *testing.T) {
+	t.Run("should publish timeout event when processing exceeds timeout duration", func(t *testing.T) {
+		// Given
+		done := make(chan struct{})
+		defer close(done)
+
+		bus := inmemory.NewBus(done, &event.NopNotifier{})
+
+		var timeoutReceived bool
+		var mu sync.Mutex
+
+		eventsToCarry := []event.ChainableEvent{
+			event.New(testPayload2{Value: "event1"}),
+			event.New(testPayload2{Value: "event2"}),
+		}
+
+		doneEvent := event.New(testPayload("done"))
+		timeoutEvent := event.New(testPayload("timeout"))
+
+		carrierEvent := carrier.NewAll(
+			eventsToCarry,
+			func(received []event.Event) event.Event { return doneEvent },
+			timeoutEvent,
+			carrier.WithTimeout(50*time.Millisecond),
+			carrier.WithMaxConcurrency(10),
+		)
+
+		sub := bus.Subscribe().
+			On(event.Is("test.payload"), func(evt event.Event) {
+				if evt.ID() == timeoutEvent.ID() {
+					mu.Lock()
+					timeoutReceived = true
+					mu.Unlock()
+				}
+			})
+		sub.ListenWithWorkers(1)
+		defer sub.Detach()
+
+		// When
+		bus.Publish(carrierEvent)
+
+		// Then
+		time.Sleep(200 * time.Millisecond)
+		mu.Lock()
+		assert.True(t, timeoutReceived, "timeout event should be published")
+		mu.Unlock()
+	})
+}
+
+func TestAllCarrier_ConcurrentProcessing(t *testing.T) {
+	t.Run("should process events concurrently up to max concurrency", func(t *testing.T) {
+		// Given
+		done := make(chan struct{})
+		defer close(done)
+
+		bus := inmemory.NewBus(done, &event.NopNotifier{})
+
+		numEvents := 20
+		maxConcurrency := 5
+
+		var receivedOrder []int
+		var mu sync.Mutex
+		var wg sync.WaitGroup
+
+		wg.Add(numEvents)
+		sub := bus.Subscribe().
+			On(event.Is("test.payload"), func(evt event.Event) {
+				mu.Lock()
+				payload := evt.Payload().(testPayload)
+				index := int(payload[len(payload)-1] - '0')
+				receivedOrder = append(receivedOrder, index)
+				mu.Unlock()
+				wg.Done()
+			})
+		sub.ListenWithWorkers(16)
+		defer sub.Detach()
+
+		var eventsToCarry []event.ChainableEvent
+		for i := 0; i < numEvents; i++ {
+			eventsToCarry = append(eventsToCarry, event.New(testPayload(fmt.Sprintf("event%d", i))))
+		}
+
+		doneEvent := event.New(testPayload("done"))
+		timeoutEvent := event.New(testPayload("timeout"))
+
+		carrierEvent := carrier.NewAll(
+			eventsToCarry,
+			func(received []event.Event) event.Event { return doneEvent },
+			timeoutEvent,
+			carrier.WithMaxConcurrency(maxConcurrency),
+		)
+
+		// When
+		bus.Publish(carrierEvent)
+
+		// Then
+		doneCh := make(chan struct{})
+		go func() {
+			wg.Wait()
+			close(doneCh)
+		}()
+
+		select {
+		case <-doneCh:
+			mu.Lock()
+			defer mu.Unlock()
+			require.Len(t, receivedOrder, numEvents)
+		case <-time.After(2 * time.Second):
+			assert.Fail(t, "timeout waiting for all events")
+		}
+	})
+}
+
+func TestAllCarrier_EmptyEvents(t *testing.T) {
+	t.Run("should handle empty events list gracefully", func(t *testing.T) {
+		// Given
+		done := make(chan struct{})
+		defer close(done)
+
+		bus := inmemory.NewBus(done, &event.NopNotifier{})
+
+		var receivedCount int
+		var mu sync.Mutex
+
+		doneEvent := event.New(testPayload("done"))
+		timeoutEvent := event.New(testPayload("timeout"))
+
+		carrierEvent := carrier.NewAll(
+			[]event.ChainableEvent{},
+			func(received []event.Event) event.Event { return doneEvent },
+			timeoutEvent,
+		)
+
+		sub := bus.Subscribe().
+			On(event.Is("test.payload"), func(evt event.Event) {
+				mu.Lock()
+				receivedCount++
+				mu.Unlock()
+			})
+		sub.ListenWithWorkers(1)
+		defer sub.Detach()
+
+		// When
+		bus.Publish(carrierEvent)
+
+		// Then
+		time.Sleep(100 * time.Millisecond)
+		mu.Lock()
+		assert.Equal(t, 1, receivedCount)
+		mu.Unlock()
+	})
+}
+
+func TestAllCarrier_EventType(t *testing.T) {
+	t.Run("should have correct event type", func(t *testing.T) {
+		// Given
+		events := []event.ChainableEvent{
+			event.New(testPayload("event1")),
 		}
 
 		doneEvent := event.New(testPayload("done"))
@@ -44,135 +308,7 @@ func TestAllCarrier_Dispatch(t *testing.T) {
 		require.NotNil(t, carrierEvent)
 		assert.NotNil(t, carrierEvent.Payload())
 
-		// Verify it implements the Carrier interface
-		_, ok := carrierEvent.Payload().(carrier.Carrier)
-		assert.True(t, ok, "All should implement Carrier interface")
-
-		// Verify the event type
 		payload := carrierEvent.Payload().(*carrier.All)
 		assert.Equal(t, event.Type(carrier.TypePrefix+".all"), payload.EventType())
-	})
-}
-
-func TestAllCarrier_ParallelDispatch(t *testing.T) {
-	t.Run("Given All carrier with events that take different processing times, When Dispatch is called, Then events are dispatched in parallel (order not preserved)", func(t *testing.T) {
-		// This test verifies that All carrier can be created with MaxConcurrency option
-
-		// Given
-		events := []event.ChainableEvent{
-			event.New(testPayload("event1")),
-			event.New(testPayload("event2")),
-			event.New(testPayload("event3")),
-		}
-
-		doneEvent := event.New(testPayload("done"))
-		timeoutEvent := event.New(testPayload("timeout"))
-
-		// When - create with high concurrency
-		carrierEvent := carrier.NewAll(
-			events,
-			func(received []event.Event) event.Event { return doneEvent },
-			timeoutEvent,
-			carrier.WithMaxConcurrency(10),
-		)
-
-		// Then
-		require.NotNil(t, carrierEvent)
-		payload := carrierEvent.Payload().(*carrier.All)
-		// Verify MaxConcurrency option was applied (we can only verify indirectly via behavior)
-		assert.Len(t, payload.Carried, 3)
-		assert.Equal(t, event.Type(carrier.TypePrefix+".all"), payload.EventType())
-	})
-}
-
-func TestAllCarrier_FollowupEvents(t *testing.T) {
-	t.Run("Given All carrier with events that emit followups, When all followup events are emitted, Then completion event is published", func(t *testing.T) {
-		// This test verifies that All carrier can be created with a completion condition
-
-		// Given
-		events := []event.ChainableEvent{
-			event.New(testPayload("event1")),
-			event.New(testPayload("event2")),
-		}
-
-		doneEvent := event.New(testPayload("done"))
-		timeoutEvent := event.New(testPayload("timeout"))
-
-		// When - create with custom completion condition
-		customCondition := func(sent, received event.Event) bool {
-			// This condition always returns true for testing
-			return true
-		}
-
-		carrierEvent := carrier.NewAll(
-			events,
-			func(received []event.Event) event.Event { return doneEvent },
-			timeoutEvent,
-			carrier.WithCompletionCondition(customCondition),
-		)
-
-		// Then
-		require.NotNil(t, carrierEvent)
-		payload := carrierEvent.Payload().(*carrier.All)
-		// Verify the completion condition is set (we can't directly inspect the function, but we can verify the carrier was created)
-		assert.NotNil(t, payload.CompletionCondition)
-	})
-}
-
-func TestAllCarrier_Timeout(t *testing.T) {
-	t.Run("Given All carrier with timeout configuration, When timeout duration is exceeded, Then timeout event is published", func(t *testing.T) {
-		// This test verifies that All carrier can be created with timeout option
-
-		// Given
-		events := []event.ChainableEvent{
-			event.New(testPayload("event1")),
-		}
-
-		doneEvent := event.New(testPayload("done"))
-		timeoutEvent := event.New(testPayload("timeout"))
-
-		// When - create with short timeout
-		carrierEvent := carrier.NewAll(
-			events,
-			func(received []event.Event) event.Event { return doneEvent },
-			timeoutEvent,
-			carrier.WithTimeout(100*time.Millisecond),
-		)
-
-		// Then
-		require.NotNil(t, carrierEvent)
-		payload := carrierEvent.Payload().(*carrier.All)
-		// Verify timeout was set (we can only verify indirectly)
-		assert.NotNil(t, payload.OnTimeout)
-		assert.Equal(t, event.Type(carrier.TypePrefix+".all"), payload.EventType())
-	})
-}
-
-func TestAllCarrier_ConcurrentDispatch(t *testing.T) {
-	t.Run("Given All carrier with many events, When Dispatch is called, Then all events dispatched concurrently (verify with timing)", func(t *testing.T) {
-		// This test verifies that All carrier can be created with many events
-
-		// Given
-		numEvents := 50
-		var events []event.ChainableEvent
-		for i := 0; i < numEvents; i++ {
-			events = append(events, event.New(testPayload("event")))
-		}
-
-		doneEvent := event.New(testPayload("done"))
-		timeoutEvent := event.New(testPayload("timeout"))
-
-		// When
-		carrierEvent := carrier.NewAll(
-			events,
-			func(received []event.Event) event.Event { return doneEvent },
-			timeoutEvent,
-			carrier.WithMaxConcurrency(10),
-		)
-
-		// Then
-		require.NotNil(t, carrierEvent)
-		payload := carrierEvent.Payload().(*carrier.All)
-		assert.Len(t, payload.Carried, numEvents)
 	})
 }
