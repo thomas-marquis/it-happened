@@ -87,7 +87,7 @@ func (m *isAny) Match(Event) bool {
 
 // isFollowup matches followup events from specific parent events.
 type isFollowup struct {
-	events []ChainableEvent
+	events []Event
 }
 
 // IsFollowupOf creates a matcher that matches followup events of the given parent events.
@@ -102,17 +102,14 @@ type isFollowup struct {
 // Returns:
 //
 //	A Matcher that matches followup events of the specified parents
-func IsFollowupOf(event ...ChainableEvent) Matcher {
+func IsFollowupOf(event ...Event) Matcher {
 	return &isFollowup{events: event}
 }
 
 // Match implements the Matcher interface for isFollowup.
 // It returns true if the event is a followup of any of the matcher's parent events.
-func (m *isFollowup) Match(event Event) bool {
-	evt, ok := event.(ChainableEvent)
-	if !ok {
-		return false
-	} else if evt.ChainPosition() == 0 {
+func (m *isFollowup) Match(evt Event) bool {
+	if evt.ChainPosition() == 0 {
 		return false
 	}
 

@@ -195,7 +195,7 @@ Example carrier test:
 ```go
 t.Run("Given All carrier with multiple events, When Dispatch is called, Then all events are published", func(t *testing.T) {
     // Given
-    events := []event.ChainableEvent{
+    events := []event.Event{
         event.New(testPayload("event1")),
         event.New(testPayload("event2")),
     }

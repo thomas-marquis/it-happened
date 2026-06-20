@@ -22,7 +22,7 @@ func (fakePayload2) EventType() event.Type {
 func TestIsFollowupOf(t *testing.T) {
 	t.Run("should match when event is a followup of at least one of the given events", func(t *testing.T) {
 		// Given
-		events := []event.ChainableEvent{
+		events := []event.Event{
 			event.New(fakePayload("event1")),
 			event.New(fakePayload("event2")),
 		}
@@ -40,7 +40,7 @@ func TestIsFollowupOf(t *testing.T) {
 
 	t.Run("should not match when event is not a followup of at least one of the given events", func(t *testing.T) {
 		// Given
-		events := []event.ChainableEvent{
+		events := []event.Event{
 			event.New(fakePayload("event1")),
 			event.New(fakePayload("event2")),
 		}
@@ -58,7 +58,7 @@ func TestIsFollowupOf(t *testing.T) {
 
 	t.Run("should not match the same event as the given ones", func(t *testing.T) {
 		e := event.New(fakePayload("event2"))
-		events := []event.ChainableEvent{
+		events := []event.Event{
 			event.New(fakePayload("event1")),
 			e,
 		}

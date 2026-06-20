@@ -42,17 +42,14 @@ When handling an event, you can create a followup that continues the chain:
 
 ```go
 sub.On(event.Is("order.created"), func(e event.Event) {
-    // Check if the event supports chaining
-    if chainableEvt, ok := e.(event.ChainableEvent); ok {
-        // Create a followup event
-        followupEvt := chainableEvt.NewFollowup(
-            OrderProcessedPayload{
-                OrderID: payload.OrderID,
-                Status:  "processing",
-            },
-        )
-        bus.Publish(followupEvt)
-    }
+    // Create a followup event
+    followupEvt := e.NewFollowup(
+        OrderProcessedPayload{
+            OrderID: payload.OrderID,
+            Status:  "processing",
+        },
+    )
+    bus.Publish(followupEvt)
 })
 ```
 
@@ -67,15 +64,13 @@ You can continue creating followups to build longer chains:
 
 ```go
 sub.On(event.Is("order.processed"), func(e event.Event) {
-    if chainableEvt, ok := e.(event.ChainableEvent); ok {
-        completionEvt := chainableEvt.NewFollowup(
-            OrderCompletedPayload{
-                OrderID: payload.OrderID,
-                Total:   100.0,
-            },
-        )
-        bus.Publish(completionEvt)
-    }
+    completionEvt := e.NewFollowup(
+        OrderCompletedPayload{
+            OrderID: payload.OrderID,
+            Total:   100.0,
+        },
+    )
+    bus.Publish(completionEvt)
 })
 ```
 
@@ -85,11 +80,9 @@ You can inspect the chain information on any event:
 
 ```go
 sub.On(event.IsOneOf("order.created", "order.processed", "order.completed"), func(e event.Event) {
-    if chainableEvt, ok := e.(event.ChainableEvent); ok {
-        fmt.Printf("ChainRef: %s, Position: %d\n", 
-            chainableEvt.ChainRef(), 
-            chainableEvt.ChainPosition())
-    }
+    fmt.Printf("ChainRef: %s, Position: %d\n",
+        e.ChainRef(),
+        e.ChainPosition())
 })
 ```
 
@@ -124,7 +117,6 @@ Order workflow completed!
 - **ChainRef**: The unique identifier linking all events in a chain (see [Concepts](../concepts.md#chainref))
 - **ChainPosition**: The position of an event within its chain (see [Concepts](../concepts.md#chainposition))
 - **Followup**: A new event created from a parent event in a chain (see [Concepts](../concepts.md#followup))
-- **ChainableEvent**: An event that supports chaining (see [Concepts](../concepts.md#chainableevent))
 
 ## Real-World Use Cases
 

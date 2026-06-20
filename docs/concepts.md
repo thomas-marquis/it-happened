@@ -18,13 +18,13 @@ A Payload is the data carried by an event. It contains the actual information ab
 
 Chainable is the ability of an event to be part of a sequence or chain. When events are chainable, they can be linked together to represent a series of related occurrences. This allows tracking workflows that span multiple steps across your application.
 
-## ChainableEvent
-
-A ChainableEvent is an event that supports chaining. It combines the basic event capabilities with the ability to create followup events and track its position within a chain. This makes it possible to build complex, multi-step processes from individual events.
 
 ## Chain
 
 A Chain is a sequence of related events that share a common reference. Think of it as a conversation or workflow where each step produces a new event. Chains allow you to track the progression of a process from start to finish, even when the steps are processed asynchronously.
+
+An event can create a followup event in a way to build a chain. All events within the same chain share the same ChainRef. Furthermore, the ChainPosition tracks its position within the chain.
+This makes it possible to build complex, multi-step processes from individual events.
 
 ## ChainRef
 
