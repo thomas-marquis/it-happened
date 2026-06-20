@@ -141,9 +141,12 @@ func (s *Subscriber) listen() {
 		case <-s.done:
 			return
 		case event := <-s.events:
+			if event == nil {
+				continue
+			}
 			s.RLock()
 			for matcher, callbacks := range s.registered {
-				if matcher.Match(event) {
+				if matcher.Match(event) { // <- here, event is sometimes nil
 					for _, callback := range callbacks {
 						callback(event)
 					}
@@ -188,6 +191,9 @@ func (s *Subscriber) ListenNonBlocking() {
 			case <-s.done:
 				return
 			case event := <-s.events:
+				if event == nil {
+					continue
+				}
 				s.RLock()
 				for matcher, callbacks := range s.registered {
 					if matcher.Match(event) {
