@@ -15,7 +15,7 @@ func (fakePayload) EventType() event.Type {
 	return "fake.payload"
 }
 
-func TestContainsExactlyAllPayloads(t *testing.T) {
+func TestAssertContainsExactlyAllPayloads(t *testing.T) {
 	for _, tc := range []struct {
 		In       []event.Event
 		Payloads []event.Payload
@@ -85,4 +85,62 @@ func TestContainsExactlyAllPayloads(t *testing.T) {
 			assert.Equal(t, !tc.Expected, tt.Failed())
 		})
 	}
+}
+
+func TestAssertIsFollowup(t *testing.T) {
+	t.Run("should assert that the event is a followup of the given event when it is the case", func(t *testing.T) {
+		// Given
+		evt := event.New(fakePayload("test"))
+		followup := evt.NewFollowup(fakePayload("test"))
+		var tt testing.T
+
+		// Then
+		res := eventest.AssertIsFollowup(&tt, evt, followup)
+
+		// Then
+		assert.False(t, tt.Failed())
+		assert.True(t, res)
+	})
+
+	t.Run("should not assert that the event is a followup of the given event when it is not the case", func(t *testing.T) {
+		// Given
+		evt := event.New(fakePayload("test"))
+		other := event.New(fakePayload("test"))
+		var tt testing.T
+
+		// Then
+		res := eventest.AssertIsFollowup(&tt, evt, other)
+
+		// Then
+		assert.True(t, tt.Failed())
+		assert.False(t, res)
+	})
+}
+
+func TestAssertIsType(t *testing.T) {
+	t.Run("should assert that the event is of the given type when it is the case", func(t *testing.T) {
+		// Given
+		evt := event.New(fakePayload("test"))
+		var tt testing.T
+
+		// Then
+		res := eventest.AssertIsType(&tt, evt, "fake.payload")
+
+		// Then
+		assert.False(t, tt.Failed())
+		assert.True(t, res)
+	})
+
+	t.Run("should not assert the event is of the given type when it is not the case", func(t *testing.T) {
+		// Given
+		evt := event.New(fakePayload("test"))
+		var tt testing.T
+
+		// Then
+		res := eventest.AssertIsType(&tt, evt, "other.payload")
+
+		// Then
+		assert.True(t, tt.Failed())
+		assert.False(t, res)
+	})
 }
