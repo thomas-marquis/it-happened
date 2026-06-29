@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+         <loc>https://thomas-marquis.github.io/it-happened/</loc>
+         <lastmod>2026-06-29</lastmod>
+    </url>
+    <url>
+         <loc>https://thomas-marquis.github.io/it-happened/concepts/</loc>
+         <lastmod>2026-06-29</lastmod>
+    </url>
+    <url>
+         <loc>https://thomas-marquis.github.io/it-happened/references/</loc>
+         <lastmod>2026-06-29</lastmod>
+    </url>
+    <url>
+         <loc>https://thomas-marquis.github.io/it-happened/tutorials/basic-pubsub/</loc>
+         <lastmod>2026-06-29</lastmod>
+    </url>
+    <url>
+         <loc>https://thomas-marquis.github.io/it-happened/tutorials/event-chaining/</loc>
+         <lastmod>2026-06-29</lastmod>
+    </url>
+    <url>
+         <loc>https://thomas-marquis.github.io/it-happened/tutorials/using-carriers/</loc>
+         <lastmod>2026-06-29</lastmod>
+    </url>
+    <url>
+         <loc>https://thomas-marquis.github.io/it-happened/tutorials/using-matchers/</loc>
+         <lastmod>2026-06-29</lastmod>
+    </url>
+</urlset>
