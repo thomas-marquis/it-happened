@@ -67,10 +67,14 @@ func main() {
 
 	allCarrier := carrier.NewAll(
 		events,
-		func(received []event.Event) event.Event {
+		func(evtCarrier event.Event, received []event.Event) event.Event {
 			// This function is called when all carried events are completed
 			// For this demo, we'll just return a done event
 			return event.New(DonePayload{Count: len(received)})
+
+			// You also can use the evtCarrier reference itself to return a followup event:
+			// return evtCarrier.NewFollowup(DonePayload{Count: len(received)})
+			// This way, it's possible to chain a carrier with other carriers (for example, multiple `all` carriers into a `sequence`)
 		},
 		event.New(SimplePayload{Name: "Timeout event"}), // This would be published on timeout
 		carrier.WithMaxConcurrency(2),
@@ -91,7 +95,7 @@ func main() {
 
 	sequenceCarrier := carrier.NewSequence(
 		events,
-		func(received []event.Event) event.Event {
+		func(carrier event.Event, received []event.Event) event.Event {
 			return event.New(DonePayload{Count: len(received)})
 		},
 		event.New(SimplePayload{Name: "Timeout event"}),
