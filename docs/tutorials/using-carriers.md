@@ -66,8 +66,8 @@ events := []event.Event{
 The done event factory is a function that creates the completion event when all carried events are processed:
 
 ```go
-func doneFactory(received []event.Event) event.Event {
-    return event.New(BatchResultPayload{
+func doneFactory(evtCarrier event.Event, received []event.Event) event.Event {
+    return evtCarrier.NewFollowup(BatchResultPayload{
         Processed: len(received),
         Total:     len(events),
     })
@@ -109,7 +109,7 @@ bus.Publish(sequenceCarrier)
 
 The `Sequence` carrier will:
 1. Dispatch the first carried event
-2. Wait for it to be completed
+2. Wait for it to be completed (typically, when the corresponding followup event has been received)
 3. Dispatch the second event
 4. Continue until all events are processed
 5. Publish the done event from the factory
@@ -153,7 +153,8 @@ Note: Carriers dispatch multiple events as a single unit.
 
 ## How Completion Works
 
-Carriers use a `CompletionCondition` to determine when a carried event is considered complete. By default, they wait for followup events that share the same ChainRef as the carried event.
+Carriers use a `CompletionCondition` to determine when a carried event is considered complete.
+By default, they wait for followup events that share the same ChainRef as the carried event.
 
 When you publish a carrier:
 1. The carrier dispatches all carried events to the bus

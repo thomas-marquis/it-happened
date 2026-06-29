@@ -58,7 +58,7 @@ func TestSequenceCarrier_Dispatch(t *testing.T) {
 
 		carrierEvent := carrier.NewSequence(
 			eventsToCarry,
-			func(received []event.Event) event.Event { return doneEvent },
+			func(carrier event.Event, received []event.Event) event.Event { return doneEvent },
 			timeoutEvent,
 		)
 
@@ -133,7 +133,7 @@ func TestSequenceCarrier_OrderedDispatch(t *testing.T) {
 
 		carrierEvent := carrier.NewSequence(
 			eventsToCarry,
-			func(received []event.Event) event.Event { return doneEvent },
+			func(carrier event.Event, received []event.Event) event.Event { return doneEvent },
 			timeoutEvent,
 		)
 
@@ -190,7 +190,7 @@ func TestSequenceCarrier_CompletionEvent(t *testing.T) {
 
 		carrierEvent := carrier.NewSequence(
 			eventsToCarry,
-			func(received []event.Event) event.Event { return doneEvent },
+			func(carrier event.Event, received []event.Event) event.Event { return doneEvent },
 			timeoutEvent,
 		)
 
@@ -227,7 +227,7 @@ func TestSequenceCarrier_Timeout(t *testing.T) {
 
 		carrierEvent := carrier.NewSequence(
 			eventsToCarry,
-			func(received []event.Event) event.Event { return doneEvent },
+			func(carrier event.Event, received []event.Event) event.Event { return doneEvent },
 			timeoutEvent,
 			carrier.WithTimeout(50*time.Millisecond),
 		)
@@ -302,7 +302,7 @@ func TestSequenceCarrier_SequentialOrder(t *testing.T) {
 
 		carrierEvent := carrier.NewSequence(
 			eventsToCarry,
-			func(received []event.Event) event.Event { return doneEvent },
+			func(carrier event.Event, received []event.Event) event.Event { return doneEvent },
 			timeoutEvent,
 		)
 
@@ -334,7 +334,7 @@ func TestSequenceCarrier_EventType(t *testing.T) {
 		// When
 		carrierEvent := carrier.NewSequence(
 			events,
-			func(received []event.Event) event.Event { return doneEvent },
+			func(carrier event.Event, received []event.Event) event.Event { return doneEvent },
 			timeoutEvent,
 		)
 
@@ -369,7 +369,7 @@ func TestSequenceCarrier_NoMemoryLeak(t *testing.T) {
 
 			carrierEvent := carrier.NewSequence(
 				eventsToCarry,
-				func(received []event.Event) event.Event { return doneEvent },
+				func(carrier event.Event, received []event.Event) event.Event { return doneEvent },
 				timeoutEvent,
 				carrier.WithTimeout(1*time.Millisecond),
 			)

@@ -47,7 +47,7 @@ func TestAllCarrier_Dispatch(t *testing.T) {
 
 		carrierEvent := carrier.NewAll(
 			eventsToCarry,
-			func(received []event.Event) event.Event { return doneEvent },
+			func(carrier event.Event, received []event.Event) event.Event { return doneEvent },
 			timeoutEvent,
 			carrier.WithMaxConcurrency(10),
 		)
@@ -117,7 +117,7 @@ func TestAllCarrier_CompletionEvent(t *testing.T) {
 
 		carrierEvent := carrier.NewAll(
 			eventsToCarry,
-			func(received []event.Event) event.Event { return doneEvent },
+			func(carrier event.Event, received []event.Event) event.Event { return doneEvent },
 			timeoutEvent,
 			carrier.WithMaxConcurrency(10),
 		)
@@ -154,7 +154,7 @@ func TestAllCarrier_Timeout(t *testing.T) {
 
 		carrierEvent := carrier.NewAll(
 			eventsToCarry,
-			func(received []event.Event) event.Event { return doneEvent },
+			func(carrier event.Event, received []event.Event) event.Event { return doneEvent },
 			timeoutEvent,
 			carrier.WithTimeout(50*time.Millisecond),
 			carrier.WithMaxConcurrency(10),
@@ -220,7 +220,7 @@ func TestAllCarrier_ConcurrentProcessing(t *testing.T) {
 
 		carrierEvent := carrier.NewAll(
 			eventsToCarry,
-			func(received []event.Event) event.Event { return doneEvent },
+			func(carrier event.Event, received []event.Event) event.Event { return doneEvent },
 			timeoutEvent,
 			carrier.WithMaxConcurrency(maxConcurrency),
 		)
@@ -262,7 +262,7 @@ func TestAllCarrier_EmptyEvents(t *testing.T) {
 
 		carrierEvent := carrier.NewAll(
 			[]event.Event{},
-			func(received []event.Event) event.Event { return doneEvent },
+			func(carrier event.Event, received []event.Event) event.Event { return doneEvent },
 			timeoutEvent,
 		)
 
@@ -299,7 +299,7 @@ func TestAllCarrier_EventType(t *testing.T) {
 		// When
 		carrierEvent := carrier.NewAll(
 			events,
-			func(received []event.Event) event.Event { return doneEvent },
+			func(carrier event.Event, received []event.Event) event.Event { return doneEvent },
 			timeoutEvent,
 		)
 
