@@ -119,3 +119,11 @@ type CompletionCondition func(sent, received event.Event) bool
 func CompletedOnFollowupReceived(sent, received event.Event) bool {
 	return true
 }
+
+// DoneFactory is a function type that creates a Done event from the event carrier and a list of received events.
+type DoneFactory func(evtCarrier event.Event, received []event.Event) event.Event
+
+// NoopDoneFactory is a DoneFactory that can be used when you don't want to emmit a specific done event.
+func NoopDoneFactory(event.Event, []event.Event) event.Event {
+	return nil
+}

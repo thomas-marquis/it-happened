@@ -23,6 +23,14 @@ type Payload interface {
 	EventType() Type
 }
 
+// ItHappened is a generic event payload that can be used to represent an empty event.
+// Use this when you think it doesn't matter what the event is.
+type ItHappened struct{}
+
+func (ItHappened) EventType() Type {
+	return "it.happened"
+}
+
 // Event is the interface representing a domain event.
 // Events are the fundamental building blocks of event-driven applications.
 // An event is chainable, meaning it can be composed of other events to form a chain.

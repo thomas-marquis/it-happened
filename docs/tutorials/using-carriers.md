@@ -66,8 +66,8 @@ events := []event.Event{
 The done event factory is a function that creates the completion event when all carried events are processed:
 
 ```go
-func doneFactory(received []event.Event) event.Event {
-    return event.New(BatchResultPayload{
+func doneFactory(evtCarrier event.Event, received []event.Event) event.Event {
+    return evtCarrier.NewFollowup(BatchResultPayload{
         Processed: len(received),
         Total:     len(events),
     })

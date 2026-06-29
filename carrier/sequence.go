@@ -8,20 +8,23 @@ import (
 	"github.com/thomas-marquis/it-happened/event"
 )
 
+const SequenceType event.Type = TypePrefix + ".sequence"
+
 // Sequence is a carrier that emits a sequence of events on the bus.
 // The next event is emitted only when the previous one has been received/resolved.
 // This ensures ordered processing of events in the sequence.
 type Sequence struct {
 	// Carried contains the events to be dispatched in sequence.
-	Carried []event.Event
+	Carried []event.Event `json:"carried"`
 	// DoneEventFactory creates the completion event when all carried events are processed.
-	DoneEventFactory func(received []event.Event) event.Event
+	DoneEventFactory DoneFactory `json:"-"`
 	// OnTimeout is the event to publish if the sequence times out.
-	OnTimeout event.Event
+	OnTimeout event.Event `json:"onTimeout,omitempty"`
 	// CompletionCondition determines when a sent event is considered complete.
-	CompletionCondition CompletionCondition
+	CompletionCondition CompletionCondition `json:"-"`
 
-	timeout time.Duration
+	timeout    time.Duration
+	evtCarrier event.Event
 }
 
 // NewSequence creates a new Sequence carrier that dispatches events in order.
@@ -39,7 +42,12 @@ type Sequence struct {
 // Returns:
 //
 //	A new event that wraps the Sequence carrier
-func NewSequence(carried []event.Event, doneEventFactory func(received []event.Event) event.Event, onTimeout event.Event, opts ...Option) event.Event {
+func NewSequence(
+	carried []event.Event,
+	doneEventFactory DoneFactory,
+	onTimeout event.Event,
+	opts ...Option,
+) event.Event {
 	c := &Sequence{
 		Carried:          carried,
 		DoneEventFactory: doneEventFactory,
@@ -57,14 +65,15 @@ func NewSequence(carried []event.Event, doneEventFactory func(received []event.E
 
 	c.timeout = cfg.timeout
 	c.CompletionCondition = cfg.completionCondition
+	c.evtCarrier = event.New(c)
 
-	return event.New(c)
+	return c.evtCarrier
 }
 
 // EventType returns the event type for Sequence carrier events.
 // All Sequence carriers have the same type prefix.
 func (c *Sequence) EventType() event.Type {
-	return TypePrefix + ".sequence"
+	return SequenceType
 }
 
 // Dispatch implements the Carrier interface for Sequence.
@@ -86,7 +95,10 @@ func (c *Sequence) Dispatch(bus event.Bus) {
 	go func() {
 		defer cancel()
 		receivedEvents := c.doDispatch(ctx, bus)
-		bus.Publish(c.DoneEventFactory(receivedEvents))
+		doneEvt := c.DoneEventFactory(c.evtCarrier, receivedEvents)
+		if doneEvt != nil {
+			bus.Publish(doneEvt)
+		}
 	}()
 }
 

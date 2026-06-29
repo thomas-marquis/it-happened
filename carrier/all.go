@@ -9,20 +9,23 @@ import (
 	"github.com/thomas-marquis/it-happened/event"
 )
 
+const AllType event.Type = TypePrefix + ".all"
+
 // All is a carrier that emits all carried events on the bus.
 // The carried events order is not preserved. They are dispatched in parallel
 // under a maximum concurrency threshold.
 type All struct {
 	// Carried contains the events to be dispatched in parallel.
-	Carried []event.Event
+	Carried []event.Event `json:"carried"`
 	// DoneEventFactory creates the completion event when all carried events are processed.
-	DoneEventFactory func(received []event.Event) event.Event
+	DoneEventFactory DoneFactory `json:"-"`
 	// OnTimeout is the event to publish if the carrier times out.
 	OnTimeout event.Event
 	// CompletionCondition determines when a sent event is considered complete.
-	CompletionCondition CompletionCondition
+	CompletionCondition CompletionCondition `json:"-"`
 	maxConcurrency      int
 	timeout             time.Duration
+	evtCarrier          event.Event
 }
 
 // Ensure All implements the Carrier interface.
@@ -50,7 +53,7 @@ var (
 //	A new event that wraps the All carrier
 func NewAll(
 	carried []event.Event,
-	doneEventFactory func(received []event.Event) event.Event,
+	doneEventFactory DoneFactory,
 	onTimeout event.Event,
 	opts ...Option,
 ) event.Event {
@@ -81,8 +84,9 @@ func NewAll(
 	c.maxConcurrency = cfg.maxConcurrency
 	c.timeout = cfg.timeout
 	c.CompletionCondition = cfg.completionCondition
+	c.evtCarrier = event.New(c)
 
-	return event.New(c)
+	return c.evtCarrier
 }
 
 // Dispatch implements the Carrier interface for All.
@@ -170,7 +174,10 @@ func (c *All) Dispatch(bus event.Bus) {
 				received := make([]event.Event, len(receivedEvents))
 				copy(received, receivedEvents)
 				mu.Unlock()
-				bus.Publish(c.DoneEventFactory(received))
+				doneEvt := c.DoneEventFactory(c.evtCarrier, received)
+				if doneEvt != nil {
+					bus.Publish(doneEvt)
+				}
 				return
 			}
 		}
@@ -180,7 +187,7 @@ func (c *All) Dispatch(bus event.Bus) {
 // EventType returns the event type for All carrier events.
 // All All carriers have the same type prefix.
 func (c *All) EventType() event.Type {
-	return TypePrefix + ".all"
+	return AllType
 }
 
 // allEventsHasBeenProcessed checks if all events in the map have been processed.
