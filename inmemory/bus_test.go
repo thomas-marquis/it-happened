@@ -76,6 +76,7 @@ func TestInmemoryBus_Publish(t *testing.T) {
 
 		testEvent := event.New(testPayload("test"))
 
+		// When
 		bus.Publish(testEvent)
 
 		// Then
@@ -133,6 +134,7 @@ func TestInmemoryBus_MultipleSubscribers(t *testing.T) {
 		sub3.ListenWithWorkers(1)
 		defer sub3.Detach()
 
+		// When
 		bus.Publish(testEvent)
 
 		// Then
@@ -176,6 +178,7 @@ func TestInmemoryBus_ConcurrentPublish(t *testing.T) {
 		sub.ListenWithWorkers(16)
 		defer sub.Detach()
 
+		// When
 		for i := 0; i < numEvents; i++ {
 			go func(idx int) {
 				evt := event.New(testPayload2{Value: "event"})
@@ -316,6 +319,7 @@ func TestInmemoryBus_Subscribe(t *testing.T) {
 		closeBus, bus := setupBus(t)
 		defer closeBus()
 
+		// When
 		sub := bus.Subscribe()
 
 		// Then
