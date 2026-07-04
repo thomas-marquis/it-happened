@@ -40,7 +40,7 @@ The bus is the central hub for all event communication.
 ctx, cancel := context.WithCancel(context.Background())
 defer cancel()
 
-bus := inmemory.NewBus(ctx, nil)
+bus := inmemory.NewBus(ctx)
 ```
 
 The context controls the bus lifetime. When canceled, the bus will shut down gracefully.

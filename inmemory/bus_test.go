@@ -35,7 +35,7 @@ func (testPayload2) EventType() event.Type {
 func setupBus(t *testing.T) (func(), event.Bus) {
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
-	bus := inmemory.NewBus(ctx, &event.NopNotifier{})
+	bus := inmemory.NewBus(ctx)
 	return cancel, bus
 }
 

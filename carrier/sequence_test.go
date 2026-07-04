@@ -20,7 +20,7 @@ func TestSequenceCarrier_Dispatch(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		bus := inmemory.NewBus(ctx, &event.NopNotifier{})
+		bus := inmemory.NewBus(ctx)
 
 		var receivedEvents []event.Event
 		var mu sync.Mutex
@@ -91,7 +91,7 @@ func TestSequenceCarrier_OrderedDispatch(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		bus := inmemory.NewBus(ctx, &event.NopNotifier{})
+		bus := inmemory.NewBus(ctx)
 
 		var receivedOrder []int
 		var mu sync.Mutex
@@ -164,7 +164,7 @@ func TestSequenceCarrier_CompletionEvent(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		bus := inmemory.NewBus(ctx, &event.NopNotifier{})
+		bus := inmemory.NewBus(ctx)
 
 		var doneReceived bool
 		var mu sync.Mutex
@@ -212,7 +212,7 @@ func TestSequenceCarrier_Timeout(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		bus := inmemory.NewBus(ctx, &event.NopNotifier{})
+		bus := inmemory.NewBus(ctx)
 
 		var timeoutReceived bool
 		var mu sync.Mutex
@@ -261,7 +261,7 @@ func TestSequenceCarrier_SequentialOrder(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		bus := inmemory.NewBus(ctx, &event.NopNotifier{})
+		bus := inmemory.NewBus(ctx)
 
 		numEvents := 5
 		var receivedOrder []int
@@ -354,7 +354,7 @@ func TestSequenceCarrier_NoMemoryLeak(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		bus := inmemory.NewBus(ctx, &event.NopNotifier{})
+		bus := inmemory.NewBus(ctx)
 
 		// Create and detach many sequence carriers to test for memory leaks
 		// Each sequence creates a temporary subscriber that needs to be cleaned up

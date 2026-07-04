@@ -50,11 +50,11 @@ Initialize an in-memory event bus:
 ```go
 func main() {
     // Create a done channel to control bus lifetime
-    done := make(chan struct{})
-    defer close(done)
+    ctx, cancel := context.WithCancel(context.Background())
+    defer cancel()
 
     // Create the bus with the done channel
-    bus := inmemory.NewBus(done, nil)
+    bus := inmemory.NewBus(ctx)
 ```
 
 ### Step 3: Subscribe to Events
@@ -114,10 +114,10 @@ func (p MyEventPayload) EventType() event.Type {
 }
 
 func main() {
-    done := make(chan struct{})
-    defer close(done)
+    ctx, cancel := context.WithCancel(context.Background())
+    defer cancel()
 
-    bus := inmemory.NewBus(done, nil)
+    bus := inmemory.NewBus(ctx)
 
     sub := bus.Subscribe()
     sub.On(event.Is("my.event"), func(e event.Event) {

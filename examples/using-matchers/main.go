@@ -54,7 +54,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	bus := inmemory.NewBus(ctx, nil)
+	bus := inmemory.NewBus(ctx)
 
 	// Create a subscriber
 	sub := bus.Subscribe()

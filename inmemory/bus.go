@@ -55,12 +55,13 @@ type inMemoryBus struct {
 // Returns:
 //
 //	A new in-memory event Bus instance
-func NewBus(ctx context.Context, notifier event.Notifier, opts ...BusOption) event.Bus {
+func NewBus(ctx context.Context, opts ...BusOption) event.Bus {
 	b := &inMemoryBus{
 		subscribers:  make(map[chan event.Event]*event.Subscriber),
 		ctx:          ctx,
 		bufferSize:   pubChanBufferSize,
 		nbPubWorkers: publicationWorkers,
+		notifier:     &event.NopNotifier{},
 	}
 
 	for _, opt := range opts {
@@ -68,12 +69,6 @@ func NewBus(ctx context.Context, notifier event.Notifier, opts ...BusOption) eve
 	}
 
 	b.publishingChan = make(chan publishedLoad, b.bufferSize)
-
-	if notifier != nil {
-		b.notifier = notifier
-	} else {
-		b.notifier = &event.NopNotifier{}
-	}
 
 	for i := 0; i < b.nbPubWorkers; i++ {
 		b.wg.Add(1)
@@ -99,6 +94,7 @@ func (b *inMemoryBus) Subscribe() *event.Subscriber {
 	events := make(chan event.Event)
 	subscriber := event.NewSubscriber(events)
 	b.subscribers[events] = subscriber
+	b.notifier.NotifySubscribed(subscriber)
 	return subscriber
 }
 
@@ -116,6 +112,7 @@ func (b *inMemoryBus) Unsubscribe(sub *event.Subscriber) {
 			break
 		}
 	}
+	b.notifier.NotifyUnsubscribed(sub)
 }
 
 // Publish publishes an event to all subscribers.
@@ -127,7 +124,7 @@ func (b *inMemoryBus) Unsubscribe(sub *event.Subscriber) {
 //
 //	evt - The event to publish
 func (b *inMemoryBus) Publish(evt event.Event) {
-	b.notifier.Notify(evt)
+	b.notifier.NotifyPublished(evt)
 	if c, ok := evt.Payload().(carrier.Carrier); ok {
 		go c.Dispatch(b)
 		return

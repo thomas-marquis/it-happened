@@ -20,7 +20,7 @@ func TestAllCarrier_Dispatch(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		bus := inmemory.NewBus(ctx, &event.NopNotifier{})
+		bus := inmemory.NewBus(ctx)
 
 		var receivedEvents []event.Event
 		var mu sync.Mutex
@@ -89,7 +89,7 @@ func TestAllCarrier_CompletionEvent(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		bus := inmemory.NewBus(ctx, &event.NopNotifier{})
+		bus := inmemory.NewBus(ctx)
 
 		var doneReceived bool
 		var mu sync.Mutex
@@ -140,7 +140,7 @@ func TestAllCarrier_Timeout(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		bus := inmemory.NewBus(ctx, &event.NopNotifier{})
+		bus := inmemory.NewBus(ctx)
 
 		var timeoutReceived bool
 		var mu sync.Mutex
@@ -189,7 +189,7 @@ func TestAllCarrier_ConcurrentProcessing(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		bus := inmemory.NewBus(ctx, &event.NopNotifier{})
+		bus := inmemory.NewBus(ctx)
 
 		numEvents := 20
 		maxConcurrency := 5
@@ -253,7 +253,7 @@ func TestAllCarrier_EmptyEvents(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		bus := inmemory.NewBus(ctx, &event.NopNotifier{})
+		bus := inmemory.NewBus(ctx)
 
 		var receivedCount int
 		var mu sync.Mutex

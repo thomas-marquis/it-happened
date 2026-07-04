@@ -32,7 +32,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	bus := inmemory.NewBus(ctx, nil)
+	bus := inmemory.NewBus(ctx)
 
 	// Subscribe to demo events
 	sub := bus.Subscribe()

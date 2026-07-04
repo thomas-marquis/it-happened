@@ -1,5 +1,7 @@
 package inmemory
 
+import "github.com/thomas-marquis/it-happened/event"
+
 // BusOption is a function that configures an in-memory bus.
 // Options use the functional options pattern for flexible bus configuration.
 type BusOption func(b *inMemoryBus)
@@ -42,5 +44,14 @@ func WithBufferSize(size int) BusOption {
 func WithWorkers(nbr int) BusOption {
 	return func(b *inMemoryBus) {
 		b.nbPubWorkers = nbr
+	}
+}
+
+// WithNotifier sets a notifier to the event bus
+//
+// The notifier's Notify method will be called each time an event is published on the bus.
+func WithNotifier(notifier event.Notifier) BusOption {
+	return func(b *inMemoryBus) {
+		b.notifier = notifier
 	}
 }

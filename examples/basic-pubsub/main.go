@@ -25,7 +25,7 @@ func main() {
 	defer cancel()
 
 	// Create an in-memory event bus
-	bus := inmemory.NewBus(ctx, nil)
+	bus := inmemory.NewBus(ctx)
 
 	// Create a subscriber
 	sub := bus.Subscribe()
