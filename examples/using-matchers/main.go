@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -50,10 +51,10 @@ func (p SystemEventPayload) EventType() event.Type {
 }
 
 func main() {
-	done := make(chan struct{})
-	defer close(done)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	bus := inmemory.NewBus(done, nil)
+	bus := inmemory.NewBus(ctx)
 
 	// Create a subscriber
 	sub := bus.Subscribe()

@@ -152,7 +152,10 @@ Example test structure:
 ```go
 t.Run("Given bus with registered subscriber, When event is published, Then subscriber receives the event", func(t *testing.T) {
     // Given
-    bus := inmemory.NewBus()
+    ctx, cancel := context.WithCancel(context.Background())
+    defer cancel()
+
+    bus := inmemory.NewBus(ctx)
     received := make(chan event.Event, 1)
     
     sub := bus.Subscribe().

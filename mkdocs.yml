@@ -65,6 +65,7 @@ nav:
       - Event Chaining: tutorials/event-chaining.md
       - Using Matchers: tutorials/using-matchers.md
       - Using Carriers: tutorials/using-carriers.md
+      - Using Notifiers: tutorials/using-notifiers.md
   - References: references.md
 
 extra:

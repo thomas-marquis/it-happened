@@ -8,7 +8,7 @@ import (
 // Subscriber manages event subscriptions and callback execution.
 // It matches incoming events against registered matchers and invokes the corresponding callbacks.
 type Subscriber struct {
-	sync.RWMutex
+	mu sync.RWMutex
 
 	registered   map[Matcher][]func(Event)
 	cancellable  map[Matcher][]*cancellableCallback
@@ -64,8 +64,8 @@ func (s *Subscriber) On(matcher Matcher, callback func(Event)) *Subscriber {
 		panic("cannot register callback after listening started")
 	}
 
-	s.Lock()
-	defer s.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if _, exists := s.registered[matcher]; !exists {
 		s.registered[matcher] = make([]func(Event), 0)
 	}
@@ -94,8 +94,8 @@ func (s *Subscriber) OnWithCancel(matcher Matcher, callback func(Event)) func() 
 		panic("cannot register callback after listening started")
 	}
 
-	s.Lock()
-	defer s.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	// Generate a unique ID for this callback
 	id := atomic.AddUint64(&s.nextCancelID, 1)
@@ -112,8 +112,8 @@ func (s *Subscriber) OnWithCancel(matcher Matcher, callback func(Event)) func() 
 
 	// Return cancellation function
 	return func() {
-		s.Lock()
-		defer s.Unlock()
+		s.mu.Lock()
+		defer s.mu.Unlock()
 		if s.detached {
 			// Subscriber has been detached, all callbacks are already cleared
 			return
@@ -144,7 +144,7 @@ func (s *Subscriber) listen() {
 			if event == nil {
 				continue
 			}
-			s.RLock()
+			s.mu.RLock()
 			for matcher, callbacks := range s.registered {
 				if matcher.Match(event) { // <- here, event is sometimes nil
 					for _, callback := range callbacks {
@@ -159,7 +159,7 @@ func (s *Subscriber) listen() {
 					}
 				}
 			}
-			s.RUnlock()
+			s.mu.RUnlock()
 		}
 	}
 }
@@ -194,7 +194,7 @@ func (s *Subscriber) ListenNonBlocking() {
 				if event == nil {
 					continue
 				}
-				s.RLock()
+				s.mu.RLock()
 				for matcher, callbacks := range s.registered {
 					if matcher.Match(event) {
 						for _, callback := range callbacks {
@@ -209,7 +209,7 @@ func (s *Subscriber) ListenNonBlocking() {
 						}
 					}
 				}
-				s.RUnlock()
+				s.mu.RUnlock()
 			}
 		}
 	}()
@@ -227,8 +227,8 @@ func (s *Subscriber) ListenNonBlocking() {
 //
 //	true if the event matches any registered matcher, false otherwise
 func (s *Subscriber) Accept(event Event) bool {
-	s.RLock()
-	defer s.RUnlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	for matcher := range s.registered {
 		if matcher.Match(event) {
 			return true
@@ -248,8 +248,8 @@ func (s *Subscriber) Accept(event Event) bool {
 // and clears all registered callbacks to prevent memory leaks.
 // This method is idempotent and safe to call multiple times.
 func (s *Subscriber) Detach() {
-	s.Lock()
-	defer s.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	if s.detached {
 		return

@@ -59,7 +59,7 @@ func TestNopNotifier_Notify(t *testing.T) {
 
 		// When/Then - should not panic
 		assert.NotPanics(t, func() {
-			notifier.Notify(testEvent)
+			notifier.NotifyPublished(testEvent)
 		})
 	})
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -19,12 +20,12 @@ func (p MessagePayload) EventType() event.Type {
 }
 
 func main() {
-	// Create a done channel to control the bus lifetime
-	done := make(chan struct{})
-	defer close(done)
+	// Create context to control the bus lifetime
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	// Create an in-memory event bus
-	bus := inmemory.NewBus(done, nil)
+	bus := inmemory.NewBus(ctx)
 
 	// Create a subscriber
 	sub := bus.Subscribe()

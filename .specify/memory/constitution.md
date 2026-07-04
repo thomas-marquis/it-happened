@@ -1,11 +1,10 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 1.0.0 → 1.1.0 (MINOR: Added test naming convention rule)
+Version change: 1.1.0 → 1.2.0 (MINOR: Added comment usage principle)
 Added sections:
-  - Test Naming Convention in Quality Standards > Testing
-Modified sections:
-  - Quality Standards > Testing (added test naming rule)
+  - Comment Discipline in Core Principles
+Modified sections: None
 Templates requiring updates: 
   - ✅ constitution-template.md (referenced but not modified - this is the working copy)
   - ⚠ spec-template.md (no changes needed - aligns with principles)
@@ -53,6 +52,11 @@ All contributions MUST pass through defined quality gates before being considere
 
 **Rationale**: Consistent quality ensures reliability and maintainability of the library. This is explicitly defined in CONTRIBUTE.md's "Definition of Done".
 
+### VIII. Comment Discipline
+Comments MUST be avoided in code except for Go doc comments on exported objects. Code MUST be self-documenting through clear naming and structure. Non-doc comments MUST only be used when absolutely necessary to explain non-obvious behavior or complex algorithms.
+
+**Rationale**: Clean, self-documenting code reduces maintenance burden and improves readability. Exported APIs require doc comments for proper documentation.
+
 ## Development Workflow
 
 All development MUST follow the test-first approach. Mocks MUST be generated using mockgen and stored in the mocks/ directory. Mocks MUST NOT be edited manually - they must be regenerated using `go generate ./...`.
@@ -78,4 +82,4 @@ Amendments to this Constitution require:
 2. Approval through PR review process
 3. Migration plan for any breaking changes to established practices
 
-**Version**: 1.1.0 | **Ratified**: 2026-06-19 | **Last Amended**: 2026-06-19
+**Version**: 1.2.0 | **Ratified**: 2026-06-19 | **Last Amended**: 2026-07-04

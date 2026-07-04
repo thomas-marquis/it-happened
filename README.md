@@ -44,6 +44,128 @@ go get github.com/thomas-marquis/it-happened
 
 See the [Quick Start](https://thomas-marquis.github.io/it-happened/) guide to get started, or explore the [examples](examples/) directory for runnable code samples.
 
+### Basic Usage Examples
+
+#### Publish and Subscribe
+
+```go
+import (
+    "context"
+    "fmt"
+    "github.com/thomas-marquis/it-happened/event"
+    "github.com/thomas-marquis/it-happened/inmemory"
+)
+
+// Define your event payload
+type UserCreatedPayload struct {
+    Username string
+}
+
+func (p UserCreatedPayload) EventType() event.Type {
+    return "user.created"
+}
+
+// Create an event bus
+ctx, cancel := context.WithCancel(context.Background())
+defer cancel()
+bus := inmemory.NewBus(ctx)
+
+// Create a subscriber
+sub := bus.Subscribe()
+
+// Register a callback for specific event types
+sub.On(event.Is("user.created"), func(e event.Event) {
+    if payload, ok := e.Payload().(UserCreatedPayload); ok {
+        fmt.Printf("User created: %s\n", payload.Username)
+    }
+})
+
+// Start listening with workers
+sub.ListenWithWorkers(1)
+defer sub.Detach()
+
+// Publish an event
+evt := event.New(UserCreatedPayload{Username: "john_doe"})
+bus.Publish(evt)
+```
+
+#### Using Notifiers for Monitoring
+
+```go
+import (
+    "log"
+    "github.com/thomas-marquis/it-happened/event"
+    "github.com/thomas-marquis/it-happened/inmemory"
+)
+
+// Implement a custom notifier
+type LoggingNotifier struct {
+    event.NopNotifier // Use NopNotifier as base
+}
+
+func (n *LoggingNotifier) NotifyPublished(evt event.Event) {
+    log.Printf("Event published: %s\n", evt.Type())
+}
+
+// Create bus with custom notifier (assuming ctx is available)
+bus := inmemory.NewBus(ctx, inmemory.WithNotifier(&LoggingNotifier{}))
+
+// Now all published events will be logged
+type MyPayload struct{}
+func (MyPayload) EventType() event.Type { return "my.event" }
+bus.Publish(event.New(MyPayload{}))
+```
+
+#### Event Chaining
+
+```go
+import "fmt"
+
+// Define payload types
+type OrderPayload struct { OrderID string }
+func (p OrderPayload) EventType() event.Type { return "order.created" }
+
+type OrderCompletedPayload struct { OrderID string }
+func (p OrderCompletedPayload) EventType() event.Type { return "order.completed" }
+
+// Create an initial event
+initialEvent := event.New(OrderPayload{OrderID: "123"})
+
+// Create a followup event in the same chain
+followupEvent := initialEvent.NewFollowup(OrderCompletedPayload{OrderID: "123"})
+
+// Both events share the same ChainRef
+fmt.Printf("ChainRef: %s\n", initialEvent.ChainRef())
+fmt.Printf("ChainRef: %s\n", followupEvent.ChainRef())  // Same as above
+fmt.Printf("ChainPosition: %d\n", initialEvent.ChainPosition())    // 0
+fmt.Printf("ChainPosition: %d\n", followupEvent.ChainPosition())  // 1
+```
+
+#### Using Carriers
+
+```go
+import "github.com/thomas-marquis/it-happened/carrier"
+
+// Define payload types
+type SendEmailPayload struct { To string }
+func (p SendEmailPayload) EventType() event.Type { return "email.sent" }
+
+type UpdateDatabasePayload struct { ID string }
+func (p UpdateDatabasePayload) EventType() event.Type { return "db.updated" }
+
+// Create events to dispatch in parallel
+events := []event.Event{
+    event.New(SendEmailPayload{To: "user@example.com"}),
+    event.New(UpdateDatabasePayload{ID: "123"}),
+}
+
+// Create an All carrier that dispatches events concurrently
+carrierEvent := carrier.NewAll(events, nil, nil)
+
+// Publish the carrier
+bus.Publish(carrierEvent)
+```
+
 ## 🤝 Contribute
 
 All contributions are welcome! Feel free to open an issue or submit a PR. ✨

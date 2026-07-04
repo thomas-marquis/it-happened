@@ -37,13 +37,13 @@ Every payload must implement `EventType()` which returns a `event.Type` - this i
 The bus is the central hub for all event communication.
 
 ```go
-done := make(chan struct{})
-defer close(done)
+ctx, cancel := context.WithCancel(context.Background())
+defer cancel()
 
-bus := inmemory.NewBus(done, nil)
+bus := inmemory.NewBus(ctx)
 ```
 
-The `done` channel controls the bus lifetime. When closed, the bus will shut down gracefully.
+The context controls the bus lifetime. When canceled, the bus will shut down gracefully.
 
 ## Step 3: Create a Subscriber
 

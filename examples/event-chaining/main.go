@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -39,10 +40,10 @@ func (p OrderCompletedPayload) EventType() event.Type {
 }
 
 func main() {
-	done := make(chan struct{})
-	defer close(done)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	bus := inmemory.NewBus(done, nil)
+	bus := inmemory.NewBus(ctx)
 
 	// Subscribe to order events
 	sub := bus.Subscribe()

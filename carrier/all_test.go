@@ -1,6 +1,7 @@
 package carrier_test
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"testing"
@@ -16,10 +17,10 @@ import (
 func TestAllCarrier_Dispatch(t *testing.T) {
 	t.Run("should dispatch all events in parallel when carrier is published", func(t *testing.T) {
 		// Given
-		done := make(chan struct{})
-		defer close(done)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
-		bus := inmemory.NewBus(done, &event.NopNotifier{})
+		bus := inmemory.NewBus(ctx)
 
 		var receivedEvents []event.Event
 		var mu sync.Mutex
@@ -85,10 +86,10 @@ func TestAllCarrier_Dispatch(t *testing.T) {
 func TestAllCarrier_CompletionEvent(t *testing.T) {
 	t.Run("should publish done event when all carried events are processed", func(t *testing.T) {
 		// Given
-		done := make(chan struct{})
-		defer close(done)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
-		bus := inmemory.NewBus(done, &event.NopNotifier{})
+		bus := inmemory.NewBus(ctx)
 
 		var doneReceived bool
 		var mu sync.Mutex
@@ -136,10 +137,10 @@ func TestAllCarrier_CompletionEvent(t *testing.T) {
 func TestAllCarrier_Timeout(t *testing.T) {
 	t.Run("should publish timeout event when processing exceeds timeout duration", func(t *testing.T) {
 		// Given
-		done := make(chan struct{})
-		defer close(done)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
-		bus := inmemory.NewBus(done, &event.NopNotifier{})
+		bus := inmemory.NewBus(ctx)
 
 		var timeoutReceived bool
 		var mu sync.Mutex
@@ -185,10 +186,10 @@ func TestAllCarrier_Timeout(t *testing.T) {
 func TestAllCarrier_ConcurrentProcessing(t *testing.T) {
 	t.Run("should process events concurrently up to max concurrency", func(t *testing.T) {
 		// Given
-		done := make(chan struct{})
-		defer close(done)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
-		bus := inmemory.NewBus(done, &event.NopNotifier{})
+		bus := inmemory.NewBus(ctx)
 
 		numEvents := 20
 		maxConcurrency := 5
@@ -249,10 +250,10 @@ func TestAllCarrier_ConcurrentProcessing(t *testing.T) {
 func TestAllCarrier_EmptyEvents(t *testing.T) {
 	t.Run("should handle empty events list gracefully", func(t *testing.T) {
 		// Given
-		done := make(chan struct{})
-		defer close(done)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
-		bus := inmemory.NewBus(done, &event.NopNotifier{})
+		bus := inmemory.NewBus(ctx)
 
 		var receivedCount int
 		var mu sync.Mutex
