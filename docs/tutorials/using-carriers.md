@@ -63,7 +63,8 @@ events := []event.Event{
 
 ## Step 2: Create a Done Event Factory
 
-The done event factory is a function that creates the completion event when all carried events are processed:
+The done event factory is a function that creates the completion event when all carried events are processed.
+This function's fist argument is the event carrier pointer, that can be used to chaining with the done event (it is optional).
 
 ```go
 func doneFactory(evtCarrier event.Event, received []event.Event) event.Event {
@@ -92,7 +93,7 @@ The `All` carrier will:
 1. Dispatch all carried events in parallel (up to 2 at a time)
 2. Wait for all events to be completed
 3. Publish the done event from the factory
-4. If timeout occurs, publish the timeout event
+4. If timeout occurs, cancel all remaining carried events and publish the timeout event
 
 ## Step 4: Create and Publish a Sequence Carrier
 
@@ -113,7 +114,7 @@ The `Sequence` carrier will:
 3. Dispatch the second event
 4. Continue until all events are processed
 5. Publish the done event from the factory
-6. If timeout occurs, publish the timeout event
+6. If timeout occurs, cancel all remaining carried events and publish the timeout event
 
 ## Complete Example
 

@@ -1,6 +1,7 @@
 package carrier_test
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"testing"
@@ -16,10 +17,10 @@ import (
 func TestSequenceCarrier_Dispatch(t *testing.T) {
 	t.Run("should dispatch all events sequentially when carrier is published", func(t *testing.T) {
 		// Given
-		done := make(chan struct{})
-		defer close(done)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
-		bus := inmemory.NewBus(done, &event.NopNotifier{})
+		bus := inmemory.NewBus(ctx, &event.NopNotifier{})
 
 		var receivedEvents []event.Event
 		var mu sync.Mutex
@@ -87,10 +88,10 @@ func TestSequenceCarrier_Dispatch(t *testing.T) {
 func TestSequenceCarrier_OrderedDispatch(t *testing.T) {
 	t.Run("should preserve order when dispatching events sequentially", func(t *testing.T) {
 		// Given
-		done := make(chan struct{})
-		defer close(done)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
-		bus := inmemory.NewBus(done, &event.NopNotifier{})
+		bus := inmemory.NewBus(ctx, &event.NopNotifier{})
 
 		var receivedOrder []int
 		var mu sync.Mutex
@@ -160,10 +161,10 @@ func TestSequenceCarrier_OrderedDispatch(t *testing.T) {
 func TestSequenceCarrier_CompletionEvent(t *testing.T) {
 	t.Run("should publish done event when all carried events are processed in sequence", func(t *testing.T) {
 		// Given
-		done := make(chan struct{})
-		defer close(done)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
-		bus := inmemory.NewBus(done, &event.NopNotifier{})
+		bus := inmemory.NewBus(ctx, &event.NopNotifier{})
 
 		var doneReceived bool
 		var mu sync.Mutex
@@ -208,10 +209,10 @@ func TestSequenceCarrier_CompletionEvent(t *testing.T) {
 func TestSequenceCarrier_Timeout(t *testing.T) {
 	t.Run("should publish timeout event when sequence processing exceeds timeout duration", func(t *testing.T) {
 		// Given
-		done := make(chan struct{})
-		defer close(done)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
-		bus := inmemory.NewBus(done, &event.NopNotifier{})
+		bus := inmemory.NewBus(ctx, &event.NopNotifier{})
 
 		var timeoutReceived bool
 		var mu sync.Mutex
@@ -257,10 +258,10 @@ func TestSequenceCarrier_Timeout(t *testing.T) {
 func TestSequenceCarrier_SequentialOrder(t *testing.T) {
 	t.Run("should ensure next event is not dispatched until previous completes", func(t *testing.T) {
 		// Given
-		done := make(chan struct{})
-		defer close(done)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
-		bus := inmemory.NewBus(done, &event.NopNotifier{})
+		bus := inmemory.NewBus(ctx, &event.NopNotifier{})
 
 		numEvents := 5
 		var receivedOrder []int
@@ -350,10 +351,10 @@ func TestSequenceCarrier_EventType(t *testing.T) {
 func TestSequenceCarrier_NoMemoryLeak(t *testing.T) {
 	t.Run("should not leak memory when creating and detaching multiple subscribers", func(t *testing.T) {
 		// Given
-		done := make(chan struct{})
-		defer close(done)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
-		bus := inmemory.NewBus(done, &event.NopNotifier{})
+		bus := inmemory.NewBus(ctx, &event.NopNotifier{})
 
 		// Create and detach many sequence carriers to test for memory leaks
 		// Each sequence creates a temporary subscriber that needs to be cleaned up

@@ -34,7 +34,7 @@ event.New(OrderCreatedPayload{
 })
 ```
 
-This creates an event with a unique ID. Since no ChainRef was specified, the event's ID becomes its ChainRef, and its ChainPosition is 0.
+This creates an event with a unique ID. Since it is the first event in the chain, the ChainRef is initialized with the event ID, and the ChainPosition is 0.
 
 ## Step 2: Create a Followup Event
 
@@ -80,13 +80,14 @@ You can inspect the chain information on any event:
 
 ```go
 sub.On(event.IsOneOf("order.created", "order.processed", "order.completed"), func(e event.Event) {
-    fmt.Printf("ChainRef: %s, Position: %d\n",
+    fmt.Printf("ID: %s, ChainRef: %s, Position: %d\n",
+        e.ID(),
         e.ChainRef(),
         e.ChainPosition())
 })
 ```
 
-This will show that all events in the chain share the same ChainRef, but each has a unique ChainPosition.
+This will show that all events in the chain share the same ChainRef, but each has a unique ChainPosition and ID.
 
 ## Complete Example
 

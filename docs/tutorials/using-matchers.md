@@ -1,6 +1,7 @@
 # Using Matchers
 
-Learn how to use matchers to filter and route events to the appropriate handlers. Matchers provide powerful filtering capabilities that allow subscribers to receive only the events they're interested in.
+Learn how to use matchers to filter and route events to the appropriate handlers.
+Matchers provide powerful filtering capabilities that allow subscribers to receive only the events they're interested in.
 
 ## What You'll Learn
 

@@ -1,6 +1,7 @@
 package inmemory
 
 import (
+	"context"
 	"sync"
 
 	"github.com/thomas-marquis/it-happened/carrier"
@@ -31,8 +32,8 @@ type inMemoryBus struct {
 	subscribers map[chan event.Event]*event.Subscriber
 	// publishingChan is the channel through which publication tasks are sent to workers.
 	publishingChan chan publishedLoad
-	// done is the channel that signals the bus to shut down.
-	done <-chan struct{}
+
+	ctx context.Context
 	// notifier is used to notify about published events.
 	notifier event.Notifier
 	wg       sync.WaitGroup
@@ -47,17 +48,17 @@ type inMemoryBus struct {
 //
 // Parameters:
 //
-//	done - Channel that signals when the bus should shut down
+//	ctx - A context the bus will use for cancellation
 //	notifier - Optional notifier for published events (defaults to NopNotifier)
 //	opts - Optional configuration options for the bus
 //
 // Returns:
 //
 //	A new in-memory event Bus instance
-func NewBus(done <-chan struct{}, notifier event.Notifier, opts ...BusOption) event.Bus {
+func NewBus(ctx context.Context, notifier event.Notifier, opts ...BusOption) event.Bus {
 	b := &inMemoryBus{
 		subscribers:  make(map[chan event.Event]*event.Subscriber),
-		done:         done,
+		ctx:          ctx,
 		bufferSize:   pubChanBufferSize,
 		nbPubWorkers: publicationWorkers,
 	}
@@ -141,7 +142,7 @@ func (b *inMemoryBus) Publish(evt event.Event) {
 		}
 		select {
 		case b.publishingChan <- publishedLoad{evt, channel}:
-		case <-b.done:
+		case <-b.ctx.Done():
 		}
 	}
 }
@@ -153,12 +154,12 @@ func (b *inMemoryBus) pubWorker() {
 	defer b.wg.Done()
 	for {
 		select {
-		case <-b.done:
+		case <-b.ctx.Done():
 			return
 		case i := <-b.publishingChan:
 			select {
 			case i.subscriberChanel <- i.evt:
-			case <-b.done:
+			case <-b.ctx.Done():
 			}
 		}
 	}
@@ -167,7 +168,7 @@ func (b *inMemoryBus) pubWorker() {
 // terminate handles the shutdown of the bus.
 // It waits for all workers to finish and closes all subscriber channels.
 func (b *inMemoryBus) terminate() {
-	<-b.done
+	<-b.ctx.Done()
 	b.wg.Wait()
 	b.Lock()
 	defer b.Unlock()

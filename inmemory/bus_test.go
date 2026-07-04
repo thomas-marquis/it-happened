@@ -1,6 +1,7 @@
 package inmemory_test
 
 import (
+	"context"
 	"sync"
 	"testing"
 	"time"
@@ -33,9 +34,9 @@ func (testPayload2) EventType() event.Type {
 // t.Helper() is called to mark this as a helper function.
 func setupBus(t *testing.T) (func(), event.Bus) {
 	t.Helper()
-	done := make(chan struct{})
-	bus := inmemory.NewBus(done, &event.NopNotifier{})
-	return func() { close(done) }, bus
+	ctx, cancel := context.WithCancel(context.Background())
+	bus := inmemory.NewBus(ctx, &event.NopNotifier{})
+	return cancel, bus
 }
 
 // waitForEvents waits for the waitgroup and returns the received events.
