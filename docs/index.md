@@ -163,7 +163,3 @@ Now that you have the basics working, explore these next:
 - Browse the [Tutorials](tutorials/) for practical examples
 - Visit the [References](references.md) for API documentation
 - Open an issue on [GitHub](https://github.com/thomas-marquis/it-happened)
-
----
-
-*This Quick Start guide should take less than 10 minutes to complete.*

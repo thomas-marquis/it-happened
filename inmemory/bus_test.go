@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/thomas-marquis/it-happened/event"
 	"github.com/thomas-marquis/it-happened/inmemory"
+	mocks_events "github.com/thomas-marquis/it-happened/internal/mocks/events"
+	goMock "go.uber.org/mock/gomock"
 )
 
 // testPayload is a test payload for creating test events.
@@ -74,7 +76,6 @@ func TestInmemoryBus_Publish(t *testing.T) {
 
 		testEvent := event.New(testPayload("test"))
 
-		// When
 		bus.Publish(testEvent)
 
 		// Then
@@ -132,7 +133,6 @@ func TestInmemoryBus_MultipleSubscribers(t *testing.T) {
 		sub3.ListenWithWorkers(1)
 		defer sub3.Detach()
 
-		// When
 		bus.Publish(testEvent)
 
 		// Then
@@ -176,7 +176,6 @@ func TestInmemoryBus_ConcurrentPublish(t *testing.T) {
 		sub.ListenWithWorkers(16)
 		defer sub.Detach()
 
-		// When
 		for i := 0; i < numEvents; i++ {
 			go func(idx int) {
 				evt := event.New(testPayload2{Value: "event"})
@@ -317,7 +316,6 @@ func TestInmemoryBus_Subscribe(t *testing.T) {
 		closeBus, bus := setupBus(t)
 		defer closeBus()
 
-		// When
 		sub := bus.Subscribe()
 
 		// Then
@@ -392,5 +390,93 @@ func TestInmemoryBus_ThreadSafety(t *testing.T) {
 		case <-time.After(2 * time.Second):
 			assert.Fail(t, "timeout waiting for all events")
 		}
+	})
+}
+
+func TestInmemoryBus_WithCustomNotifier(t *testing.T) {
+	t.Run("should call custom notifier when event is published", func(t *testing.T) {
+		// Given
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		mockCtrl := goMock.NewController(t)
+
+		mockNotifier := mocks_events.NewMockNotifier(mockCtrl)
+
+		testEvent := event.New(testPayload("test"))
+		mockNotifier.EXPECT().NotifyPublished(testEvent)
+
+		bus := inmemory.NewBus(ctx, inmemory.WithNotifier(mockNotifier))
+
+		// When
+		bus.Publish(testEvent)
+	})
+
+	t.Run("should call custom notifier when subscriber is created", func(t *testing.T) {
+		// Given
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		mockCtrl := goMock.NewController(t)
+
+		mockNotifier := mocks_events.NewMockNotifier(mockCtrl)
+
+		bus := inmemory.NewBus(ctx, inmemory.WithNotifier(mockNotifier))
+
+		mockNotifier.EXPECT().NotifySubscribed(goMock.Any()).Times(1)
+
+		// When
+		bus.Subscribe()
+	})
+
+	t.Run("should call custom notifier when subscriber is unsubscribed", func(t *testing.T) {
+		// Given
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		mockCtrl := goMock.NewController(t)
+
+		mockNotifier := mocks_events.NewMockNotifier(mockCtrl)
+
+		bus := inmemory.NewBus(ctx, inmemory.WithNotifier(mockNotifier))
+
+		mockNotifier.EXPECT().NotifySubscribed(goMock.Any()).Times(1)
+
+		sub := bus.Subscribe()
+
+		mockNotifier.EXPECT().NotifyUnsubscribed(goMock.Any()).Times(1)
+
+		// When
+		bus.Unsubscribe(sub)
+	})
+
+	t.Run("should work with multiple events and notifications", func(t *testing.T) {
+		// Given
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		mockCtrl := goMock.NewController(t)
+
+		mockNotifier := mocks_events.NewMockNotifier(mockCtrl)
+		bus := inmemory.NewBus(ctx, inmemory.WithNotifier(mockNotifier))
+
+		mockNotifier.EXPECT().NotifySubscribed(goMock.Any()).Times(2)
+
+		sub1 := bus.Subscribe()
+		_ = bus.Subscribe()
+
+		event1 := event.New(testPayload("event1"))
+		event2 := event.New(testPayload("event2"))
+
+		mockNotifier.EXPECT().NotifyPublished(event1).Times(1)
+		mockNotifier.EXPECT().NotifyPublished(event2).Times(1)
+
+		mockNotifier.EXPECT().NotifyUnsubscribed(goMock.Any()).Times(1)
+
+		// When
+
+		bus.Publish(event1)
+		bus.Publish(event2)
+		bus.Unsubscribe(sub1)
 	})
 }

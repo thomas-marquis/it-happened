@@ -59,7 +59,14 @@ An Option is a way to configure how events and carriers are created. Using the f
 
 ## Notifier
 
-A Notifier receives notifications whenever an event is published to the bus. It allows you to monitor event activity without subscribing to specific events. The default implementation is a no-operation notifier that discards all notifications.
+A Notifier receives notifications about bus activity, including when events are published and when subscribers join or leave the bus. Unlike subscribers, notifiers receive ALL events regardless of type, making them ideal for monitoring, logging, or metrics collection. The library provides a `NopNotifier` implementation as the default, which silently discards all notifications.
+
+The Notifier interface includes three methods:
+- `NotifyPublished(Event)`: Called whenever any event is published to the bus
+- `NotifySubscribed(*Subscriber)`: Called when a new subscriber is created
+- `NotifyUnsubscribed(*Subscriber)`: Called when a subscriber is removed
+
+Notifiers complement subscribers by providing a separate channel for observation and monitoring without affecting the normal event processing flow.
 
 ## Carrier
 
