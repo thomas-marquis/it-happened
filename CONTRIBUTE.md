@@ -180,7 +180,7 @@ t.Run("Given bus with registered subscriber, When event is published, Then subsc
 
 ### Testing Event Carriers
 
-For testing All and Sequence carriers:
+For testing All, Sequence, and Pipeline carriers:
 
 **All carrier** (parallel dispatch):
 - Test that events are dispatched concurrently
@@ -192,6 +192,13 @@ For testing All and Sequence carriers:
 - Test that events are dispatched in order
 - Test that next event waits for previous to complete
 - Test timeout scenarios
+- Test followup event completion
+
+**Pipeline carrier** (function-based transformation):
+- Test that pipeline stages execute sequentially
+- Test that each function receives the completion from the previous stage
+- Test timeout scenarios
+- Test PipelineStop interruption
 - Test followup event completion
 
 Example carrier test:
