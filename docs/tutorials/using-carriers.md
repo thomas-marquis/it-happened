@@ -168,40 +168,41 @@ The `Pipeline` carrier will:
 7. If timeout occurs, publish the timeout event
 8. If a pipeline function returns a `PipelineStop` payload, the pipeline is interrupted and the wrapped event (if any) is published
 
-## Complete Example
+## Complete Examples
 
-See the complete, runnable example:
+Each carrier has its own dedicated example:
 
-📁 [examples/using-carriers/main.go](https://github.com/thomas-marquis/it-happened/blob/main/examples/using-carriers/main.go)
+### All Carrier Example
+
+📁 [examples/using-all-carrier/main.go](https://github.com/thomas-marquis/it-happened/blob/main/examples/using-all-carrier/main.go)
 
 To run it:
 
 ```bash
-cd examples/using-carriers
+cd examples/using-all-carrier
 go run main.go
 ```
 
-Expected output:
+### Sequence Carrier Example
 
+📁 [examples/using-sequence-carrier/main.go](https://github.com/thomas-marquis/it-happened/blob/main/examples/using-sequence-carrier/main.go)
+
+To run it:
+
+```bash
+cd examples/using-sequence-carrier
+go run main.go
 ```
-=== All Carrier (Parallel Dispatch) ===
-Publishing carrier with 3 events...
-  Received: Event 1
-  Received: Event 2
-  Received: Event 3
-Done: processed 3 events
 
-=== Sequence Carrier (Sequential Dispatch) ===
-Publishing carrier with 3 events...
-  Received: Event 1
-  Received: Event 2
-  Received: Event 3
-Done: processed 3 events
+### Pipeline Carrier Example
 
-=== Demo Complete ===
-Note: Carriers dispatch multiple events as a single unit.
-      All carrier: parallel dispatch
-      Sequence carrier: sequential dispatch
+📁 [examples/using-pipeline-carrier/main.go](https://github.com/thomas-marquis/it-happened/blob/main/examples/using-pipeline-carrier/main.go)
+
+To run it:
+
+```bash
+cd examples/using-pipeline-carrier
+go run main.go
 ```
 
 ## How Completion Works
