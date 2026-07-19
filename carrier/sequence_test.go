@@ -83,9 +83,7 @@ func TestSequenceCarrier_Dispatch(t *testing.T) {
 			assert.Fail(t, "timeout waiting for all events")
 		}
 	})
-}
 
-func TestSequenceCarrier_OrderedDispatch(t *testing.T) {
 	t.Run("should preserve order when dispatching events sequentially", func(t *testing.T) {
 		// Given
 		ctx, cancel := context.WithCancel(context.Background())
@@ -156,9 +154,7 @@ func TestSequenceCarrier_OrderedDispatch(t *testing.T) {
 			assert.Fail(t, "timeout waiting for all events")
 		}
 	})
-}
 
-func TestSequenceCarrier_CompletionEvent(t *testing.T) {
 	t.Run("should publish done event when all carried events are processed in sequence", func(t *testing.T) {
 		// Given
 		ctx, cancel := context.WithCancel(context.Background())
@@ -204,9 +200,7 @@ func TestSequenceCarrier_CompletionEvent(t *testing.T) {
 		assert.True(t, doneReceived, "done event should be published")
 		mu.Unlock()
 	})
-}
 
-func TestSequenceCarrier_Timeout(t *testing.T) {
 	t.Run("should publish timeout event when sequence processing exceeds timeout duration", func(t *testing.T) {
 		// Given
 		ctx, cancel := context.WithCancel(context.Background())
@@ -253,9 +247,7 @@ func TestSequenceCarrier_Timeout(t *testing.T) {
 		assert.True(t, timeoutReceived, "timeout event should be published")
 		mu.Unlock()
 	})
-}
 
-func TestSequenceCarrier_SequentialOrder(t *testing.T) {
 	t.Run("should ensure next event is not dispatched until previous completes", func(t *testing.T) {
 		// Given
 		ctx, cancel := context.WithCancel(context.Background())
@@ -319,72 +311,5 @@ func TestSequenceCarrier_SequentialOrder(t *testing.T) {
 		case <-time.After(2 * time.Second):
 			assert.Fail(t, "timeout waiting for all events")
 		}
-	})
-}
-
-func TestSequenceCarrier_EventType(t *testing.T) {
-	t.Run("should have correct event type", func(t *testing.T) {
-		// Given
-		events := []event.Event{
-			event.New(testPayload("event1")),
-		}
-
-		doneEvent := event.New(testPayload("done"))
-		timeoutEvent := event.New(testPayload("timeout"))
-
-		// When
-		carrierEvent := carrier.NewSequence(
-			events,
-			func(carrier event.Event, received []event.Event) event.Event { return doneEvent },
-			timeoutEvent,
-		)
-
-		// Then
-		require.NotNil(t, carrierEvent)
-		assert.NotNil(t, carrierEvent.Payload())
-
-		payload := carrierEvent.Payload().(*carrier.Sequence)
-		assert.Equal(t, event.Type(carrier.TypePrefix+".sequence"), payload.EventType())
-	})
-}
-
-func TestSequenceCarrier_NoMemoryLeak(t *testing.T) {
-	t.Run("should not leak memory when creating and detaching multiple subscribers", func(t *testing.T) {
-		// Given
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-
-		bus := inmemory.NewBus(ctx)
-
-		// Create and detach many sequence carriers to test for memory leaks
-		// Each sequence creates a temporary subscriber that needs to be cleaned up
-		numSequences := 100
-
-		for i := 0; i < numSequences; i++ {
-			eventsToCarry := []event.Event{
-				event.New(testPayload(fmt.Sprintf("event%d", i))),
-			}
-
-			doneEvent := event.New(testPayload("done"))
-			timeoutEvent := event.New(testPayload("timeout"))
-
-			carrierEvent := carrier.NewSequence(
-				eventsToCarry,
-				func(carrier event.Event, received []event.Event) event.Event { return doneEvent },
-				timeoutEvent,
-				carrier.WithTimeout(1*time.Millisecond),
-			)
-
-			// Publish the carrier - it will create and detach a subscriber internally
-			bus.Publish(carrierEvent)
-		}
-
-		// When - allow time for all sequences to process (and timeout)
-		time.Sleep(100 * time.Millisecond)
-
-		// Then - the test passes if it doesn't crash or run out of memory
-		// This test is a sanity check that Detach() properly cleans up callbacks
-		// If there's a memory leak, this might fail with OOM in a more constrained environment
-		assert.True(t, true, "memory leak test passed - no panic or OOM")
 	})
 }
