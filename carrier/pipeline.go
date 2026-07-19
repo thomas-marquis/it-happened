@@ -102,67 +102,65 @@ func (c *Pipeline) Dispatch(bus event.Bus) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
 
-	go func() {
-		defer cancel()
+	defer cancel()
 
-		workload := make(chan pipelineItem, 1)
-		defer close(workload)
+	workload := make(chan pipelineItem, 1)
+	defer close(workload)
 
-		var currIdx int
-		workload <- pipelineItem{
-			pipelineFunc: c.Pipeline[currIdx],
-			next:         c.InitEvent,
-		}
+	var currIdx int
+	workload <- pipelineItem{
+		pipelineFunc: c.Pipeline[currIdx],
+		next:         c.InitEvent,
+	}
 
-		for {
+	for {
+		select {
+		case wl := <-workload:
+			finished := make(chan event.Event)
+
+			sub := bus.Subscribe().
+				On(event.IsFollowupOf(wl.next), func(received event.Event) {
+					if c.completionCondition(wl.next, received) {
+						finished <- received
+					}
+				})
+			sub.ListenWithWorkers(1)
+			bus.Publish(wl.next)
+
 			select {
-			case wl := <-workload:
-				finished := make(chan event.Event)
+			case prev := <-finished:
+				newNext := wl.pipelineFunc(prev)
 
-				sub := bus.Subscribe().
-					On(event.IsFollowupOf(wl.next), func(received event.Event) {
-						if c.completionCondition(wl.next, received) {
-							finished <- received
-						}
-					})
-				sub.ListenWithWorkers(1)
-				bus.Publish(wl.next)
-
-				select {
-				case prev := <-finished:
-					newNext := wl.pipelineFunc(prev)
-
-					if stop, ok := newNext.Payload().(PipelineStop); ok {
-						if lastEvt := stop.Event; lastEvt != nil {
-							bus.Publish(lastEvt)
-						}
-						bus.Unsubscribe(sub)
-						close(finished)
-						return
+				if stop, ok := newNext.Payload().(PipelineStop); ok {
+					if lastEvt := stop.Event; lastEvt != nil {
+						bus.Publish(lastEvt)
 					}
-
-					currIdx++
-					if currIdx == len(c.Pipeline) {
-						bus.Publish(newNext)
-						bus.Unsubscribe(sub)
-						close(finished)
-						return
-					}
-
-					workload <- pipelineItem{
-						pipelineFunc: c.Pipeline[currIdx],
-						next:         newNext,
-					}
-				case <-ctx.Done():
-					bus.Publish(c.OnTimeout)
+					bus.Unsubscribe(sub)
+					close(finished)
+					return
 				}
 
-				close(finished)
-				bus.Unsubscribe(sub)
+				currIdx++
+				if currIdx == len(c.Pipeline) {
+					bus.Publish(newNext)
+					bus.Unsubscribe(sub)
+					close(finished)
+					return
+				}
 
+				workload <- pipelineItem{
+					pipelineFunc: c.Pipeline[currIdx],
+					next:         newNext,
+				}
 			case <-ctx.Done():
-				return
+				bus.Publish(c.OnTimeout)
 			}
+
+			close(finished)
+			bus.Unsubscribe(sub)
+
+		case <-ctx.Done():
+			return
 		}
-	}()
+	}
 }

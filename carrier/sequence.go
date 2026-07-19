@@ -83,14 +83,12 @@ func (c *Sequence) Dispatch(bus event.Bus) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
 
-	go func() {
-		defer cancel()
-		receivedEvents := c.doDispatch(ctx, bus)
-		doneEvt := c.DoneEventFactory(c.evtCarrier, receivedEvents)
-		if doneEvt != nil {
-			bus.Publish(doneEvt)
-		}
-	}()
+	defer cancel()
+	receivedEvents := c.doDispatch(ctx, bus)
+	doneEvt := c.DoneEventFactory(c.evtCarrier, receivedEvents)
+	if doneEvt != nil {
+		bus.Publish(doneEvt)
+	}
 }
 
 // doDispatch handles the actual sequential dispatching of events.

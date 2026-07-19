@@ -23,10 +23,9 @@ func TestPipelineCarrier_Dispatch(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		bus := inmemory.NewBus(ctx)
+		eg := &event.HarvesterNotifier{}
+		bus := inmemory.NewBus(ctx, inmemory.WithNotifier(eg))
 
-		var publishedEvents []event.Event
-		var mu sync.Mutex
 		var wg sync.WaitGroup
 
 		initEvent := event.New(testPayload("event1"))
@@ -43,10 +42,6 @@ func TestPipelineCarrier_Dispatch(t *testing.T) {
 		wg.Add(3)
 		sub := bus.Subscribe().
 			On(event.Is("test.payload"), func(evt event.Event) {
-				mu.Lock()
-				publishedEvents = append(publishedEvents, evt)
-				mu.Unlock()
-
 				if !expectedIDs[evt.ID()] {
 					return
 				}
@@ -79,21 +74,21 @@ func TestPipelineCarrier_Dispatch(t *testing.T) {
 		// Then
 		select {
 		case <-waitForEvents(t, &wg, testTimeout):
-			mu.Lock()
-			defer mu.Unlock()
-			require.Len(t, publishedEvents, 5)
+			publishedEvents := eg.Events
+			require.Len(t, publishedEvents, 7)
 
 			// Verify all original events were received
 			idSet := make(map[string]struct{})
 			for _, evt := range publishedEvents {
 				idSet[evt.ID()] = struct{}{}
 			}
-			assert.Len(t, idSet, 5)
-			assert.Equal(t, "event1", string(publishedEvents[0].Payload().(testPayload)))
-			assert.Equal(t, "followupevent1", string(publishedEvents[1].Payload().(testPayload)))
-			assert.Equal(t, "event2", string(publishedEvents[2].Payload().(testPayload)))
-			assert.Equal(t, "followupevent2", string(publishedEvents[3].Payload().(testPayload)))
-			assert.Equal(t, "event3", string(publishedEvents[4].Payload().(testPayload)))
+			assert.Len(t, idSet, 7)
+			assert.Equal(t, "event1", string(publishedEvents[1].Payload().(testPayload)))
+			assert.Equal(t, "followupevent1", string(publishedEvents[2].Payload().(testPayload)))
+			assert.Equal(t, "event2", string(publishedEvents[3].Payload().(testPayload)))
+			assert.Equal(t, "followupevent2", string(publishedEvents[4].Payload().(testPayload)))
+			assert.Equal(t, "event3", string(publishedEvents[5].Payload().(testPayload)))
+			assert.Equal(t, "followupevent3", string(publishedEvents[6].Payload().(testPayload)))
 
 		case <-time.After(testTimeout):
 			assert.Fail(t, "timeout waiting for all events")
@@ -158,10 +153,9 @@ func TestPipelineCarrier_Dispatch(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		bus := inmemory.NewBus(ctx)
+		eg := &event.HarvesterNotifier{}
+		bus := inmemory.NewBus(ctx, inmemory.WithNotifier(eg))
 
-		var publishedEvents []event.Event
-		var mu sync.Mutex
 		var wg sync.WaitGroup
 
 		initEvent := event.New(testPayload("event1"))
@@ -179,10 +173,6 @@ func TestPipelineCarrier_Dispatch(t *testing.T) {
 		wg.Add(3)
 		sub := bus.Subscribe().
 			On(event.Is("test.payload"), func(evt event.Event) {
-				mu.Lock()
-				publishedEvents = append(publishedEvents, evt)
-				mu.Unlock()
-
 				if !expectedIDs[evt.ID()] {
 					return
 				}
@@ -217,18 +207,18 @@ func TestPipelineCarrier_Dispatch(t *testing.T) {
 		// Then
 		select {
 		case <-waitForEvents(t, &wg, testTimeout):
-			mu.Lock()
-			defer mu.Unlock()
-			require.Len(t, publishedEvents, 5)
+			publishedEvents := eg.Events
+			require.Len(t, publishedEvents, 7)
 
 			// Verify all original events were received
 			idSet := make(map[string]struct{})
 			for _, evt := range publishedEvents {
 				idSet[evt.ID()] = struct{}{}
 			}
-			assert.Len(t, idSet, 5)
-			assert.Equal(t, "followupevent2", string(publishedEvents[3].Payload().(testPayload)))
-			assert.Equal(t, "event3", string(publishedEvents[4].Payload().(testPayload)))
+			assert.Len(t, idSet, 7)
+			assert.Equal(t, "followupevent2", string(publishedEvents[4].Payload().(testPayload)))
+			assert.Equal(t, "event3", string(publishedEvents[5].Payload().(testPayload)))
+			assert.Equal(t, "followupevent3", string(publishedEvents[6].Payload().(testPayload)))
 
 		case <-time.After(testTimeout):
 			assert.Fail(t, "timeout waiting for all events")

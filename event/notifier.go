@@ -1,5 +1,7 @@
 package event
 
+import "sync"
+
 // Notifier is the interface for receiving notifications about published events.
 // Implementations can use this to monitor event publishing without subscribing to all events.
 type Notifier interface {
@@ -28,3 +30,17 @@ func (n NopNotifier) NotifyPublished(Event) {}
 func (n NopNotifier) NotifySubscribed(*Subscriber) {}
 
 func (n NopNotifier) NotifyUnsubscribed(*Subscriber) {}
+
+// HarvesterNotifier is a notifier that harvests all published events and store them into a list.
+// Do not use in production: this can lead to memory leaks.
+type HarvesterNotifier struct {
+	NopNotifier
+	mu     sync.Mutex
+	Events []Event
+}
+
+func (n *HarvesterNotifier) NotifyPublished(evt Event) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	n.Events = append(n.Events, evt)
+}
