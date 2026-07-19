@@ -14,8 +14,10 @@ const (
 
 // PipelineStop is a special payload that can be used to interrupt a pipeline execution.
 // It wrapp the actual event user-defined that will be triggered.
-// PipelineStop.Event can be left nil (not recommended)
+// PipelineStop.Event can be left nil (not recommended).
+// Note that the PipelineStop payload itself will never be published.
 type PipelineStop struct {
+	// Wrapped event that will be published.
 	Event event.Event
 }
 
@@ -23,6 +25,8 @@ func (p PipelineStop) EventType() event.Type {
 	return PipelineStopType
 }
 
+// Pipeline is a carrier that emits events sequentially thanks to a list of functions.
+// Each function of the pipeline takes the previously received completion event as input and returns the next event to be processed.
 type Pipeline struct {
 	InitEvent event.Event                                 `json:"initEvent"`
 	Pipeline  []func(prev event.Event) (next event.Event) `json:"-"`
@@ -37,6 +41,19 @@ var (
 	_ Carrier = (*Pipeline)(nil)
 )
 
+// NewPipeline creates a new Pipeline carrier.
+//
+// The initEvent is dispatched first. Once its completion event is received
+// (by default, its direct followup, but you can change this behavior with an option),
+// is forwarded as an argument for the first function of the pipeline. The function is supposed
+// to return the next event to be processed, and so on.
+//
+// Parameters:
+//
+//	initEvent - The first event to be published
+//	pipeline - The sequence of functions to be executed in the pipeline
+//	onTimeout - The event to be published when the pipeline times out
+//	opts - Optional configuration options
 func NewPipeline(
 	initEvent event.Event,
 	pipeline []func(prev event.Event) (next event.Event),
@@ -76,6 +93,8 @@ type pipelineItem struct {
 	next         event.Event
 }
 
+// Dispatch is used by the event bus to dispatch the carried event.
+// You are not supposed to call this method directly.
 func (c *Pipeline) Dispatch(bus event.Bus) {
 	if len(c.Pipeline) == 0 {
 		return
