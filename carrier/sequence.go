@@ -70,21 +70,12 @@ func NewSequence(
 	return c.evtCarrier
 }
 
-// EventType returns the event type for Sequence carrier events.
-// All Sequence carriers have the same type prefix.
 func (c *Sequence) EventType() event.Type {
 	return SequenceType
 }
 
-// Dispatch implements the Carrier interface for Sequence.
-//
-// It starts dispatching the carried events in sequence, waiting for each event
-// to be completed before dispatching the next one. When all events are processed
-// or a timeout occurs, it publishes the appropriate completion event.
-//
-// Parameters:
-//
-//	bus - The event bus to dispatch events to
+// Dispatch is used by the event bus to dispatch the carried event.
+// You are not supposed to call this method directly.
 func (c *Sequence) Dispatch(bus event.Bus) {
 	if len(c.Carried) == 0 {
 		return
@@ -92,14 +83,12 @@ func (c *Sequence) Dispatch(bus event.Bus) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
 
-	go func() {
-		defer cancel()
-		receivedEvents := c.doDispatch(ctx, bus)
-		doneEvt := c.DoneEventFactory(c.evtCarrier, receivedEvents)
-		if doneEvt != nil {
-			bus.Publish(doneEvt)
-		}
-	}()
+	defer cancel()
+	receivedEvents := c.doDispatch(ctx, bus)
+	doneEvt := c.DoneEventFactory(c.evtCarrier, receivedEvents)
+	if doneEvt != nil {
+		bus.Publish(doneEvt)
+	}
 }
 
 // doDispatch handles the actual sequential dispatching of events.

@@ -16,7 +16,7 @@ Event management library written in Go simplifying event driven application deve
 - **Asynchronous Event Bus**: Decouple your components with a robust pub-sub system
 - **Event Chaining**: Track related events across workflows using ChainRef and ChainPosition
 - **Powerful Matchers**: Subscribe to events using precise criteria (by type, followup relationship, etc.)
-- **Event Carriers**: Orchestrate complex workflows with All (parallel) and Sequence (sequential) carriers
+- **Event Carriers**: Orchestrate complex workflows with All (parallel), Sequence (sequential), and Pipeline (function-based transformation) carriers
 - **Automated Lifecycle**: Carriers handle timeouts, concurrency, and completion tracking
 
 ## 📦 Installation

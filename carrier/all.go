@@ -89,15 +89,8 @@ func NewAll(
 	return c.evtCarrier
 }
 
-// Dispatch implements the Carrier interface for All.
-//
-// It dispatch all carried events in parallel (up to maxConcurrency), waits for all
-// events to be completed or for a timeout to occur, then publishes the appropriate
-// completion or timeout event.
-//
-// Parameters:
-//
-//	bus - The event bus to dispatch events to
+// Dispatch is used by the event bus to dispatch the carried event.
+// You are not supposed to call this method directly.
 func (c *All) Dispatch(bus event.Bus) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
 	defer cancel()

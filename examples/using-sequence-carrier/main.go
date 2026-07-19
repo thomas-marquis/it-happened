@@ -37,12 +37,14 @@ func main() {
 	// Subscribe to demo events
 	sub := bus.Subscribe()
 
-	// Count how many demo events we receive
-	count := 0
 	sub.On(event.Is("demo.event"), func(e event.Event) {
-		count++
 		if payload, ok := e.Payload().(SimplePayload); ok {
 			fmt.Printf("  Received: %s\n", payload.Name)
+		}
+		// Emit followup so carrier knows the event is complete
+		// Only emit for original events (not followups) to avoid infinite loop
+		if e.ChainPosition() == 0 {
+			bus.Publish(e.NewFollowup(e.Payload()))
 		}
 	})
 
@@ -61,37 +63,7 @@ func main() {
 		event.New(SimplePayload{Name: "Event 3"}),
 	}
 
-	// Example: Using All carrier to dispatch all events
-	// All carrier dispatches all carried events in parallel (up to max concurrency)
-	fmt.Println("=== All Carrier (Parallel Dispatch) ===")
-	fmt.Println("Publishing carrier with 3 events...")
-
-	allCarrier := carrier.NewAll(
-		events,
-		func(evtCarrier event.Event, received []event.Event) event.Event {
-			// This function is called when all carried events are completed
-			// For this demo, we'll just return a done event
-			return event.New(DonePayload{Count: len(received)})
-
-			// You also can use the evtCarrier reference itself to return a followup event:
-			// return evtCarrier.NewFollowup(DonePayload{Count: len(received)})
-			// This way, it's possible to chain a carrier with other carriers (for example, multiple `all` carriers into a `sequence`)
-		},
-		event.New(SimplePayload{Name: "Timeout event"}), // This would be published on timeout
-		carrier.WithMaxConcurrency(2),
-		carrier.WithTimeout(2*time.Second),
-	)
-
-	bus.Publish(allCarrier)
-
-	// Wait a moment for events to be processed
-	time.Sleep(100 * time.Millisecond)
-
-	// Reset counter for sequence demo
-	count = 0
-
-	// Example: Using Sequence carrier to dispatch events one at a time
-	fmt.Println("\n=== Sequence Carrier (Sequential Dispatch) ===")
+	fmt.Println("=== Sequence Carrier (Sequential Dispatch) ===")
 	fmt.Println("Publishing carrier with 3 events...")
 
 	sequenceCarrier := carrier.NewSequence(
@@ -105,11 +77,9 @@ func main() {
 
 	bus.Publish(sequenceCarrier)
 
-	// Wait for processing
-	time.Sleep(200 * time.Millisecond)
+	// Wait for events to be processed sequentially
+	time.Sleep(400 * time.Millisecond)
 
 	fmt.Println("\n=== Demo Complete ===")
-	fmt.Println("Note: Carriers dispatch multiple events as a single unit.")
-	fmt.Println("      All carrier: parallel dispatch")
-	fmt.Println("      Sequence carrier: sequential dispatch")
+	fmt.Println("Note: Sequence carrier dispatches events one at a time, waiting for each to complete.")
 }

@@ -14,11 +14,6 @@ A Type is a label or category for an event. It allows you to classify and identi
 
 A Payload is the data carried by an event. It contains the actual information about what happened. Every payload knows its event type, which helps the system understand how to process the event's data.
 
-## Chainable
-
-Chainable is the ability of an event to be part of a sequence or chain. When events are chainable, they can be linked together to represent a series of related occurrences. This allows tracking workflows that span multiple steps across your application.
-
-
 ## Chain
 
 A Chain is a sequence of related events that share a common reference. Think of it as a conversation or workflow where each step produces a new event. Chains allow you to track the progression of a process from start to finish, even when the steps are processed asynchronously.
@@ -71,6 +66,8 @@ Notifiers complement subscribers by providing a separate channel for observation
 ## Carrier
 
 A Carrier is a special type of event that can dispatch multiple other events to the bus. It acts as an orchestrator, managing a group of events and their lifecycle. Carriers are useful when you need to publish several related events as a single unit.
+
+The library provides three built-in carrier implementations: All (parallel dispatch), Sequence (sequential dispatch), and Pipeline (function-based transformation pipeline).
 
 ## CompletionCondition
 
