@@ -12,17 +12,29 @@ const (
 	PipelineStopType event.Type = TypePrefix + ".pipeline.stop"
 )
 
-// PipelineStop is a special payload that can be used to interrupt a pipeline execution.
+// pipelineStop is a special payload that can be used to interrupt a pipeline execution.
 // It wrapp the actual event user-defined that will be triggered.
-// PipelineStop.Event can be left nil (not recommended).
-// Note that the PipelineStop payload itself will never be published.
-type PipelineStop struct {
+// pipelineStop.Event can be left nil (not recommended).
+// Note that the pipelineStop payload itself will never be published.
+type pipelineStop struct {
 	// Wrapped event that will be published.
 	Event event.Event
 }
 
-func (p PipelineStop) EventType() event.Type {
+func (p pipelineStop) EventType() event.Type {
 	return PipelineStopType
+}
+
+// StopPipeline interrupts the pipeline execution at the stage it returned from.
+// The pipeline will no longer emit events.
+func StopPipeline() event.Event {
+	return event.New(pipelineStop{})
+}
+
+// StopPipelineWithEvent interrupts the pipeline execution at the stage it returned from.
+// The pipeline will be stopped and the specified event will be published.
+func StopPipelineWithEvent(evt event.Event) event.Event {
+	return event.New(pipelineStop{Event: evt})
 }
 
 // Pipeline is a carrier that emits events sequentially thanks to a list of functions.
@@ -130,7 +142,7 @@ func (c *Pipeline) Dispatch(bus event.Bus) {
 			case prev := <-finished:
 				newNext := wl.pipelineFunc(prev)
 
-				if stop, ok := newNext.Payload().(PipelineStop); ok {
+				if stop, ok := newNext.Payload().(pipelineStop); ok {
 					if lastEvt := stop.Event; lastEvt != nil {
 						bus.Publish(lastEvt)
 					}

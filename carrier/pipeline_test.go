@@ -187,7 +187,7 @@ func TestPipelineCarrier_Dispatch(t *testing.T) {
 				return event2
 			},
 			func(prev event.Event) event.Event {
-				return event.New(carrier.PipelineStop{Event: event3})
+				return carrier.StopPipelineWithEvent(event3)
 			},
 			func(prev event.Event) event.Event {
 				assert.Fail(t, "event4 should never be published")
