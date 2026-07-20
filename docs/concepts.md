@@ -54,7 +54,14 @@ An Option is a way to configure how events and carriers are created. Using the f
 
 ## Notifier
 
-A Notifier receives notifications about bus activity, including when events are published and when subscribers join or leave the bus. Unlike subscribers, notifiers receive ALL events regardless of type, making them ideal for monitoring, logging, or metrics collection. The library provides a `NopNotifier` implementation as the default, which silently discards all notifications.
+A Notifier receives notifications about bus activity, including when events are published and when subscribers join or leave the bus.
+Unlike subscribers, notifiers receive ALL events regardless of type, making them ideal for monitoring, logging, or metrics collection.
+The library provides a few default implementations:
+
+- `NopNotifier` silently discards all notifications.
+- `HarvesterNotifier` collects all published event into a slice
+- `LoggerNotifier` print a log with the provided logger each time an event is published or a subscriber attached/detached.
+- `CombinedNotifier` allows you to combine multiple notifier into a single one
 
 The Notifier interface includes three methods:
 - `NotifyPublished(Event)`: Called whenever any event is published to the bus
