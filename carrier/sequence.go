@@ -65,7 +65,14 @@ func NewSequence(
 
 	c.timeout = cfg.timeout
 	c.CompletionCondition = cfg.completionCondition
-	c.evtCarrier = event.New(c)
+
+	var evt event.Event
+	if cfg.srcEvt != nil {
+		evt = cfg.srcEvt.NewFollowup(c)
+	} else {
+		evt = event.New(c)
+	}
+	c.evtCarrier = evt
 
 	return c.evtCarrier
 }

@@ -35,6 +35,8 @@ type carrierConfig struct {
 	maxConcurrency      int
 	timeout             time.Duration
 	completionCondition CompletionCondition
+	// srcEvt define the source event the carrier is followup from
+	srcEvt event.Event
 }
 
 // Option allows configuring a carrier on creation.
@@ -83,6 +85,14 @@ func WithMaxConcurrency(n int) Option {
 func WithCompletionCondition(cond CompletionCondition) Option {
 	return func(c *carrierConfig) {
 		c.completionCondition = cond
+	}
+}
+
+// ChainTo is an option that chains a carrier event to another event.
+// With this option set, the carrier will become the followup of the given event.
+func ChainTo(src event.Event) Option {
+	return func(c *carrierConfig) {
+		c.srcEvt = src
 	}
 }
 
