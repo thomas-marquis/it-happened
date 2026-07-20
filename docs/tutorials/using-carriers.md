@@ -41,7 +41,10 @@ The `Sequence` carrier dispatches carried events one at a time, waiting for each
 
 ### Pipeline Carrier
 
-The `Pipeline` carrier executes a sequence of transformation functions, where each function takes the previous event's completion as input and returns the next event to be processed. This is ideal for event processing pipelines where each stage transforms or processes the event and passes it to the next stage. The pipeline can be interrupted early using a `PipelineStop` payload.
+The `Pipeline` carrier executes a sequence of transformation functions, where each function takes the previous event's completion as input and returns the next event to be processed.
+This is ideal for event processing pipelines where each stage transforms or processes the event and passes it to the next stage.
+
+The pipeline can be interrupted early using the function `carrier.StopPipeline` (or with `StopPipelineWithEvent`).
 
 ## Step 1: Create Events to Carry
 
@@ -122,11 +125,12 @@ The `Sequence` carrier will:
 
 ## Step 5: Create and Publish a Pipeline Carrier
 
-The Pipeline carrier is different from All and Sequence as it uses functions to transform events through a pipeline. Each function receives the completion event from the previous stage and returns the next event to process.
+The Pipeline carrier is different from All and Sequence as it uses functions to transform events through a pipeline.
+Each function (stage) receives the completion event from the previous stage and returns the next event to process.
 
 ```go
 // Define the pipeline stages as functions
-pipelineStages := []func(prev event.Event) event.Event{
+pipelineStages := []carrier.PipelineStage{
     func(prev event.Event) event.Event {
         // Stage 1: Transform the input event
         return event.New(ProcessedPayload{Message: "Stage 1 processed: " + prev.Payload().(InputPayload).Data})
@@ -134,6 +138,11 @@ pipelineStages := []func(prev event.Event) event.Event{
     func(prev event.Event) event.Event {
         // Stage 2: Further transformation
         return event.New(ProcessedPayload{Message: prev.Payload().(ProcessedPayload).Message + " -> Stage 2"})
+
+        // If you want to interrupt the pipeline execution at this stage (for example, in a condition), you can use either:
+        // return carrier.StopPipeline()
+        // or:
+        // return carrier.StopPipelineWithEvent(event.New(...)) // the specified event will be published before the pipeline stops
     },
     func(prev event.Event) event.Event {
         // Stage 3: Final transformation

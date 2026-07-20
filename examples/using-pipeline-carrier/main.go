@@ -51,7 +51,7 @@ func main() {
 	initEvent := event.New(PipelinePayload{Message: "Stage 0: Initial data"})
 
 	// Define the pipeline stages as transformation functions
-	pipelineStages := []func(prev event.Event) event.Event{
+	pipelineStages := []carrier.PipelineStage{
 		// Stage 1: Transform initial data
 		func(prev event.Event) event.Event {
 			if p, ok := prev.Payload().(PipelinePayload); ok {

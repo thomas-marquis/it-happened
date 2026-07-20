@@ -84,7 +84,8 @@ func NewAll(
 	c.maxConcurrency = cfg.maxConcurrency
 	c.timeout = cfg.timeout
 	c.CompletionCondition = cfg.completionCondition
-	c.evtCarrier = event.New(c)
+
+	c.evtCarrier = makeEvent(c, cfg)
 
 	return c.evtCarrier
 }
