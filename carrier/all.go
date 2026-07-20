@@ -85,13 +85,7 @@ func NewAll(
 	c.timeout = cfg.timeout
 	c.CompletionCondition = cfg.completionCondition
 
-	var evt event.Event
-	if cfg.srcEvt != nil {
-		evt = cfg.srcEvt.NewFollowup(c)
-	} else {
-		evt = event.New(c)
-	}
-	c.evtCarrier = evt
+	c.evtCarrier = makeEvent(c, cfg)
 
 	return c.evtCarrier
 }

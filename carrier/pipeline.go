@@ -78,15 +78,9 @@ func NewPipeline(
 	c.completionCondition = cfg.completionCondition
 	c.timeout = cfg.timeout
 
-	var evt event.Event
-	if cfg.srcEvt != nil {
-		evt = cfg.srcEvt.NewFollowup(c)
-	} else {
-		evt = event.New(c)
-	}
-	c.evtCarrier = evt
+	c.evtCarrier = makeEvent(c, cfg)
 
-	return evt
+	return c.evtCarrier
 }
 
 func (c *Pipeline) EventType() event.Type {

@@ -36,7 +36,8 @@ type carrierConfig struct {
 	timeout             time.Duration
 	completionCondition CompletionCondition
 	// srcEvt define the source event the carrier is followup from
-	srcEvt event.Event
+	srcEvt     event.Event
+	evtOptions []event.Option
 }
 
 // Option allows configuring a carrier on creation.
@@ -96,6 +97,14 @@ func ChainTo(src event.Event) Option {
 	}
 }
 
+// WithEventOptions allows passing options to the newly created event.
+// See event.Option for all available options.
+func WithEventOptions(opts ...event.Option) Option {
+	return func(c *carrierConfig) {
+		c.evtOptions = opts
+	}
+}
+
 // CompletionCondition is a function type that defines when an event emitted by a carrier is considered as completed.
 //
 // By default, all carriers will consider only followup events (from the ones they sent).
@@ -136,4 +145,16 @@ type DoneFactory func(evtCarrier event.Event, received []event.Event) event.Even
 // NoopDoneFactory is a DoneFactory that can be used when you don't want to emmit a specific done event.
 func NoopDoneFactory(event.Event, []event.Event) event.Event {
 	return nil
+}
+
+func makeEvent(c Carrier, cfg *carrierConfig) event.Event {
+	var evt event.Event
+
+	if cfg.srcEvt != nil {
+		evt = cfg.srcEvt.NewFollowup(c, cfg.evtOptions...)
+	} else {
+		evt = event.New(c, cfg.evtOptions...)
+	}
+
+	return evt
 }
