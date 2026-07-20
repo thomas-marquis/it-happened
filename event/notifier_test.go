@@ -1,10 +1,12 @@
 package event_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/thomas-marquis/it-happened/event"
+	"github.com/thomas-marquis/it-happened/inmemory"
 )
 
 // testPayload is a test payload for notifier tests.
@@ -74,4 +76,27 @@ func (n *TestNotifier) Notify(evt event.Event) {
 	for _, callback := range n.Callbacks {
 		callback(evt)
 	}
+}
+
+func TestCombinedNotifier(t *testing.T) {
+	// Given
+	n1 := &event.HarvesterNotifier{}
+	n2 := &event.HarvesterNotifier{}
+
+	cn := event.NewCombinedNotifier(n1, n2)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	bus := inmemory.NewBus(ctx, inmemory.WithNotifier(cn))
+
+	e1 := event.New(testPayload("test1"))
+	e2 := event.New(testPayload("test2"))
+
+	// When
+	bus.Publish(e1)
+	bus.Publish(e2)
+
+	// Then
+	assert.Len(t, n1.Events, 2)
+	assert.Len(t, n2.Events, 2)
 }

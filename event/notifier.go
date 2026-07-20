@@ -1,6 +1,10 @@
 package event
 
-import "sync"
+import (
+	"encoding/json"
+	"log"
+	"sync"
+)
 
 // Notifier is the interface for receiving notifications about published events.
 // Implementations can use this to monitor event publishing without subscribing to all events.
@@ -43,4 +47,62 @@ func (n *HarvesterNotifier) NotifyPublished(evt Event) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	n.Events = append(n.Events, evt)
+}
+
+// LoggerNotifier is a notifier that logs all published events with the provided logger.
+// The logger can't be nil.
+type LoggerNotifier struct {
+	Logger log.Logger
+}
+
+func (n *LoggerNotifier) NotifyPublished(evt Event) {
+	content, err := json.MarshalIndent(evt, "", "  ")
+	if err != nil {
+		n.Logger.Println("event emitted (unmarshalled)")
+		return
+	}
+	n.Logger.Println(string(content))
+}
+
+func (n *LoggerNotifier) NotifySubscribed(*Subscriber) {
+	n.Logger.Print("subscribed")
+}
+
+func (n *LoggerNotifier) NotifyUnsubscribed(*Subscriber) {
+	n.Logger.Print("unsubscribed")
+}
+
+// CombinedNotifier allows you to merge multiple notifiers at once.
+// Each registered notifier will be notified of all events.
+type CombinedNotifier struct {
+	notifiers []Notifier
+}
+
+// NewCombinedNotifier creates a new CombinedNotifier with the provided notifiers.
+func NewCombinedNotifier(notifiers ...Notifier) *CombinedNotifier {
+	return &CombinedNotifier{
+		notifiers: notifiers,
+	}
+}
+
+func (n *CombinedNotifier) Add(notifier Notifier) {
+	n.notifiers = append(n.notifiers, notifier)
+}
+
+func (n *CombinedNotifier) NotifyPublished(evt Event) {
+	for _, notifier := range n.notifiers {
+		notifier.NotifyPublished(evt)
+	}
+}
+
+func (n *CombinedNotifier) NotifySubscribed(sub *Subscriber) {
+	for _, notifier := range n.notifiers {
+		notifier.NotifySubscribed(sub)
+	}
+}
+
+func (n *CombinedNotifier) NotifyUnsubscribed(sub *Subscriber) {
+	for _, notifier := range n.notifiers {
+		notifier.NotifyUnsubscribed(sub)
+	}
 }
