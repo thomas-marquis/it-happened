@@ -75,34 +75,34 @@ func (n *LoggerNotifier) NotifyUnsubscribed(*Subscriber) {
 // CombinedNotifier allows you to merge multiple notifiers at once.
 // Each registered notifier will be notified of all events.
 type CombinedNotifier struct {
-	notifiers []Notifier
+	Notifiers []Notifier
 }
 
 // NewCombinedNotifier creates a new CombinedNotifier with the provided notifiers.
 func NewCombinedNotifier(notifiers ...Notifier) *CombinedNotifier {
 	return &CombinedNotifier{
-		notifiers: notifiers,
+		Notifiers: notifiers,
 	}
 }
 
 func (n *CombinedNotifier) Add(notifier Notifier) {
-	n.notifiers = append(n.notifiers, notifier)
+	n.Notifiers = append(n.Notifiers, notifier)
 }
 
 func (n *CombinedNotifier) NotifyPublished(evt Event) {
-	for _, notifier := range n.notifiers {
+	for _, notifier := range n.Notifiers {
 		notifier.NotifyPublished(evt)
 	}
 }
 
 func (n *CombinedNotifier) NotifySubscribed(sub *Subscriber) {
-	for _, notifier := range n.notifiers {
+	for _, notifier := range n.Notifiers {
 		notifier.NotifySubscribed(sub)
 	}
 }
 
 func (n *CombinedNotifier) NotifyUnsubscribed(sub *Subscriber) {
-	for _, notifier := range n.notifiers {
+	for _, notifier := range n.Notifiers {
 		notifier.NotifyUnsubscribed(sub)
 	}
 }

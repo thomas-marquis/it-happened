@@ -43,6 +43,28 @@ type Notifier interface {
 }
 ```
 
+## Available implementations
+
+**NopNotifier**
+
+Notifier used by default. Discard notification.
+Can be used as a base to create your custom implementation (see bellow).
+
+**HarvestNotifier**
+
+Collects all published events into a slice.
+It is not recommended to use this notifier in production, it may lead to memory leak (unless you know what you're doing).
+
+This notifier only register published event, not subscribers' (un)registration.
+
+**LoggerNotifier**
+
+Print a log with the provided logger each time an event is published or a subscriber attached/detached.
+
+**CombinedNotifier**
+
+Allows you to combine multiple notifier into a single one
+
 ## Using NopNotifier as a Base
 
 The library provides a `NopNotifier` implementation that does nothing. This is useful as a base when you only want to implement some of the notifier methods.
