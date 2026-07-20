@@ -51,7 +51,7 @@ func TestPipelineCarrier_Dispatch(t *testing.T) {
 		sub.ListenWithWorkers(1)
 		defer sub.Detach()
 
-		pipeline := []func(event.Event) event.Event{
+		stages := []carrier.PipelineStage{
 			func(prev event.Event) event.Event {
 				assert.Equal(t, "followupevent1", string(prev.Payload().(testPayload)))
 				return event2
@@ -64,7 +64,7 @@ func TestPipelineCarrier_Dispatch(t *testing.T) {
 
 		carrierEvent := carrier.NewPipeline(
 			initEvent,
-			pipeline,
+			stages,
 			timeoutEvent,
 		)
 
@@ -111,7 +111,7 @@ func TestPipelineCarrier_Dispatch(t *testing.T) {
 
 		timeoutEvent := event.New(testPayload("timeout"))
 
-		pipeline := []func(event.Event) event.Event{
+		stages := []carrier.PipelineStage{
 			func(prev event.Event) event.Event {
 				return event2
 			},
@@ -122,7 +122,7 @@ func TestPipelineCarrier_Dispatch(t *testing.T) {
 
 		carrierEvent := carrier.NewPipeline(
 			initEvent,
-			pipeline,
+			stages,
 			timeoutEvent,
 			carrier.WithTimeout(50*time.Millisecond),
 		)
@@ -182,7 +182,7 @@ func TestPipelineCarrier_Dispatch(t *testing.T) {
 		sub.ListenWithWorkers(1)
 		defer sub.Detach()
 
-		pipeline := []func(event.Event) event.Event{
+		stages := []carrier.PipelineStage{
 			func(prev event.Event) event.Event {
 				return event2
 			},
@@ -197,7 +197,7 @@ func TestPipelineCarrier_Dispatch(t *testing.T) {
 
 		carrierEvent := carrier.NewPipeline(
 			initEvent,
-			pipeline,
+			stages,
 			timeoutEvent,
 		)
 

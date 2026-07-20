@@ -125,11 +125,12 @@ The `Sequence` carrier will:
 
 ## Step 5: Create and Publish a Pipeline Carrier
 
-The Pipeline carrier is different from All and Sequence as it uses functions to transform events through a pipeline. Each function receives the completion event from the previous stage and returns the next event to process.
+The Pipeline carrier is different from All and Sequence as it uses functions to transform events through a pipeline.
+Each function (stage) receives the completion event from the previous stage and returns the next event to process.
 
 ```go
 // Define the pipeline stages as functions
-pipelineStages := []func(prev event.Event) event.Event{
+pipelineStages := []carrier.PipelineStage{
     func(prev event.Event) event.Event {
         // Stage 1: Transform the input event
         return event.New(ProcessedPayload{Message: "Stage 1 processed: " + prev.Payload().(InputPayload).Data})
