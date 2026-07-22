@@ -138,6 +138,7 @@ func (b *inMemoryBus) Publish(evt event.Event) {
 }
 
 func (b *inMemoryBus) publisher() {
+	defer close(b.publishedEvents)
 	for {
 		select {
 		case <-b.ctx.Done():
@@ -149,7 +150,11 @@ func (b *inMemoryBus) publisher() {
 		if len(b.queue) > 0 {
 			next := heap.Pop(&b.queue).(event.Event)
 			b.pubMu.Unlock()
-			b.publishedEvents <- next
+			select {
+			case b.publishedEvents <- next:
+			case <-b.ctx.Done():
+				return
+			}
 			continue
 		}
 		b.pubMu.Unlock()
