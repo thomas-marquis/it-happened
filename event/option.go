@@ -41,3 +41,12 @@ func WithRef(ref string) Option {
 		e.ref = ref
 	}
 }
+
+// WithPriority sets the event's priority level.
+// Default to 0.
+// The priority may be used by the event bus to process events in a specific order.
+func WithPriority(p int) Option {
+	return func(e *impl) {
+		e.priority = p
+	}
+}

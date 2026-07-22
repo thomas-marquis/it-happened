@@ -1,6 +1,7 @@
 package inmemory
 
 import (
+	"container/heap"
 	"context"
 	"sync"
 
@@ -9,36 +10,28 @@ import (
 )
 
 const (
-	// publicationWorkers defines the number of concurrent worker goroutines responsible for managing app events.
-	publicationWorkers = 16
-
-	// pubChanBufferSize defines the size of the channel used to publish events.
-	// Increase this value to manage more subscribers without blocking event publishing.
-	pubChanBufferSize = 100
+	// defaultWorkers defines the default number of concurrent worker goroutines responsible for managing app events.
+	defaultWorkers = 16
 )
-
-// publishedLoad represents a publication task for a worker.
-type publishedLoad struct {
-	evt              event.Event
-	subscriberChanel chan event.Event
-}
 
 // inMemoryBus is an in-memory implementation of the event.Bus interface.
 // It manages event publishing and subscription with concurrent worker goroutines.
 type inMemoryBus struct {
-	sync.Mutex
+	subMu sync.Mutex
+	pubMu sync.Mutex
 
 	// subscribers maps event channels to their corresponding subscriber instances.
 	subscribers map[chan event.Event]*event.Subscriber
-	// publishingChan is the channel through which publication tasks are sent to workers.
-	publishingChan chan publishedLoad
 
 	ctx context.Context
 	// notifier is used to notify about published events.
 	notifier event.Notifier
 	wg       sync.WaitGroup
 
-	bufferSize, nbPubWorkers int
+	queue           eventQueue
+	publishedEvents chan event.Event
+	pubSignal       chan struct{}
+	nbPubWorkers    int
 }
 
 // NewBus creates a new in-memory event bus.
@@ -56,25 +49,29 @@ type inMemoryBus struct {
 //
 //	A new in-memory event Bus instance
 func NewBus(ctx context.Context, opts ...BusOption) event.Bus {
+	queue := eventQueue{}
+	heap.Init(&queue)
+
 	b := &inMemoryBus{
-		subscribers:  make(map[chan event.Event]*event.Subscriber),
-		ctx:          ctx,
-		bufferSize:   pubChanBufferSize,
-		nbPubWorkers: publicationWorkers,
-		notifier:     &event.NopNotifier{},
+		subscribers:     make(map[chan event.Event]*event.Subscriber),
+		ctx:             ctx,
+		notifier:        &event.NopNotifier{},
+		queue:           queue,
+		publishedEvents: make(chan event.Event),
+		pubSignal:       make(chan struct{}),
+		nbPubWorkers:    defaultWorkers,
 	}
 
 	for _, opt := range opts {
 		opt(b)
 	}
 
-	b.publishingChan = make(chan publishedLoad, b.bufferSize)
-
 	for i := 0; i < b.nbPubWorkers; i++ {
 		b.wg.Add(1)
-		go b.pubWorker()
+		go b.worker()
 	}
 
+	go b.publisher()
 	go b.terminate()
 
 	return b
@@ -88,8 +85,8 @@ func NewBus(ctx context.Context, opts ...BusOption) event.Bus {
 //
 //	A new Subscriber instance
 func (b *inMemoryBus) Subscribe() *event.Subscriber {
-	b.Lock()
-	defer b.Unlock()
+	b.subMu.Lock()
+	defer b.subMu.Unlock()
 
 	events := make(chan event.Event)
 	subscriber := event.NewSubscriber(events)
@@ -99,8 +96,8 @@ func (b *inMemoryBus) Subscribe() *event.Subscriber {
 }
 
 func (b *inMemoryBus) Unsubscribe(sub *event.Subscriber) {
-	b.Lock()
-	defer b.Unlock()
+	b.subMu.Lock()
+	defer b.subMu.Unlock()
 
 	if !sub.Detached() {
 		sub.Detach()
@@ -130,34 +127,59 @@ func (b *inMemoryBus) Publish(evt event.Event) {
 		return
 	}
 
-	b.Lock()
-	defer b.Unlock()
+	b.pubMu.Lock()
+	heap.Push(&b.queue, evt)
+	b.pubMu.Unlock()
 
-	for channel, subscriber := range b.subscribers {
-		if !subscriber.Accept(evt) {
+	select {
+	case b.pubSignal <- struct{}{}:
+	default:
+	}
+}
+
+func (b *inMemoryBus) publisher() {
+	for {
+		select {
+		case <-b.ctx.Done():
+			return
+		default:
+		}
+
+		b.pubMu.Lock()
+		if len(b.queue) > 0 {
+			next := heap.Pop(&b.queue).(event.Event)
+			b.pubMu.Unlock()
+			b.publishedEvents <- next
 			continue
 		}
+		b.pubMu.Unlock()
+
 		select {
-		case b.publishingChan <- publishedLoad{evt, channel}:
+		case <-b.pubSignal:
 		case <-b.ctx.Done():
+			return
 		}
 	}
 }
 
-// pubWorker is a worker goroutine that processes publication tasks.
-// It continuously receives publication tasks from the publishing channel and
-// forwards events to subscriber channels.
-func (b *inMemoryBus) pubWorker() {
+func (b *inMemoryBus) worker() {
 	defer b.wg.Done()
 	for {
 		select {
 		case <-b.ctx.Done():
 			return
-		case i := <-b.publishingChan:
-			select {
-			case i.subscriberChanel <- i.evt:
-			case <-b.ctx.Done():
+		case evt := <-b.publishedEvents:
+			b.subMu.Lock()
+			for channel, subscriber := range b.subscribers {
+				if !subscriber.Accept(evt) {
+					continue
+				}
+				select {
+				case channel <- evt:
+				case <-b.ctx.Done():
+				}
 			}
+			b.subMu.Unlock()
 		}
 	}
 }
@@ -167,10 +189,37 @@ func (b *inMemoryBus) pubWorker() {
 func (b *inMemoryBus) terminate() {
 	<-b.ctx.Done()
 	b.wg.Wait()
-	b.Lock()
-	defer b.Unlock()
+	b.subMu.Lock()
+	defer b.subMu.Unlock()
 	for subChanel := range b.subscribers {
 		close(subChanel)
 	}
 	clear(b.subscribers)
+}
+
+type eventQueue []event.Event
+
+func (q eventQueue) Len() int {
+	return len(q)
+}
+
+func (q eventQueue) Less(i, j int) bool {
+	return q[i].Priority() > q[j].Priority()
+}
+
+func (q eventQueue) Swap(i, j int) {
+	q[i], q[j] = q[j], q[i]
+}
+
+func (q *eventQueue) Push(e any) {
+	*q = append(*q, e.(event.Event))
+}
+
+func (q *eventQueue) Pop() any {
+	old := *q
+	n := len(old)
+	lastEvt := old[n-1]
+	old[n-1] = nil
+	*q = old[:n-1]
+	return lastEvt
 }
