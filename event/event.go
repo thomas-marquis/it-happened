@@ -52,6 +52,9 @@ type Event interface {
 	// NewFollowup creates a new event that is a followup of this event.
 	// The new event will share the same ChainRef and have an incremented position.
 	NewFollowup(newPayload Payload, opts ...Option) Event
+	// Priority returns the priority of the event.
+	// By default, events have a priority of 0.
+	Priority() int
 }
 
 type impl struct {
@@ -62,6 +65,7 @@ type impl struct {
 	ref       string
 	position  uint
 	eventType Type
+	priority  int
 }
 
 // Type returns the event type of the implementation.
@@ -117,6 +121,10 @@ func (e *impl) NewFollowup(newPayload Payload, opts ...Option) Event {
 	ne.ref = prevRef
 	ne.position = e.position + 1
 	return ne
+}
+
+func (e *impl) Priority() int {
+	return e.priority
 }
 
 // New creates a new event with the given payload and options.
