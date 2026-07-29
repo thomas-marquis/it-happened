@@ -121,31 +121,71 @@ func TestSubscriber(t *testing.T) {
 
 	t.Run("should apply default matcher before all", func(t *testing.T) {
 		// Given
-		eventChan := make(chan event.Event)
+		eventChan := make(chan event.Event, 10)
 		sub := event.NewSubscriber(eventChan, event.Is("fake.payload"))
 
-		var wg sync.WaitGroup
-		wg.Add(1)
+		var (
+			count atomic.Int32
+			wg    sync.WaitGroup
+		)
+
 		sub.On(event.IsAny(), func(evt event.Event) {
-			switch evt.Payload().(type) {
-			case fakePayload2:
-				assert.Fail(t, "handler should not be called")
-			case fakePayload:
-				wg.Done()
-			}
+			count.Add(1)
+			wg.Done()
 		})
 		sub.ListenWithWorkers(1)
 		defer sub.Detach()
 
 		// When
-		eventChan <- event.New(fakePayload("coucou"))
-		eventChan <- event.New(fakePayload2{})
-		wg.Wait()
+		wg.Add(2)
+		eventChan <- event.New(fakePayload("match1"))
+		eventChan <- event.New(fakePayload2{}) // Should be ignored by default matcher
+		eventChan <- event.New(fakePayload("match2"))
 
 		// Then
+		// If match2 is processed, we are sure fakePayload2 was processed (and ignored) before it
+		// because we have only 1 worker and channels are FIFO.
+		wg.Wait()
+
+		assert.Equal(t, int32(2), count.Load(), "only matching events should be processed")
 		assert.True(t, sub.Accept(event.New(fakePayload("coucou2"))))
 		assert.False(t, sub.Accept(event.New(fakePayload2{})))
+	})
 
+	t.Run("should apply OR logic when multiple default matchers are specified", func(t *testing.T) {
+		// Given
+		eventChan := make(chan event.Event, 10)
+		sub := event.NewSubscriber(eventChan,
+			event.Is("fake.payload"),
+			event.Is("fake.payload.2"),
+		)
+
+		var (
+			count atomic.Int32
+			wg    sync.WaitGroup
+		)
+
+		sub.On(event.IsAny(), func(evt event.Event) {
+			count.Add(1)
+			wg.Done()
+		})
+		sub.ListenWithWorkers(1)
+		defer sub.Detach()
+
+		// When
+		wg.Add(3)
+		eventChan <- event.New(fakePayload("match1"))
+		eventChan <- event.New(fakePayload2{})
+		eventChan <- event.New(fakePayload3{}) // Should be ignored
+		eventChan <- event.New(fakePayload("match2"))
+
+		// Then
+		wg.Wait()
+
+		assert.Equal(t, int32(3), count.Load(), "events matching any default matcher should be processed")
+		assert.True(t, sub.Accept(event.New(fakePayload("test"))))
+		assert.True(t, sub.Accept(event.New(fakePayload2{})))
+		assert.False(t, sub.Accept(event.New(fakePayload3{})))
 	})
 }
 

@@ -27,6 +27,7 @@ type cancellableCallback struct {
 }
 
 // NewSubscriber creates a new Subscriber that listens on the given event channel.
+// To be processed, the event must match at least one of the default matchers, if any.
 //
 // Parameters:
 //
@@ -148,6 +149,11 @@ func (s *Subscriber) listen() {
 				continue
 			}
 			s.mu.RLock()
+			if !s.matchDefault(event) {
+				s.mu.RUnlock()
+				continue
+			}
+
 			for matcher, callbacks := range s.registered {
 				if matcher.Match(event) { // <- here, event is sometimes nil
 					for _, callback := range callbacks {
@@ -198,6 +204,11 @@ func (s *Subscriber) ListenNonBlocking() {
 					continue
 				}
 				s.mu.RLock()
+				if !s.matchDefault(event) {
+					s.mu.RUnlock()
+					continue
+				}
+
 				for matcher, callbacks := range s.registered {
 					if matcher.Match(event) {
 						for _, callback := range callbacks {
@@ -234,10 +245,8 @@ func (s *Subscriber) Accept(event Event) bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	for _, matcher := range s.defaultMatchers {
-		if !matcher.Match(event) {
-			return false
-		}
+	if !s.matchDefault(event) {
+		return false
 	}
 
 	for matcher := range s.registered {
@@ -274,4 +283,16 @@ func (s *Subscriber) Detach() {
 
 func (s *Subscriber) Detached() bool {
 	return s.detached
+}
+
+func (s *Subscriber) matchDefault(evt Event) bool {
+	if len(s.defaultMatchers) == 0 {
+		return true
+	}
+	for _, matcher := range s.defaultMatchers {
+		if matcher.Match(evt) {
+			return true
+		}
+	}
+	return false
 }
