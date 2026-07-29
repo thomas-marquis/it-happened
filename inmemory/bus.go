@@ -84,12 +84,12 @@ func NewBus(ctx context.Context, opts ...BusOption) event.Bus {
 // Returns:
 //
 //	A new Subscriber instance
-func (b *inMemoryBus) Subscribe() *event.Subscriber {
+func (b *inMemoryBus) Subscribe(defaultMatchers ...event.Matcher) *event.Subscriber {
 	b.subMu.Lock()
 	defer b.subMu.Unlock()
 
 	events := make(chan event.Event)
-	subscriber := event.NewSubscriber(events)
+	subscriber := event.NewSubscriber(events, defaultMatchers...)
 	b.subscribers[events] = subscriber
 	b.notifier.NotifySubscribed(subscriber)
 	return subscriber

@@ -10,13 +10,14 @@ import (
 type Subscriber struct {
 	mu sync.RWMutex
 
-	registered   map[Matcher][]func(Event)
-	cancellable  map[Matcher][]*cancellableCallback
-	events       chan Event
-	started      bool
-	done         chan struct{}
-	detached     bool
-	nextCancelID uint64
+	registered      map[Matcher][]func(Event)
+	cancellable     map[Matcher][]*cancellableCallback
+	events          chan Event
+	started         bool
+	done            chan struct{}
+	detached        bool
+	nextCancelID    uint64
+	defaultMatchers []Matcher
 }
 
 // cancellableCallback wraps a callback with a unique ID for cancellation
@@ -30,16 +31,18 @@ type cancellableCallback struct {
 // Parameters:
 //
 //	event - The channel through which events will be received
+//	defaultMatchers - Optional matchers that will be applied to all registered callbacks
 //
 // Returns:
 //
 //	A new Subscriber instance ready to register callbacks
-func NewSubscriber(event chan Event) *Subscriber {
+func NewSubscriber(event chan Event, defaultMatchers ...Matcher) *Subscriber {
 	return &Subscriber{
-		registered:  make(map[Matcher][]func(Event)),
-		cancellable: make(map[Matcher][]*cancellableCallback),
-		events:      event,
-		done:        make(chan struct{}),
+		registered:      make(map[Matcher][]func(Event)),
+		cancellable:     make(map[Matcher][]*cancellableCallback),
+		events:          event,
+		done:            make(chan struct{}),
+		defaultMatchers: defaultMatchers,
 	}
 }
 
@@ -218,6 +221,7 @@ func (s *Subscriber) ListenNonBlocking() {
 // Accept checks if the subscriber can accept (handle) the given event.
 //
 // It returns true if any registered matcher matches the event.
+// Default matchers are applied before any registered matchers.
 //
 // Parameters:
 //
@@ -229,6 +233,13 @@ func (s *Subscriber) ListenNonBlocking() {
 func (s *Subscriber) Accept(event Event) bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+
+	for _, matcher := range s.defaultMatchers {
+		if !matcher.Match(event) {
+			return false
+		}
+	}
+
 	for matcher := range s.registered {
 		if matcher.Match(event) {
 			return true

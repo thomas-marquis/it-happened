@@ -10,7 +10,8 @@ type Bus interface {
 
 	// Subscribe creates a new subscriber for this bus.
 	// The subscriber can register callbacks for specific event matchers.
-	Subscribe() *Subscriber
+	// The specified default matchers will filter the events that are delivered to the subscriber.
+	Subscribe(defaultMatchers ...Matcher) *Subscriber
 
 	// Unsubscribe removes a subscriber from the bus.
 	Unsubscribe(sub *Subscriber)
