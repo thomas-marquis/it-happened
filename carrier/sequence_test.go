@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/thomas-marquis/it-happened/carrier"
 	"github.com/thomas-marquis/it-happened/event"
+	"github.com/thomas-marquis/it-happened/eventest"
 	"github.com/thomas-marquis/it-happened/inmemory"
 )
 
@@ -67,21 +68,18 @@ func TestSequenceCarrier_Dispatch(t *testing.T) {
 		bus.Publish(carrierEvent)
 
 		// Then
-		select {
-		case <-waitForEvents(t, &wg, 2*time.Second):
-			mu.Lock()
-			defer mu.Unlock()
-			require.Len(t, receivedEvents, len(eventsToCarry))
+		eventest.Wait(t, &wg, 2*time.Second)
 
-			// Verify all original events were received
-			idSet := make(map[string]struct{})
-			for _, evt := range receivedEvents {
-				idSet[evt.ID()] = struct{}{}
-			}
-			assert.Len(t, idSet, len(eventsToCarry))
-		case <-time.After(2 * time.Second):
-			assert.Fail(t, "timeout waiting for all events")
+		mu.Lock()
+		defer mu.Unlock()
+		require.Len(t, receivedEvents, len(eventsToCarry))
+
+		// Verify all original events were received
+		idSet := make(map[string]struct{})
+		for _, evt := range receivedEvents {
+			idSet[evt.ID()] = struct{}{}
 		}
+		assert.Len(t, idSet, len(eventsToCarry))
 	})
 
 	t.Run("should preserve order when dispatching events sequentially", func(t *testing.T) {
@@ -140,18 +138,15 @@ func TestSequenceCarrier_Dispatch(t *testing.T) {
 		bus.Publish(carrierEvent)
 
 		// Then
-		select {
-		case <-waitForEvents(t, &wg, 2*time.Second):
-			mu.Lock()
-			defer mu.Unlock()
-			require.Len(t, receivedOrder, numEvents)
+		eventest.Wait(t, &wg, 2*time.Second)
 
-			// Verify events were received in order
-			for i := 0; i < numEvents; i++ {
-				assert.Equal(t, i, receivedOrder[i], "event %d should be received in order", i)
-			}
-		case <-time.After(2 * time.Second):
-			assert.Fail(t, "timeout waiting for all events")
+		mu.Lock()
+		defer mu.Unlock()
+		require.Len(t, receivedOrder, numEvents)
+
+		// Verify events were received in order
+		for i := 0; i < numEvents; i++ {
+			assert.Equal(t, i, receivedOrder[i], "event %d should be received in order", i)
 		}
 	})
 
@@ -162,8 +157,11 @@ func TestSequenceCarrier_Dispatch(t *testing.T) {
 
 		bus := inmemory.NewBus(ctx)
 
-		var doneReceived bool
-		var mu sync.Mutex
+		var (
+			doneReceived bool
+			mu           sync.Mutex
+			wg           sync.WaitGroup
+		)
 
 		eventsToCarry := []event.Event{
 			event.New(testPayload("event1")),
@@ -173,12 +171,14 @@ func TestSequenceCarrier_Dispatch(t *testing.T) {
 		doneEvent := event.New(testPayload("done"))
 		timeoutEvent := event.New(testPayload("timeout"))
 
+		wg.Add(1)
 		sub := bus.Subscribe().
 			On(event.Is("test.payload"), func(evt event.Event) {
 				if evt.ID() == doneEvent.ID() {
 					mu.Lock()
 					doneReceived = true
 					mu.Unlock()
+					wg.Done()
 				}
 				bus.Publish(evt.NewFollowup(testPayload2{Value: fmt.Sprintf("followup-%d", evt.ChainPosition())}))
 			})
@@ -195,7 +195,8 @@ func TestSequenceCarrier_Dispatch(t *testing.T) {
 		bus.Publish(carrierEvent)
 
 		// Then
-		time.Sleep(200 * time.Millisecond)
+		eventest.Wait(t, &wg, 2*time.Second)
+
 		mu.Lock()
 		assert.True(t, doneReceived, "done event should be published")
 		mu.Unlock()
@@ -208,8 +209,11 @@ func TestSequenceCarrier_Dispatch(t *testing.T) {
 
 		bus := inmemory.NewBus(ctx)
 
-		var timeoutReceived bool
-		var mu sync.Mutex
+		var (
+			timeoutReceived bool
+			mu              sync.Mutex
+			wg              sync.WaitGroup
+		)
 
 		// Create events that won't be processed (no subscribers for these)
 		eventsToCarry := []event.Event{
@@ -227,12 +231,14 @@ func TestSequenceCarrier_Dispatch(t *testing.T) {
 			carrier.WithTimeout(50*time.Millisecond),
 		)
 
+		wg.Add(1)
 		sub := bus.Subscribe().
 			On(event.Is("test.payload"), func(evt event.Event) {
 				if evt.ID() == timeoutEvent.ID() {
 					mu.Lock()
 					timeoutReceived = true
 					mu.Unlock()
+					wg.Done()
 				}
 			})
 		sub.ListenWithWorkers(1)
@@ -242,7 +248,8 @@ func TestSequenceCarrier_Dispatch(t *testing.T) {
 		bus.Publish(carrierEvent)
 
 		// Then
-		time.Sleep(200 * time.Millisecond)
+		eventest.Wait(t, &wg, 2*time.Second)
+
 		mu.Lock()
 		assert.True(t, timeoutReceived, "timeout event should be published")
 		mu.Unlock()
@@ -303,13 +310,10 @@ func TestSequenceCarrier_Dispatch(t *testing.T) {
 		bus.Publish(carrierEvent)
 
 		// Then
-		select {
-		case <-waitForEvents(t, &wg, 2*time.Second):
-			mu.Lock()
-			defer mu.Unlock()
-			require.Len(t, receivedOrder, numEvents)
-		case <-time.After(2 * time.Second):
-			assert.Fail(t, "timeout waiting for all events")
-		}
+		eventest.Wait(t, &wg, 2*time.Second)
+
+		mu.Lock()
+		defer mu.Unlock()
+		require.Len(t, receivedOrder, numEvents)
 	})
 }

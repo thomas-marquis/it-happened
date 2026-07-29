@@ -2,6 +2,7 @@ package carrier
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/thomas-marquis/it-happened/event"
@@ -129,12 +130,18 @@ func (c *Pipeline) Dispatch(bus event.Bus) {
 	for {
 		select {
 		case wl := <-workload:
+			var once sync.Once
 			finished := make(chan event.Event)
 
 			sub := bus.Subscribe().
 				On(event.IsFollowupOf(wl.next), func(received event.Event) {
 					if c.completionCondition(wl.next, received) {
-						finished <- received
+						once.Do(func() {
+							select {
+							case finished <- received:
+							default:
+							}
+						})
 					}
 				})
 			sub.ListenWithWorkers(1)

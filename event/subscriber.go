@@ -10,13 +10,14 @@ import (
 type Subscriber struct {
 	mu sync.RWMutex
 
-	registered   map[Matcher][]func(Event)
-	cancellable  map[Matcher][]*cancellableCallback
-	events       chan Event
-	started      bool
-	done         chan struct{}
-	detached     bool
-	nextCancelID uint64
+	registered      map[Matcher][]func(Event)
+	cancellable     map[Matcher][]*cancellableCallback
+	events          chan Event
+	started         bool
+	done            chan struct{}
+	detached        bool
+	nextCancelID    uint64
+	defaultMatchers []Matcher
 }
 
 // cancellableCallback wraps a callback with a unique ID for cancellation
@@ -26,20 +27,23 @@ type cancellableCallback struct {
 }
 
 // NewSubscriber creates a new Subscriber that listens on the given event channel.
+// To be processed, the event must match at least one of the default matchers, if any.
 //
 // Parameters:
 //
 //	event - The channel through which events will be received
+//	defaultMatchers - Optional matchers that will be applied to all registered callbacks
 //
 // Returns:
 //
 //	A new Subscriber instance ready to register callbacks
-func NewSubscriber(event chan Event) *Subscriber {
+func NewSubscriber(event chan Event, defaultMatchers ...Matcher) *Subscriber {
 	return &Subscriber{
-		registered:  make(map[Matcher][]func(Event)),
-		cancellable: make(map[Matcher][]*cancellableCallback),
-		events:      event,
-		done:        make(chan struct{}),
+		registered:      make(map[Matcher][]func(Event)),
+		cancellable:     make(map[Matcher][]*cancellableCallback),
+		events:          event,
+		done:            make(chan struct{}),
+		defaultMatchers: defaultMatchers,
 	}
 }
 
@@ -60,12 +64,13 @@ func NewSubscriber(event chan Event) *Subscriber {
 //
 //	The Subscriber instance for method chaining
 func (s *Subscriber) On(matcher Matcher, callback func(Event)) *Subscriber {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if s.started {
 		panic("cannot register callback after listening started")
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if _, exists := s.registered[matcher]; !exists {
 		s.registered[matcher] = make([]func(Event), 0)
 	}
@@ -90,12 +95,12 @@ func (s *Subscriber) On(matcher Matcher, callback func(Event)) *Subscriber {
 //
 //	A function that, when called, removes this specific callback
 func (s *Subscriber) OnWithCancel(matcher Matcher, callback func(Event)) func() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if s.started {
 		panic("cannot register callback after listening started")
 	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	// Generate a unique ID for this callback
 	id := atomic.AddUint64(&s.nextCancelID, 1)
@@ -145,6 +150,11 @@ func (s *Subscriber) listen() {
 				continue
 			}
 			s.mu.RLock()
+			if !s.matchDefault(event) {
+				s.mu.RUnlock()
+				continue
+			}
+
 			for matcher, callbacks := range s.registered {
 				if matcher.Match(event) { // <- here, event is sometimes nil
 					for _, callback := range callbacks {
@@ -173,7 +183,9 @@ func (s *Subscriber) listen() {
 //
 //	workers - The number of concurrent worker goroutines to start
 func (s *Subscriber) ListenWithWorkers(workers int) {
+	s.mu.Lock()
 	s.started = true
+	s.mu.Unlock()
 	for i := 0; i < workers; i++ {
 		go s.listen()
 	}
@@ -184,7 +196,9 @@ func (s *Subscriber) ListenWithWorkers(workers int) {
 // Events are processed asynchronously, and callbacks for matching events
 // are executed in separate goroutines to avoid blocking.
 func (s *Subscriber) ListenNonBlocking() {
+	s.mu.Lock()
 	s.started = true
+	s.mu.Unlock()
 	go func() {
 		for {
 			select {
@@ -195,6 +209,11 @@ func (s *Subscriber) ListenNonBlocking() {
 					continue
 				}
 				s.mu.RLock()
+				if !s.matchDefault(event) {
+					s.mu.RUnlock()
+					continue
+				}
+
 				for matcher, callbacks := range s.registered {
 					if matcher.Match(event) {
 						for _, callback := range callbacks {
@@ -218,6 +237,7 @@ func (s *Subscriber) ListenNonBlocking() {
 // Accept checks if the subscriber can accept (handle) the given event.
 //
 // It returns true if any registered matcher matches the event.
+// Default matchers are applied before any registered matchers.
 //
 // Parameters:
 //
@@ -229,6 +249,11 @@ func (s *Subscriber) ListenNonBlocking() {
 func (s *Subscriber) Accept(event Event) bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+
+	if !s.matchDefault(event) {
+		return false
+	}
+
 	for matcher := range s.registered {
 		if matcher.Match(event) {
 			return true
@@ -262,5 +287,19 @@ func (s *Subscriber) Detach() {
 }
 
 func (s *Subscriber) Detached() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	return s.detached
+}
+
+func (s *Subscriber) matchDefault(evt Event) bool {
+	if len(s.defaultMatchers) == 0 {
+		return true
+	}
+	for _, matcher := range s.defaultMatchers {
+		if matcher.Match(evt) {
+			return true
+		}
+	}
+	return false
 }

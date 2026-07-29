@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/thomas-marquis/it-happened/event"
+	"github.com/thomas-marquis/it-happened/eventest"
 	"github.com/thomas-marquis/it-happened/inmemory"
 	mocks_events "github.com/thomas-marquis/it-happened/internal/mocks/events"
 	goMock "go.uber.org/mock/gomock"
@@ -41,18 +42,6 @@ func setupBus(t *testing.T) (func(), event.Bus) {
 	return cancel, bus
 }
 
-// waitForEvents waits for the waitgroup and returns the received events.
-// t.Helper() is called to mark this as a helper function.
-func waitForEvents(t *testing.T, wg *sync.WaitGroup, timeout time.Duration) chan struct{} {
-	t.Helper()
-	doneCh := make(chan struct{})
-	go func() {
-		wg.Wait()
-		close(doneCh)
-	}()
-	return doneCh
-}
-
 func TestInmemoryBus_Publish(t *testing.T) {
 	t.Run("should deliver published event to subscriber", func(t *testing.T) {
 		// Given
@@ -80,16 +69,12 @@ func TestInmemoryBus_Publish(t *testing.T) {
 		bus.Publish(testEvent)
 
 		// Then
-		select {
-		case <-waitForEvents(t, &wg, time.Second):
-			mu.Lock()
-			defer mu.Unlock()
-			require.NotNil(t, received)
-			assert.Equal(t, testEvent.ID(), received.ID())
-			assert.Equal(t, testEvent.Type(), received.Type())
-		case <-time.After(time.Second):
-			assert.Fail(t, "timeout waiting for event")
-		}
+		eventest.Wait(t, &wg, time.Second)
+		mu.Lock()
+		defer mu.Unlock()
+		require.NotNil(t, received)
+		assert.Equal(t, testEvent.ID(), received.ID())
+		assert.Equal(t, testEvent.Type(), received.Type())
 	})
 }
 
@@ -138,21 +123,17 @@ func TestInmemoryBus_MultipleSubscribers(t *testing.T) {
 		bus.Publish(testEvent)
 
 		// Then
-		select {
-		case <-waitForEvents(t, &wg, time.Second):
-			mutex1.Lock()
-			mutex2.Lock()
-			mutex3.Lock()
-			defer mutex1.Unlock()
-			defer mutex2.Unlock()
-			defer mutex3.Unlock()
+		eventest.Wait(t, &wg, time.Second)
+		mutex1.Lock()
+		mutex2.Lock()
+		mutex3.Lock()
+		defer mutex1.Unlock()
+		defer mutex2.Unlock()
+		defer mutex3.Unlock()
 
-			assert.Equal(t, testEvent.ID(), received1.ID())
-			assert.Equal(t, testEvent.ID(), received2.ID())
-			assert.Equal(t, testEvent.ID(), received3.ID())
-		case <-time.After(time.Second):
-			assert.Fail(t, "timeout waiting for all subscribers")
-		}
+		assert.Equal(t, testEvent.ID(), received1.ID())
+		assert.Equal(t, testEvent.ID(), received2.ID())
+		assert.Equal(t, testEvent.ID(), received3.ID())
 	})
 }
 
@@ -187,21 +168,17 @@ func TestInmemoryBus_ConcurrentPublish(t *testing.T) {
 		}
 
 		// Then
-		select {
-		case <-waitForEvents(t, &wg, 2*time.Second):
-			mu.Lock()
-			defer mu.Unlock()
+		eventest.Wait(t, &wg, 2*time.Second)
+		mu.Lock()
+		defer mu.Unlock()
 
-			require.Len(t, received, numEvents)
+		require.Len(t, received, numEvents)
 
-			idSet := make(map[string]struct{})
-			for _, evt := range received {
-				idSet[evt.ID()] = struct{}{}
-			}
-			assert.Len(t, idSet, numEvents, "all events should have unique IDs")
-		case <-time.After(2 * time.Second):
-			assert.Fail(t, "timeout waiting for all events")
+		idSet := make(map[string]struct{})
+		for _, evt := range received {
+			idSet[evt.ID()] = struct{}{}
 		}
+		assert.Len(t, idSet, numEvents, "all events should have unique IDs")
 	})
 }
 
@@ -257,23 +234,15 @@ func TestInmemoryBus_EventMatching(t *testing.T) {
 		bus.Publish(event1)
 
 		// Then - verify event1 delivery
-		select {
-		case <-waitForEvents(t, &wg1, time.Second):
-			mutex1.Lock()
-			assert.Equal(t, event1.ID(), received1.ID())
-			mutex1.Unlock()
-		case <-time.After(time.Second):
-			assert.Fail(t, "timeout waiting for subscriber 1")
-		}
+		eventest.Wait(t, &wg1, time.Second)
+		mutex1.Lock()
+		assert.Equal(t, event1.ID(), received1.ID())
+		mutex1.Unlock()
 
-		select {
-		case <-waitForEvents(t, &wg3, time.Second):
-			mutex3.Lock()
-			assert.Equal(t, event1.ID(), received3.ID())
-			mutex3.Unlock()
-		case <-time.After(time.Second):
-			assert.Fail(t, "timeout waiting for subscriber 3")
-		}
+		eventest.Wait(t, &wg3, time.Second)
+		mutex3.Lock()
+		assert.Equal(t, event1.ID(), received3.ID())
+		mutex3.Unlock()
 
 		// Verify subscriber2 did NOT receive event1
 		time.Sleep(100 * time.Millisecond)
@@ -287,23 +256,15 @@ func TestInmemoryBus_EventMatching(t *testing.T) {
 		bus.Publish(event2)
 
 		// Then - verify event2 delivery
-		select {
-		case <-waitForEvents(t, &wg2, time.Second):
-			mutex2.Lock()
-			assert.Equal(t, event2.ID(), received2.ID())
-			mutex2.Unlock()
-		case <-time.After(time.Second):
-			assert.Fail(t, "timeout waiting for subscriber 2")
-		}
+		eventest.Wait(t, &wg2, time.Second)
+		mutex2.Lock()
+		assert.Equal(t, event2.ID(), received2.ID())
+		mutex2.Unlock()
 
-		select {
-		case <-waitForEvents(t, &wg3, time.Second):
-			mutex3.Lock()
-			assert.Equal(t, event2.ID(), received3.ID())
-			mutex3.Unlock()
-		case <-time.After(time.Second):
-			assert.Fail(t, "timeout waiting for subscriber 3")
-		}
+		eventest.Wait(t, &wg3, time.Second)
+		mutex3.Lock()
+		assert.Equal(t, event2.ID(), received3.ID())
+		mutex3.Unlock()
 
 		// Verify subscriber1 did NOT receive event2
 		time.Sleep(100 * time.Millisecond)
@@ -379,21 +340,17 @@ func TestInmemoryBus_ThreadSafety(t *testing.T) {
 		opWg.Wait()
 
 		// Then
-		select {
-		case <-waitForEvents(t, &wg, 2*time.Second):
-			mu.Lock()
-			defer mu.Unlock()
+		eventest.Wait(t, &wg, 2*time.Second)
+		mu.Lock()
+		defer mu.Unlock()
 
-			require.Len(t, received, totalEvents)
+		require.Len(t, received, totalEvents)
 
-			idSet := make(map[string]struct{})
-			for _, evt := range received {
-				idSet[evt.ID()] = struct{}{}
-			}
-			assert.Len(t, idSet, totalEvents, "all events should have unique IDs")
-		case <-time.After(2 * time.Second):
-			assert.Fail(t, "timeout waiting for all events")
+		idSet := make(map[string]struct{})
+		for _, evt := range received {
+			idSet[evt.ID()] = struct{}{}
 		}
+		assert.Len(t, idSet, totalEvents, "all events should have unique IDs")
 	})
 }
 

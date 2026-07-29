@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/thomas-marquis/it-happened/carrier"
 	"github.com/thomas-marquis/it-happened/event"
+	"github.com/thomas-marquis/it-happened/eventest"
 	"github.com/thomas-marquis/it-happened/inmemory"
 )
 
@@ -72,27 +73,23 @@ func TestPipelineCarrier_Dispatch(t *testing.T) {
 		bus.Publish(carrierEvent)
 
 		// Then
-		select {
-		case <-waitForEvents(t, &wg, testTimeout):
-			publishedEvents := eg.Events
-			require.Len(t, publishedEvents, 7)
+		eventest.Wait(t, &wg, testTimeout)
 
-			// Verify all original events were received
-			idSet := make(map[string]struct{})
-			for _, evt := range publishedEvents {
-				idSet[evt.ID()] = struct{}{}
-			}
-			assert.Len(t, idSet, 7)
-			assert.Equal(t, "event1", string(publishedEvents[1].Payload().(testPayload)))
-			assert.Equal(t, "followupevent1", string(publishedEvents[2].Payload().(testPayload)))
-			assert.Equal(t, "event2", string(publishedEvents[3].Payload().(testPayload)))
-			assert.Equal(t, "followupevent2", string(publishedEvents[4].Payload().(testPayload)))
-			assert.Equal(t, "event3", string(publishedEvents[5].Payload().(testPayload)))
-			assert.Equal(t, "followupevent3", string(publishedEvents[6].Payload().(testPayload)))
+		publishedEvents := eg.Events
+		require.Len(t, publishedEvents, 7)
 
-		case <-time.After(testTimeout):
-			assert.Fail(t, "timeout waiting for all events")
+		// Verify all original events were received
+		idSet := make(map[string]struct{})
+		for _, evt := range publishedEvents {
+			idSet[evt.ID()] = struct{}{}
 		}
+		assert.Len(t, idSet, 7)
+		assert.Equal(t, "event1", string(publishedEvents[1].Payload().(testPayload)))
+		assert.Equal(t, "followupevent1", string(publishedEvents[2].Payload().(testPayload)))
+		assert.Equal(t, "event2", string(publishedEvents[3].Payload().(testPayload)))
+		assert.Equal(t, "followupevent2", string(publishedEvents[4].Payload().(testPayload)))
+		assert.Equal(t, "event3", string(publishedEvents[5].Payload().(testPayload)))
+		assert.Equal(t, "followupevent3", string(publishedEvents[6].Payload().(testPayload)))
 	})
 
 	t.Run("should publish timeout event when sequence processing exceeds timeout duration", func(t *testing.T) {
@@ -102,8 +99,11 @@ func TestPipelineCarrier_Dispatch(t *testing.T) {
 
 		bus := inmemory.NewBus(ctx)
 
-		var timeoutReceived bool
-		var mu sync.Mutex
+		var (
+			timeoutReceived bool
+			mu              sync.Mutex
+			wg              sync.WaitGroup
+		)
 
 		initEvent := event.New(testPayload("event1"))
 		event2 := event.New(testPayload("event2"))
@@ -127,12 +127,14 @@ func TestPipelineCarrier_Dispatch(t *testing.T) {
 			carrier.WithTimeout(50*time.Millisecond),
 		)
 
+		wg.Add(1)
 		sub := bus.Subscribe().
 			On(event.Is("test.payload"), func(evt event.Event) {
 				if evt.ID() == timeoutEvent.ID() {
 					mu.Lock()
 					timeoutReceived = true
 					mu.Unlock()
+					wg.Done()
 				}
 			})
 		sub.ListenWithWorkers(1)
@@ -142,7 +144,8 @@ func TestPipelineCarrier_Dispatch(t *testing.T) {
 		bus.Publish(carrierEvent)
 
 		// Then
-		time.Sleep(200 * time.Millisecond)
+		eventest.Wait(t, &wg, testTimeout)
+
 		mu.Lock()
 		assert.True(t, timeoutReceived, "timeout event should be published")
 		mu.Unlock()
@@ -205,23 +208,19 @@ func TestPipelineCarrier_Dispatch(t *testing.T) {
 		bus.Publish(carrierEvent)
 
 		// Then
-		select {
-		case <-waitForEvents(t, &wg, testTimeout):
-			publishedEvents := eg.Events
-			require.Len(t, publishedEvents, 7)
+		eventest.Wait(t, &wg, testTimeout)
 
-			// Verify all original events were received
-			idSet := make(map[string]struct{})
-			for _, evt := range publishedEvents {
-				idSet[evt.ID()] = struct{}{}
-			}
-			assert.Len(t, idSet, 7)
-			assert.Equal(t, "followupevent2", string(publishedEvents[4].Payload().(testPayload)))
-			assert.Equal(t, "event3", string(publishedEvents[5].Payload().(testPayload)))
-			assert.Equal(t, "followupevent3", string(publishedEvents[6].Payload().(testPayload)))
+		publishedEvents := eg.Events
+		require.Len(t, publishedEvents, 7)
 
-		case <-time.After(testTimeout):
-			assert.Fail(t, "timeout waiting for all events")
+		// Verify all original events were received
+		idSet := make(map[string]struct{})
+		for _, evt := range publishedEvents {
+			idSet[evt.ID()] = struct{}{}
 		}
+		assert.Len(t, idSet, 7)
+		assert.Equal(t, "followupevent2", string(publishedEvents[4].Payload().(testPayload)))
+		assert.Equal(t, "event3", string(publishedEvents[5].Payload().(testPayload)))
+		assert.Equal(t, "followupevent3", string(publishedEvents[6].Payload().(testPayload)))
 	})
 }
