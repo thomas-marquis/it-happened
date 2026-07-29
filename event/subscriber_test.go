@@ -130,6 +130,10 @@ func TestSubscriber(t *testing.T) {
 		)
 
 		sub.On(event.IsAny(), func(evt event.Event) {
+			if _, ok := evt.Payload().(fakePayload2); ok {
+				assert.Fail(t, "subscriber should not accept non-matching events")
+				return
+			}
 			count.Add(1)
 			wg.Done()
 		})
@@ -166,6 +170,10 @@ func TestSubscriber(t *testing.T) {
 		)
 
 		sub.On(event.IsAny(), func(evt event.Event) {
+			if _, ok := evt.Payload().(fakePayload3); ok {
+				assert.Fail(t, "subscriber should not accept non-matching events")
+				return
+			}
 			count.Add(1)
 			wg.Done()
 		})
