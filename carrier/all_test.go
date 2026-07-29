@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/thomas-marquis/it-happened/carrier"
 	"github.com/thomas-marquis/it-happened/event"
+	"github.com/thomas-marquis/it-happened/eventest"
 	"github.com/thomas-marquis/it-happened/inmemory"
 )
 
@@ -57,29 +58,20 @@ func TestAllCarrier_Dispatch(t *testing.T) {
 		bus.Publish(carrierEvent)
 
 		// Then
-		doneCh := make(chan struct{})
-		go func() {
-			wg.Wait()
-			close(doneCh)
-		}()
+		eventest.Wait(t, &wg, 2*time.Second)
 
-		select {
-		case <-doneCh:
-			mu.Lock()
-			defer mu.Unlock()
-			require.Len(t, receivedEvents, len(eventsToCarry))
+		mu.Lock()
+		defer mu.Unlock()
+		require.Len(t, receivedEvents, len(eventsToCarry))
 
-			idSet := make(map[string]struct{})
-			for _, evt := range receivedEvents {
-				idSet[evt.ID()] = struct{}{}
-			}
-			assert.Len(t, idSet, len(eventsToCarry))
-			assert.Contains(t, idSet, eventsToCarry[0].ID())
-			assert.Contains(t, idSet, eventsToCarry[1].ID())
-			assert.Contains(t, idSet, eventsToCarry[2].ID())
-		case <-time.After(2 * time.Second):
-			assert.Fail(t, "timeout waiting for all events")
+		idSet := make(map[string]struct{})
+		for _, evt := range receivedEvents {
+			idSet[evt.ID()] = struct{}{}
 		}
+		assert.Len(t, idSet, len(eventsToCarry))
+		assert.Contains(t, idSet, eventsToCarry[0].ID())
+		assert.Contains(t, idSet, eventsToCarry[1].ID())
+		assert.Contains(t, idSet, eventsToCarry[2].ID())
 	})
 }
 
@@ -91,8 +83,11 @@ func TestAllCarrier_CompletionEvent(t *testing.T) {
 
 		bus := inmemory.NewBus(ctx)
 
-		var doneReceived bool
-		var mu sync.Mutex
+		var (
+			doneReceived bool
+			mu           sync.Mutex
+			wg           sync.WaitGroup
+		)
 
 		event1 := event.New(testPayload("event1"))
 		event2 := event.New(testPayload("event2"))
@@ -101,6 +96,7 @@ func TestAllCarrier_CompletionEvent(t *testing.T) {
 		doneEvent := event.New(testPayload("done"))
 		timeoutEvent := event.New(testPayload("timeout"))
 
+		wg.Add(1)
 		sub := bus.Subscribe().
 			On(event.Is("test.payload"), func(evt event.Event) {
 				if evt.ID() == event1.ID() || evt.ID() == event2.ID() {
@@ -111,6 +107,7 @@ func TestAllCarrier_CompletionEvent(t *testing.T) {
 					mu.Lock()
 					doneReceived = true
 					mu.Unlock()
+					wg.Done()
 				}
 			})
 		sub.ListenWithWorkers(16)
@@ -127,7 +124,8 @@ func TestAllCarrier_CompletionEvent(t *testing.T) {
 		bus.Publish(carrierEvent)
 
 		// Then
-		time.Sleep(200 * time.Millisecond)
+		eventest.Wait(t, &wg, 2*time.Second)
+
 		mu.Lock()
 		assert.True(t, doneReceived, "done event should be published")
 		mu.Unlock()
@@ -142,8 +140,11 @@ func TestAllCarrier_Timeout(t *testing.T) {
 
 		bus := inmemory.NewBus(ctx)
 
-		var timeoutReceived bool
-		var mu sync.Mutex
+		var (
+			timeoutReceived bool
+			mu              sync.Mutex
+			wg              sync.WaitGroup
+		)
 
 		eventsToCarry := []event.Event{
 			event.New(testPayload2{Value: "event1"}),
@@ -161,12 +162,14 @@ func TestAllCarrier_Timeout(t *testing.T) {
 			carrier.WithMaxConcurrency(10),
 		)
 
+		wg.Add(1)
 		sub := bus.Subscribe().
 			On(event.Is("test.payload"), func(evt event.Event) {
 				if evt.ID() == timeoutEvent.ID() {
 					mu.Lock()
 					timeoutReceived = true
 					mu.Unlock()
+					wg.Done()
 				}
 			})
 		sub.ListenWithWorkers(1)
@@ -176,7 +179,8 @@ func TestAllCarrier_Timeout(t *testing.T) {
 		bus.Publish(carrierEvent)
 
 		// Then
-		time.Sleep(200 * time.Millisecond)
+		eventest.Wait(t, &wg, 2*time.Second)
+
 		mu.Lock()
 		assert.True(t, timeoutReceived, "timeout event should be published")
 		mu.Unlock()
@@ -255,8 +259,11 @@ func TestAllCarrier_EmptyEvents(t *testing.T) {
 
 		bus := inmemory.NewBus(ctx)
 
-		var receivedCount int
-		var mu sync.Mutex
+		var (
+			receivedCount int
+			mu            sync.Mutex
+			wg            sync.WaitGroup
+		)
 
 		doneEvent := event.New(testPayload("done"))
 		timeoutEvent := event.New(testPayload("timeout"))
@@ -267,11 +274,13 @@ func TestAllCarrier_EmptyEvents(t *testing.T) {
 			timeoutEvent,
 		)
 
+		wg.Add(1)
 		sub := bus.Subscribe().
 			On(event.Is("test.payload"), func(evt event.Event) {
 				mu.Lock()
 				receivedCount++
 				mu.Unlock()
+				wg.Done()
 			})
 		sub.ListenWithWorkers(1)
 		defer sub.Detach()
@@ -280,7 +289,8 @@ func TestAllCarrier_EmptyEvents(t *testing.T) {
 		bus.Publish(carrierEvent)
 
 		// Then
-		time.Sleep(100 * time.Millisecond)
+		eventest.Wait(t, &wg, 2*time.Second)
+
 		mu.Lock()
 		assert.Equal(t, 1, receivedCount)
 		mu.Unlock()

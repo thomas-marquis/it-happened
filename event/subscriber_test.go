@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/thomas-marquis/it-happened/event"
+	"github.com/thomas-marquis/it-happened/eventest"
 )
 
 // Test payload types
@@ -40,7 +41,7 @@ func TestSubscriber(t *testing.T) {
 
 		// When
 		eventChan <- event.New(fakePayload("test"))
-		wg.Wait()
+		eventest.Wait(t, &wg, time.Second)
 
 		// Then
 		assert.True(t, sub.Accept(event.New(fakePayload("test"))), "subscriber should accept matching events")
@@ -56,20 +57,16 @@ func TestSubscriber(t *testing.T) {
 
 		var (
 			wg1, wg2 sync.WaitGroup
-			w1Done   = make(chan struct{})
-			w2Done   = make(chan struct{})
 		)
 
 		wg1.Add(1)
 		sub.On(matcher, func(evt event.Event) {
 			wg1.Done()
-			close(w1Done)
 			println("handler 1")
 		})
 		wg2.Add(1)
 		sub.On(matcher, func(evt event.Event) {
 			wg2.Done()
-			close(w2Done)
 		})
 
 		sub.ListenWithWorkers(1)
@@ -79,21 +76,8 @@ func TestSubscriber(t *testing.T) {
 		assert.True(t, sub.Accept(event.New(fakePayload("test"))), "subscriber should accept matching events")
 		eventChan <- event.New(fakePayload("test"))
 
-		wg1.Wait()
-		select {
-		case <-w1Done:
-			println("handler 1")
-		case <-time.After(time.Second):
-			t.Fatal("timeout waiting for handler 1")
-		}
-
-		wg2.Wait()
-		select {
-		case <-w2Done:
-			println("handler 2")
-		case <-time.After(time.Second):
-			t.Fatal("timeout waiting for handler 2")
-		}
+		eventest.Wait(t, &wg1, time.Second)
+		eventest.Wait(t, &wg2, time.Second)
 	})
 
 	t.Run("should not invoke a callback when the matcher does not match the event", func(t *testing.T) {
@@ -103,9 +87,9 @@ func TestSubscriber(t *testing.T) {
 
 		matcher := event.Is("fake.payload")
 
-		var called bool
+		var called atomic.Bool
 		sub.On(matcher, func(evt event.Event) {
-			called = true
+			called.Store(true)
 		})
 
 		sub.ListenWithWorkers(1)
@@ -116,7 +100,7 @@ func TestSubscriber(t *testing.T) {
 
 		// Then
 		assert.False(t, sub.Accept(nonMatchingEvent), "subscriber should not accept non-matching events")
-		assert.False(t, called, "handler should not be called")
+		assert.False(t, called.Load(), "handler should not be called")
 	})
 
 	t.Run("should apply default matcher before all", func(t *testing.T) {
@@ -149,7 +133,7 @@ func TestSubscriber(t *testing.T) {
 		// Then
 		// If match2 is processed, we are sure fakePayload2 was processed (and ignored) before it
 		// because we have only 1 worker and channels are FIFO.
-		wg.Wait()
+		eventest.Wait(t, &wg, time.Second)
 
 		assert.Equal(t, int32(2), count.Load(), "only matching events should be processed")
 		assert.True(t, sub.Accept(event.New(fakePayload("coucou2"))))
@@ -188,7 +172,7 @@ func TestSubscriber(t *testing.T) {
 		eventChan <- event.New(fakePayload("match2"))
 
 		// Then
-		wg.Wait()
+		eventest.Wait(t, &wg, time.Second)
 
 		assert.Equal(t, int32(3), count.Load(), "events matching any default matcher should be processed")
 		assert.True(t, sub.Accept(event.New(fakePayload("test"))))
@@ -219,7 +203,7 @@ func TestSubscriber_Detach(t *testing.T) {
 
 		// When & Then
 		eventChan <- event.New(fakePayload("test"))
-		wg.Wait()
+		eventest.Wait(t, &wg, time.Second)
 		assert.Equal(t, uint32(1), cnt.Load(), "handler should be called once")
 
 		sub.Detach()
@@ -348,9 +332,9 @@ func TestSubscriber_ListenWithWorkers(t *testing.T) {
 		sub := event.NewSubscriber(eventChan)
 
 		matcher := event.Is("fake.payload")
-		var called bool
+		var called atomic.Bool
 		sub.On(matcher, func(evt event.Event) {
-			called = true
+			called.Store(true)
 		})
 
 		sub.ListenWithWorkers(1)
@@ -362,7 +346,7 @@ func TestSubscriber_ListenWithWorkers(t *testing.T) {
 		// Then
 		// Give some time for the event to be processed
 		time.Sleep(10 * time.Millisecond)
-		assert.False(t, called, "callback should not be invoked after Detach")
+		assert.False(t, called.Load(), "callback should not be invoked after Detach")
 	})
 }
 
@@ -425,11 +409,11 @@ func TestSubscriber_OnWithCancel(t *testing.T) {
 		sub := event.NewSubscriber(eventChan)
 
 		matcher := event.Is("fake.payload")
-		var called1, called2, called3 bool
+		var called1, called2, called3 atomic.Bool
 
-		cancel1 := sub.OnWithCancel(matcher, func(evt event.Event) { called1 = true })
-		cancel2 := sub.OnWithCancel(matcher, func(evt event.Event) { called2 = true })
-		_ = sub.OnWithCancel(matcher, func(evt event.Event) { called3 = true })
+		cancel1 := sub.OnWithCancel(matcher, func(evt event.Event) { called1.Store(true) })
+		cancel2 := sub.OnWithCancel(matcher, func(evt event.Event) { called2.Store(true) })
+		_ = sub.OnWithCancel(matcher, func(evt event.Event) { called3.Store(true) })
 
 		sub.ListenWithWorkers(1)
 		defer sub.Detach()
@@ -441,9 +425,9 @@ func TestSubscriber_OnWithCancel(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 
 		// Then
-		assert.False(t, called1, "first callback should not be called")
-		assert.False(t, called2, "second callback should not be called")
-		assert.True(t, called3, "third callback should still be called")
+		assert.False(t, called1.Load(), "first callback should not be called")
+		assert.False(t, called2.Load(), "second callback should not be called")
+		assert.True(t, called3.Load(), "third callback should still be called")
 	})
 
 	t.Run("should be safe to call cancel function multiple times", func(t *testing.T) {
@@ -451,9 +435,9 @@ func TestSubscriber_OnWithCancel(t *testing.T) {
 		eventChan := make(chan event.Event, 10)
 		sub := event.NewSubscriber(eventChan)
 
-		var called bool
+		var called atomic.Bool
 		cancel := sub.OnWithCancel(event.Is("fake.payload"), func(evt event.Event) {
-			called = true
+			called.Store(true)
 		})
 
 		sub.ListenWithWorkers(1)
@@ -466,7 +450,7 @@ func TestSubscriber_OnWithCancel(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 
 		// Then
-		assert.False(t, called, "callback should not be called after cancel")
+		assert.False(t, called.Load(), "callback should not be called after cancel")
 	})
 
 	t.Run("should be thread-safe when canceling concurrently", func(t *testing.T) {

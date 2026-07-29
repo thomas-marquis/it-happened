@@ -106,14 +106,15 @@ func (c *Sequence) doDispatch(ctx context.Context, bus event.Bus) (receivedEvent
 	for {
 		select {
 		case evt := <-workload:
+			var once sync.Once
 			finished := make(chan struct{})
 			sub := bus.Subscribe().
 				On(event.IsFollowupOf(evt), func(received event.Event) {
 					if c.CompletionCondition(evt, received) {
 						mu.Lock()
-						defer mu.Unlock()
 						receivedEvents = append(receivedEvents, received)
-						close(finished)
+						mu.Unlock()
+						once.Do(func() { close(finished) })
 					}
 				})
 			sub.ListenWithWorkers(1)

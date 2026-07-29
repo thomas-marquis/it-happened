@@ -1,10 +1,6 @@
 package carrier_test
 
 import (
-	"sync"
-	"testing"
-	"time"
-
 	"github.com/thomas-marquis/it-happened/event"
 )
 
@@ -34,15 +30,4 @@ type slowPayload struct {
 // EventType implements the Payload interface for slowPayload.
 func (slowPayload) EventType() event.Type {
 	return "slow.payload"
-}
-
-// waitForEvents waits for the waitgroup and returns a channel that will be closed when done.
-func waitForEvents(t *testing.T, wg *sync.WaitGroup, timeout time.Duration) chan struct{} {
-	t.Helper()
-	doneCh := make(chan struct{})
-	go func() {
-		wg.Wait()
-		close(doneCh)
-	}()
-	return doneCh
 }

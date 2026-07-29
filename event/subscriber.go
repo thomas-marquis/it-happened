@@ -64,12 +64,13 @@ func NewSubscriber(event chan Event, defaultMatchers ...Matcher) *Subscriber {
 //
 //	The Subscriber instance for method chaining
 func (s *Subscriber) On(matcher Matcher, callback func(Event)) *Subscriber {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if s.started {
 		panic("cannot register callback after listening started")
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if _, exists := s.registered[matcher]; !exists {
 		s.registered[matcher] = make([]func(Event), 0)
 	}
@@ -94,12 +95,12 @@ func (s *Subscriber) On(matcher Matcher, callback func(Event)) *Subscriber {
 //
 //	A function that, when called, removes this specific callback
 func (s *Subscriber) OnWithCancel(matcher Matcher, callback func(Event)) func() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if s.started {
 		panic("cannot register callback after listening started")
 	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	// Generate a unique ID for this callback
 	id := atomic.AddUint64(&s.nextCancelID, 1)
@@ -182,7 +183,9 @@ func (s *Subscriber) listen() {
 //
 //	workers - The number of concurrent worker goroutines to start
 func (s *Subscriber) ListenWithWorkers(workers int) {
+	s.mu.Lock()
 	s.started = true
+	s.mu.Unlock()
 	for i := 0; i < workers; i++ {
 		go s.listen()
 	}
@@ -193,7 +196,9 @@ func (s *Subscriber) ListenWithWorkers(workers int) {
 // Events are processed asynchronously, and callbacks for matching events
 // are executed in separate goroutines to avoid blocking.
 func (s *Subscriber) ListenNonBlocking() {
+	s.mu.Lock()
 	s.started = true
+	s.mu.Unlock()
 	go func() {
 		for {
 			select {
@@ -282,6 +287,8 @@ func (s *Subscriber) Detach() {
 }
 
 func (s *Subscriber) Detached() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	return s.detached
 }
 

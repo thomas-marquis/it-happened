@@ -173,7 +173,10 @@ func (b *inMemoryBus) worker() {
 		select {
 		case <-b.ctx.Done():
 			return
-		case evt := <-b.publishedEvents:
+		case evt, ok := <-b.publishedEvents:
+			if !ok {
+				return
+			}
 			b.subMu.Lock()
 			for channel, subscriber := range b.subscribers {
 				if !subscriber.Accept(evt) {
