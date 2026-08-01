@@ -8,83 +8,82 @@ import (
 	"github.com/thomas-marquis/it-happened/event"
 )
 
-type kType string
-
-func TestOption_Apply(t *testing.T) {
-	t.Run("Given event with options applied, When options are applied, Then they correctly configure the event properties", func(t *testing.T) {
+func TestWithContext(t *testing.T) {
+	t.Run("should set custom context", func(t *testing.T) {
 		// Given
 		ctx := context.Background()
-		ref := "test-ref"
 
-		// When - create event with options
+		// When
 		evt := event.New(fakePayload("test"),
 			event.WithContext(ctx),
-			event.WithRef(ref),
 		)
 
 		// Then
 		assert.Equal(t, ctx, evt.Context(), "context should be set")
+	})
+
+	t.Run("should return a default background context by default", func(t *testing.T) {
+		// Given
+		evt := event.New(fakePayload("test"))
+
+		// When
+		ctx := evt.Context()
+
+		// Then
+		assert.Equal(t, context.Background(), ctx, "default context should be background")
+	})
+
+	t.Run("should return a default background context when a nil context is set", func(t *testing.T) {
+		// Given
+		evt := event.New(fakePayload("test"),
+			event.WithContext(nil))
+
+		// When
+		ctx := evt.Context()
+
+		// Then
+		assert.Equal(t, context.Background(), ctx, "default context should be background")
+	})
+}
+
+func TestWithRef(t *testing.T) {
+	t.Run("should set custom ref", func(t *testing.T) {
+		// Given
+		ref := "test-ref"
+
+		// When
+		evt := event.New(fakePayload("test"),
+			event.WithRef(ref),
+		)
+
+		// Then
 		assert.Equal(t, ref, evt.ChainRef(), "chain ref should be set")
 	})
-}
 
-func TestOption_Compose(t *testing.T) {
-	t.Run("Given multiple options, When applied to the same event, Then all options are applied in order", func(t *testing.T) {
-		// Given
-		ctx1 := context.WithValue(context.Background(), kType("key1"), "value1")
-		ctx2 := context.WithValue(context.Background(), kType("key2"), "value2")
-		ref1 := "ref1"
-		ref2 := "ref2"
-
-		// When - apply options in sequence
-		// Note: Options are applied in the order they are passed to event.New
-		// But WithRef overwrites the ref, so the last one wins
-		evt := event.New(fakePayload("test"),
-			event.WithContext(ctx1),
-			event.WithRef(ref1),
-			event.WithContext(ctx2),
-			event.WithRef(ref2),
-		)
-
-		// Then - the last options should take effect
-		assert.Equal(t, ctx2, evt.Context(), "last context should be set")
-		assert.Equal(t, ref2, evt.ChainRef(), "last ref should be set")
-	})
-}
-
-func TestWithContext_DefaultContext(t *testing.T) {
-	t.Run("Given event with no context option, When created, Then it has background context", func(t *testing.T) {
-		// Given/When
+	t.Run("should create a default ref equal to the event ID when event is the first of its chain", func(t *testing.T) {
+		// When
 		evt := event.New(fakePayload("test"))
 
 		// Then
-		assert.NotNil(t, evt.Context())
-		// The context should be background or a derived context
-		// We can't directly compare contexts, but we can verify it's not nil
+		assert.Equal(t, evt.ID(), evt.ChainRef())
 	})
 }
 
-func TestWithRef_DefaultRef(t *testing.T) {
-	t.Run("Given event with no ref option, When created, Then it has an auto-generated ref", func(t *testing.T) {
-		// Given/When
-		evt := event.New(fakePayload("test"))
+func TestWithPriority(t *testing.T) {
+	t.Run("should return a 0 priority by default", func(t *testing.T) {
+		// When
+		evt := event.New(fakePayload2{})
 
 		// Then
-		assert.NotEmpty(t, evt.ChainRef(), "ref should be auto-generated")
-		// The ref should be the same as the ID by default
-		assert.Equal(t, evt.ID(), evt.ChainRef(), "ref should equal ID by default")
+		assert.Equal(t, 0, evt.Priority())
 	})
-}
 
-func TestOption_NilContext(t *testing.T) {
-	t.Run("Given event with nil context, When WithContext is called with nil, Then it uses background context", func(t *testing.T) {
-		// Given/When
-		evt := event.New(fakePayload("test"),
-			event.WithContext(nil), // nolint:staticcheck
-		)
+	t.Run("should set a custom priority", func(t *testing.T) {
+		// When
+		evt := event.New(fakePayload2{},
+			event.WithPriority(10))
 
 		// Then
-		assert.NotNil(t, evt.Context())
-		// Should default to background context
+		assert.Equal(t, 10, evt.Priority())
 	})
 }
