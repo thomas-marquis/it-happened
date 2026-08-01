@@ -1,6 +1,7 @@
 package event_test
 
 import (
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -174,6 +175,37 @@ func TestSubscriber(t *testing.T) {
 		assert.True(t, sub.Accept(event.New(fakePayload("test"))))
 		assert.True(t, sub.Accept(event.New(fakePayload2{})))
 		assert.False(t, sub.Accept(event.New(fakePayload3{})))
+	})
+
+	t.Run("should work concurrently", func(t *testing.T) {
+		// Given
+		events := make(chan event.Event)
+		defer close(events)
+
+		var (
+			callCnt1, callCnt2 atomic.Uint64
+			n                  uint64 = 100
+		)
+		sub := event.NewSubscriber(events).
+			On(event.Is(fakeType), func(evt event.Event) {
+				callCnt1.Add(1)
+			}).
+			On(event.Is(fakeType2), func(evt event.Event) {
+				callCnt2.Add(1)
+			})
+		sub.ListenWithWorkers(10)
+
+		// When
+		for i := range n {
+			events <- event.New(fakePayload(fmt.Sprintf("test-%d", i)))
+			events <- event.New(fakePayload2{})
+		}
+
+		// Then
+		assert.EventuallyWithT(t, func(ct *assert.CollectT) {
+			assert.Equal(ct, n, callCnt1.Load())
+			assert.Equal(ct, n, callCnt2.Load())
+		}, testTimeout, 10*time.Millisecond)
 	})
 }
 
@@ -561,5 +593,33 @@ func TestSubscriber_DetachOn(t *testing.T) {
 			assert.True(ct, called2.Load(), "second handler should be called")
 			assert.True(ct, sub.Detached(), "subscriber should be closed")
 		}, 1*time.Second, 10*time.Millisecond)
+	})
+
+	t.Run("should detach concurrently", func(t *testing.T) {
+		// Given
+		events := make(chan event.Event)
+		defer close(events)
+
+		var (
+			callCnt atomic.Int64
+		)
+
+		sub := event.NewSubscriber(events).
+			DetachOn(event.Is(fakeType2)).
+			On(event.Is(fakeType), func(evt event.Event) {
+				callCnt.Add(1)
+			})
+		sub.ListenWithWorkers(10)
+
+		// When
+		for i := range 9 {
+			events <- event.New(fakePayload(fmt.Sprintf("test-%d", i)))
+		}
+		events <- event.New(fakePayload2{})
+
+		assert.EventuallyWithT(t, func(ct *assert.CollectT) {
+			assert.True(ct, sub.Detached(), "subscriber should be detached")
+		}, 1*time.Second, 10*time.Millisecond)
+		t.Log(fmt.Sprintf("%s handler called %d times", fakeType, callCnt.Load()))
 	})
 }

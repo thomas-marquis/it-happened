@@ -179,12 +179,6 @@ func (b *inMemoryBus) worker() {
 			}
 
 			b.subMu.RLock()
-			//localSubs := make(map[chan event.Event]*event.Subscriber)
-			//for ch, sub := range b.subscribers {
-			//	localSubs[ch] = sub
-			//}
-			//b.subMu.Unlock()
-
 			for channel, subscriber := range b.subscribers {
 				if !subscriber.Accept(evt) {
 					continue
