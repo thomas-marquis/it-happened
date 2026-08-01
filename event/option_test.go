@@ -36,7 +36,7 @@ func TestWithContext(t *testing.T) {
 	t.Run("should return a default background context when a nil context is set", func(t *testing.T) {
 		// Given
 		evt := event.New(fakePayload("test"),
-			event.WithContext(nil))
+			event.WithContext(nil)) //nolint:staticcheck
 
 		// When
 		ctx := evt.Context()

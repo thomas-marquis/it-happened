@@ -620,6 +620,6 @@ func TestSubscriber_DetachOn(t *testing.T) {
 		assert.EventuallyWithT(t, func(ct *assert.CollectT) {
 			assert.True(ct, sub.Detached(), "subscriber should be detached")
 		}, 1*time.Second, 10*time.Millisecond)
-		t.Log(fmt.Sprintf("%s handler called %d times", fakeType, callCnt.Load()))
+		t.Logf("%s handler called %d times", fakeType, callCnt.Load())
 	})
 }
