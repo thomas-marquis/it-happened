@@ -7,16 +7,28 @@ import (
 	"github.com/thomas-marquis/it-happened/event"
 )
 
+const (
+	fakeType  event.Type = "fake.payload"
+	fakeType2 event.Type = "fake.payload.2"
+	fakeType3 event.Type = "fake.payload.3"
+)
+
 type fakePayload string
 
 func (fakePayload) EventType() event.Type {
-	return "fake.payload"
+	return fakeType
 }
 
 type fakePayload2 struct{}
 
 func (fakePayload2) EventType() event.Type {
-	return "fake.payload.2"
+	return fakeType2
+}
+
+type fakePayload3 struct{}
+
+func (fakePayload3) EventType() event.Type {
+	return fakeType3
 }
 
 func TestIsFollowupOf(t *testing.T) {
@@ -76,7 +88,7 @@ func TestIsFollowupOf(t *testing.T) {
 func TestIsOneOf(t *testing.T) {
 	t.Run("should match when event type matches one of the given types", func(t *testing.T) {
 		// Given
-		m := event.IsOneOf("fake.payload", "other.payload", "fake.payload.2")
+		m := event.IsOneOf(fakeType, "other.payload", fakeType2)
 		evt := event.New(fakePayload("test"))
 
 		// When
@@ -88,7 +100,7 @@ func TestIsOneOf(t *testing.T) {
 
 	t.Run("should not match when event type does not match any of the given types", func(t *testing.T) {
 		// Given
-		m := event.IsOneOf("other.payload", "different.payload")
+		m := event.IsOneOf("other.payload", fakeType3)
 		evt := event.New(fakePayload("test"))
 
 		// When

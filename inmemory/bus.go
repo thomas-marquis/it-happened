@@ -17,7 +17,7 @@ const (
 // inMemoryBus is an in-memory implementation of the event.Bus interface.
 // It manages event publishing and subscription with concurrent worker goroutines.
 type inMemoryBus struct {
-	subMu sync.Mutex
+	subMu sync.RWMutex
 	pubMu sync.Mutex
 
 	// subscribers maps event channels to their corresponding subscriber instances.
@@ -177,7 +177,8 @@ func (b *inMemoryBus) worker() {
 			if !ok {
 				return
 			}
-			b.subMu.Lock()
+
+			b.subMu.RLock()
 			for channel, subscriber := range b.subscribers {
 				if !subscriber.Accept(evt) {
 					continue
@@ -187,7 +188,7 @@ func (b *inMemoryBus) worker() {
 				case <-b.ctx.Done():
 				}
 			}
-			b.subMu.Unlock()
+			b.subMu.RUnlock()
 		}
 	}
 }

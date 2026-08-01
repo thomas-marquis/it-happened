@@ -12,6 +12,7 @@ type Subscriber struct {
 
 	registered      map[Matcher][]func(Event)
 	cancellable     map[Matcher][]*cancellableCallback
+	detachOn        map[Matcher]struct{}
 	events          chan Event
 	started         bool
 	done            chan struct{}
@@ -41,6 +42,7 @@ func NewSubscriber(event chan Event, defaultMatchers ...Matcher) *Subscriber {
 	return &Subscriber{
 		registered:      make(map[Matcher][]func(Event)),
 		cancellable:     make(map[Matcher][]*cancellableCallback),
+		detachOn:        make(map[Matcher]struct{}),
 		events:          event,
 		done:            make(chan struct{}),
 		defaultMatchers: defaultMatchers,
@@ -140,7 +142,24 @@ func (s *Subscriber) OnWithCancel(matcher Matcher, callback func(Event)) func() 
 	}
 }
 
-func (s *Subscriber) listen() {
+// DetachOn registers a matcher that will detach the subscriber at the first matching event is received.
+// If many matchers can match the same event, the detaching will happen after all other registered callbacks are executed.
+func (s *Subscriber) DetachOn(matcher Matcher) *Subscriber {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.started {
+		panic("cannot register callback after listening started")
+	}
+
+	if _, exists := s.detachOn[matcher]; exists {
+		panic("only one DetachOn can be registered per matcher")
+	}
+	s.detachOn[matcher] = struct{}{}
+	return s
+}
+
+func (s *Subscriber) listen(execute func(cb func(Event), evt Event)) {
 	for {
 		select {
 		case <-s.done:
@@ -156,20 +175,34 @@ func (s *Subscriber) listen() {
 			}
 
 			for matcher, callbacks := range s.registered {
-				if matcher.Match(event) { // <- here, event is sometimes nil
+				if matcher.Match(event) {
 					for _, callback := range callbacks {
-						callback(event)
+						execute(callback, event)
 					}
 				}
 			}
 			for matcher, cancellables := range s.cancellable {
 				if matcher.Match(event) {
 					for _, cc := range cancellables {
-						cc.callback(event)
+						execute(cc.callback, event)
 					}
 				}
 			}
+			var shouldDetach bool
+			for matcher := range s.detachOn {
+				if matcher.Match(event) {
+					shouldDetach = true
+					break
+				}
+			}
 			s.mu.RUnlock()
+
+			if shouldDetach {
+				s.mu.Lock()
+				s.doDetach()
+				s.mu.Unlock()
+				return
+			}
 		}
 	}
 }
@@ -187,7 +220,9 @@ func (s *Subscriber) ListenWithWorkers(workers int) {
 	s.started = true
 	s.mu.Unlock()
 	for i := 0; i < workers; i++ {
-		go s.listen()
+		go s.listen(func(cb func(Event), evt Event) {
+			cb(evt)
+		})
 	}
 }
 
@@ -199,39 +234,9 @@ func (s *Subscriber) ListenNonBlocking() {
 	s.mu.Lock()
 	s.started = true
 	s.mu.Unlock()
-	go func() {
-		for {
-			select {
-			case <-s.done:
-				return
-			case event := <-s.events:
-				if event == nil {
-					continue
-				}
-				s.mu.RLock()
-				if !s.matchDefault(event) {
-					s.mu.RUnlock()
-					continue
-				}
-
-				for matcher, callbacks := range s.registered {
-					if matcher.Match(event) {
-						for _, callback := range callbacks {
-							go callback(event)
-						}
-					}
-				}
-				for matcher, cancellables := range s.cancellable {
-					if matcher.Match(event) {
-						for _, cc := range cancellables {
-							go cc.callback(event)
-						}
-					}
-				}
-				s.mu.RUnlock()
-			}
-		}
-	}()
+	go s.listen(func(cb func(Event), evt Event) {
+		go cb(evt)
+	})
 }
 
 // Accept checks if the subscriber can accept (handle) the given event.
@@ -264,6 +269,11 @@ func (s *Subscriber) Accept(event Event) bool {
 			return true
 		}
 	}
+	for matcher := range s.detachOn {
+		if matcher.Match(event) {
+			return true
+		}
+	}
 	return false
 }
 
@@ -273,15 +283,19 @@ func (s *Subscriber) Accept(event Event) bool {
 // and clears all registered callbacks to prevent memory leaks.
 // This method is idempotent and safe to call multiple times.
 func (s *Subscriber) Detach() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if s.detached {
+	if s.Detached() {
 		return
 	}
 
-	s.registered = make(map[Matcher][]func(Event))
-	s.cancellable = make(map[Matcher][]*cancellableCallback)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.doDetach()
+}
+
+func (s *Subscriber) doDetach() {
+	clear(s.registered)
+	clear(s.cancellable)
 	close(s.done)
 	s.detached = true
 }

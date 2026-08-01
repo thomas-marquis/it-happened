@@ -60,7 +60,7 @@ func TestEvent_Type(t *testing.T) {
 		eventType := evt.Type()
 
 		// Then
-		assert.Equal(t, event.Type("fake.payload"), eventType)
+		assert.Equal(t, fakeType, eventType)
 	})
 }
 
