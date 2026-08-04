@@ -75,7 +75,7 @@ func TestPipelineCarrier_Dispatch(t *testing.T) {
 		// Then
 		eventest.Wait(t, &wg, testTimeout)
 
-		publishedEvents := eg.Events
+		publishedEvents := eg.UnsafeEvents
 		require.Len(t, publishedEvents, 7)
 
 		// Verify all original events were received
@@ -210,7 +210,7 @@ func TestPipelineCarrier_Dispatch(t *testing.T) {
 		// Then
 		eventest.Wait(t, &wg, testTimeout)
 
-		publishedEvents := eg.Events
+		publishedEvents := eg.UnsafeEvents
 		require.Len(t, publishedEvents, 7)
 
 		// Verify all original events were received

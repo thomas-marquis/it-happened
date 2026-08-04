@@ -39,14 +39,23 @@ func (n NopNotifier) NotifyUnsubscribed(*Subscriber) {}
 // Do not use in production: this can lead to memory leaks.
 type HarvesterNotifier struct {
 	NopNotifier
-	mu     sync.Mutex
-	Events []Event
+	mu sync.Mutex
+
+	// UnsafeEvents is a list of events that have been published.
+	// It is not safe to access this list concurrently. Use Events() instead.
+	UnsafeEvents []Event
 }
 
 func (n *HarvesterNotifier) NotifyPublished(evt Event) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	n.Events = append(n.Events, evt)
+	n.UnsafeEvents = append(n.UnsafeEvents, evt)
+}
+
+func (n *HarvesterNotifier) Events() []Event {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	return n.UnsafeEvents
 }
 
 // LoggerNotifier is a notifier that logs all published events with the provided logger.
