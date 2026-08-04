@@ -97,6 +97,6 @@ func TestCombinedNotifier(t *testing.T) {
 	bus.Publish(e2)
 
 	// Then
-	assert.Len(t, n1.Events, 2)
-	assert.Len(t, n2.Events, 2)
+	assert.Len(t, n1.UnsafeEvents, 2)
+	assert.Len(t, n2.UnsafeEvents, 2)
 }
