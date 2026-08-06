@@ -325,31 +325,6 @@ func TestSubscriber_ListenNonBlocking(t *testing.T) {
 		sub.Detach()
 		assert.True(t, sub.Detached())
 	})
-
-	//t.Run("should block until the subscriber is ready to listen to events", func(t *testing.T) {
-	//	// Given
-	//	eventChan := make(chan event.Event)
-	//	defer close(eventChan)
-	//
-	//	sub := event.NewSubscriber(eventChan)
-	//	var wg sync.WaitGroup
-	//	wg.Add(1)
-	//	sub.On(event.IsAny(), func(evt event.Event) {
-	//		wg.Done()
-	//	})
-	//
-	//	// When
-	//	go func() {
-	//		eventChan <- event.New(fakePayload("test"))
-	//	}()
-	//
-	//	go func() {
-	//		time.Sleep(100 * time.Millisecond)
-	//		sub.ListenNonBlocking()
-	//	}()
-	//
-	//	eventest.Wait(t, &wg, testTimeout)
-	//})
 }
 
 func TestSubscriber_ListenWithWorkers(t *testing.T) {
