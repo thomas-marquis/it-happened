@@ -353,7 +353,7 @@ func TestSubscriber_ListenNonBlocking(t *testing.T) {
 }
 
 func TestSubscriber_ListenWithWorkers(t *testing.T) {
-	t.Run("should panic when a callback is registered after the listening has started", func(t *testing.T) {
+	t.Run("should panic when a handler is registered after the listening has started", func(t *testing.T) {
 		// Given
 		eventChan := make(chan event.Event, 10)
 		sub := event.NewSubscriber(eventChan)
@@ -363,7 +363,7 @@ func TestSubscriber_ListenWithWorkers(t *testing.T) {
 		defer func() {
 			if r := recover(); r != nil {
 				// Expected panic
-				assert.Contains(t, r.(string), "cannot register callback after listening started")
+				assert.Contains(t, r.(string), "cannot register handler after listening started")
 			} else {
 				assert.Fail(t, "expected panic when registering callback after listening started")
 			}

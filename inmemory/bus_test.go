@@ -303,8 +303,8 @@ func TestInmemoryBus_Notifier(t *testing.T) {
 		bus.Unsubscribe(sub)
 
 		mu.Lock()
-		mu.Unlock()
 		assert.Equal(t, res, sub)
+		mu.Unlock()
 	})
 
 	t.Run("should work with multiple events and notifications", func(t *testing.T) {

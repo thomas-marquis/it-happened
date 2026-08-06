@@ -30,13 +30,15 @@ type inMemoryBus struct {
 
 	ctx context.Context
 	// notifier is used to notify about published events.
-	notifier event.Notifier
-	wg       sync.WaitGroup
+	notifier      event.Notifier
+	terminationWg sync.WaitGroup
 
 	queue        eventQueue
 	workload     chan workItem
 	pubSignal    chan struct{}
 	nbPubWorkers int
+	ready        chan struct{}
+	readyWg      sync.WaitGroup
 }
 
 // NewBus creates a new in-memory event bus.
@@ -71,8 +73,11 @@ func NewBus(ctx context.Context, opts ...BusOption) event.Bus {
 		opt(b)
 	}
 
+	b.readyWg.Add(b.nbPubWorkers + 2)
+	go b.onReady()
+
 	for i := 0; i < b.nbPubWorkers; i++ {
-		b.wg.Add(1)
+		b.terminationWg.Add(1)
 		go b.worker()
 	}
 
@@ -144,6 +149,7 @@ func (b *inMemoryBus) Publish(evt event.Event) {
 
 func (b *inMemoryBus) publisher() {
 	defer close(b.workload)
+	var once sync.Once
 	for {
 		select {
 		case <-b.ctx.Done():
@@ -151,6 +157,7 @@ func (b *inMemoryBus) publisher() {
 		default:
 		}
 
+		once.Do(b.readyWg.Done)
 		b.pubMu.Lock()
 		if len(b.queue) > 0 {
 			next := heap.Pop(&b.queue).(event.Event)
@@ -182,8 +189,10 @@ func (b *inMemoryBus) publisher() {
 }
 
 func (b *inMemoryBus) worker() {
-	defer b.wg.Done()
+	defer b.terminationWg.Done()
+	var once sync.Once
 	for {
+		once.Do(b.readyWg.Done)
 		select {
 		case <-b.ctx.Done():
 			return
@@ -204,8 +213,9 @@ func (b *inMemoryBus) worker() {
 // terminate handles the shutdown of the bus.
 // It waits for all workers to finish and closes all subscriber channels.
 func (b *inMemoryBus) terminate() {
+	b.readyWg.Done()
 	<-b.ctx.Done()
-	b.wg.Wait()
+	b.terminationWg.Wait()
 	b.subMu.Lock()
 	defer b.subMu.Unlock()
 	for subChanel, sub := range b.subscribers {
@@ -213,6 +223,13 @@ func (b *inMemoryBus) terminate() {
 		sub.Detach()
 	}
 	clear(b.subscribers)
+}
+
+func (b *inMemoryBus) onReady() {
+	b.readyWg.Wait()
+	if b.ready != nil {
+		close(b.ready)
+	}
 }
 
 type eventQueue []event.Event
