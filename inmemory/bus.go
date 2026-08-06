@@ -14,6 +14,11 @@ const (
 	defaultWorkers = 16
 )
 
+type workItem struct {
+	subChan chan event.Event
+	evt     event.Event
+}
+
 // inMemoryBus is an in-memory implementation of the event.Bus interface.
 // It manages event publishing and subscription with concurrent worker goroutines.
 type inMemoryBus struct {
@@ -28,10 +33,10 @@ type inMemoryBus struct {
 	notifier event.Notifier
 	wg       sync.WaitGroup
 
-	queue           eventQueue
-	publishedEvents chan event.Event
-	pubSignal       chan struct{}
-	nbPubWorkers    int
+	queue        eventQueue
+	workload     chan workItem
+	pubSignal    chan struct{}
+	nbPubWorkers int
 }
 
 // NewBus creates a new in-memory event bus.
@@ -53,13 +58,13 @@ func NewBus(ctx context.Context, opts ...BusOption) event.Bus {
 	heap.Init(&queue)
 
 	b := &inMemoryBus{
-		subscribers:     make(map[chan event.Event]*event.Subscriber),
-		ctx:             ctx,
-		notifier:        &event.NopNotifier{},
-		queue:           queue,
-		publishedEvents: make(chan event.Event),
-		pubSignal:       make(chan struct{}),
-		nbPubWorkers:    defaultWorkers,
+		subscribers:  make(map[chan event.Event]*event.Subscriber),
+		ctx:          ctx,
+		notifier:     &event.NopNotifier{},
+		queue:        queue,
+		workload:     make(chan workItem),
+		pubSignal:    make(chan struct{}),
+		nbPubWorkers: defaultWorkers,
 	}
 
 	for _, opt := range opts {
@@ -138,7 +143,7 @@ func (b *inMemoryBus) Publish(evt event.Event) {
 }
 
 func (b *inMemoryBus) publisher() {
-	defer close(b.publishedEvents)
+	defer close(b.workload)
 	for {
 		select {
 		case <-b.ctx.Done():
@@ -150,11 +155,20 @@ func (b *inMemoryBus) publisher() {
 		if len(b.queue) > 0 {
 			next := heap.Pop(&b.queue).(event.Event)
 			b.pubMu.Unlock()
-			select {
-			case b.publishedEvents <- next:
-			case <-b.ctx.Done():
-				return
+
+			b.subMu.RLock()
+			for channel, subscriber := range b.subscribers {
+				if !subscriber.Accept(next) {
+					continue
+				}
+				select {
+				case b.workload <- workItem{subChan: channel, evt: next}:
+				case <-b.ctx.Done():
+					b.subMu.RUnlock()
+					return
+				}
 			}
+			b.subMu.RUnlock()
 			continue
 		}
 		b.pubMu.Unlock()
@@ -173,22 +187,16 @@ func (b *inMemoryBus) worker() {
 		select {
 		case <-b.ctx.Done():
 			return
-		case evt, ok := <-b.publishedEvents:
+		case wi, ok := <-b.workload:
 			if !ok {
 				return
 			}
 
-			b.subMu.RLock()
-			for channel, subscriber := range b.subscribers {
-				if !subscriber.Accept(evt) {
-					continue
-				}
-				select {
-				case channel <- evt:
-				case <-b.ctx.Done():
-				}
+			select {
+			case wi.subChan <- wi.evt:
+			case <-b.ctx.Done():
+				return
 			}
-			b.subMu.RUnlock()
 		}
 	}
 }
@@ -200,8 +208,9 @@ func (b *inMemoryBus) terminate() {
 	b.wg.Wait()
 	b.subMu.Lock()
 	defer b.subMu.Unlock()
-	for subChanel := range b.subscribers {
+	for subChanel, sub := range b.subscribers {
 		close(subChanel)
+		sub.Detach()
 	}
 	clear(b.subscribers)
 }
