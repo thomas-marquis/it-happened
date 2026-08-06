@@ -15,26 +15,25 @@ import (
 	goMock "go.uber.org/mock/gomock"
 )
 
-// testPayload is a test payload for creating test events.
+const (
+	testType  event.Type = "test.payload"
+	testType2 event.Type = "test.payload.2"
+)
+
 type testPayload string
 
-// EventType implements the Payload interface for testPayload.
 func (testPayload) EventType() event.Type {
-	return "test.payload"
+	return testType
 }
 
-// testPayload2 is another test payload for creating test events.
 type testPayload2 struct {
 	Value string
 }
 
-// EventType implements the Payload interface for testPayload2.
 func (testPayload2) EventType() event.Type {
-	return "test.payload.2"
+	return testType2
 }
 
-// setupBus creates a new bus with a done channel that will be closed when the test completes.
-// t.Helper() is called to mark this as a helper function.
 func setupBus(t *testing.T) (func(), event.Bus) {
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -42,254 +41,172 @@ func setupBus(t *testing.T) (func(), event.Bus) {
 	return cancel, bus
 }
 
-func TestInmemoryBus_Publish(t *testing.T) {
-	t.Run("should deliver published event to subscriber", func(t *testing.T) {
+type busFixture struct {
+	ctx       context.Context
+	cancel    context.CancelFunc
+	bus       event.Bus
+	harvester *event.HarvesterNotifier
+	t         *testing.T
+}
+
+func setupBusFixture(t *testing.T) *busFixture {
+	t.Helper()
+	fxt := &busFixture{t: t}
+
+	fxt.ctx, fxt.cancel = context.WithCancel(context.Background())
+	fxt.bus = inmemory.NewBus(fxt.ctx,
+		inmemory.WithNotifier(fxt.Harvester()))
+
+	t.Cleanup(fxt.teardown)
+
+	return fxt
+}
+
+func (f *busFixture) Harvester() *event.HarvesterNotifier {
+	f.t.Helper()
+	if f.harvester == nil {
+		f.harvester = &event.HarvesterNotifier{}
+	}
+	return f.harvester
+}
+
+func (f *busFixture) Bus() event.Bus {
+	f.t.Helper()
+	return f.bus
+}
+
+func (f *busFixture) teardown() {
+	f.cancel()
+}
+
+func TestInmemoryBus(t *testing.T) {
+	t.Run("should deliver published event to one subscriber", func(t *testing.T) {
 		// Given
-		closeBus, bus := setupBus(t)
-		defer closeBus()
+		fxt := setupBusFixture(t)
 
 		wg := sync.WaitGroup{}
 		wg.Add(1)
 
-		var received event.Event
-		var mu sync.Mutex
-
-		sub := bus.Subscribe().On(event.IsAny(), func(evt event.Event) {
+		sub := fxt.Bus().Subscribe().On(event.IsAny(), func(evt event.Event) {
 			defer wg.Done()
-			mu.Lock()
-			received = evt
-			mu.Unlock()
 		})
 		sub.ListenWithWorkers(1)
-		defer sub.Detach()
 
 		testEvent := event.New(testPayload("test"))
 
 		// When
-		bus.Publish(testEvent)
+		fxt.Bus().Publish(testEvent)
 
 		// Then
 		eventest.Wait(t, &wg, time.Second)
-		mu.Lock()
-		defer mu.Unlock()
-		require.NotNil(t, received)
-		assert.Equal(t, testEvent.ID(), received.ID())
-		assert.Equal(t, testEvent.Type(), received.Type())
-	})
-}
 
-func TestInmemoryBus_MultipleSubscribers(t *testing.T) {
+		assert.Len(t, fxt.Harvester().Events(), 1)
+		assert.Equal(t, testEvent, fxt.Harvester().Events()[0])
+	})
+
 	t.Run("should deliver published event to all subscribers", func(t *testing.T) {
 		// Given
-		closeBus, bus := setupBus(t)
-		defer closeBus()
+		fxt := setupBusFixture(t)
 
 		testEvent := event.New(testPayload("test"))
 
 		var wg sync.WaitGroup
 		wg.Add(3)
 
-		var received1, received2, received3 event.Event
-		var mutex1, mutex2, mutex3 sync.Mutex
-
-		sub1 := bus.Subscribe().On(event.IsAny(), func(evt event.Event) {
+		sub1 := fxt.Bus().Subscribe().On(event.IsAny(), func(evt event.Event) {
 			defer wg.Done()
-			mutex1.Lock()
-			received1 = evt
-			mutex1.Unlock()
+			assert.Equal(t, testEvent, evt)
 		})
 		sub1.ListenWithWorkers(1)
-		defer sub1.Detach()
 
-		sub2 := bus.Subscribe().On(event.IsAny(), func(evt event.Event) {
+		sub2 := fxt.Bus().Subscribe().On(event.IsAny(), func(evt event.Event) {
 			defer wg.Done()
-			mutex2.Lock()
-			received2 = evt
-			mutex2.Unlock()
+			assert.Equal(t, testEvent, evt)
 		})
 		sub2.ListenWithWorkers(1)
-		defer sub2.Detach()
 
-		sub3 := bus.Subscribe().On(event.IsAny(), func(evt event.Event) {
+		sub3 := fxt.Bus().Subscribe().On(event.IsAny(), func(evt event.Event) {
 			defer wg.Done()
-			mutex3.Lock()
-			received3 = evt
-			mutex3.Unlock()
+			assert.Equal(t, testEvent, evt)
 		})
 		sub3.ListenWithWorkers(1)
-		defer sub3.Detach()
 
 		// When
-		bus.Publish(testEvent)
+		fxt.Bus().Publish(testEvent)
 
 		// Then
 		eventest.Wait(t, &wg, time.Second)
-		mutex1.Lock()
-		mutex2.Lock()
-		mutex3.Lock()
-		defer mutex1.Unlock()
-		defer mutex2.Unlock()
-		defer mutex3.Unlock()
 
-		assert.Equal(t, testEvent.ID(), received1.ID())
-		assert.Equal(t, testEvent.ID(), received2.ID())
-		assert.Equal(t, testEvent.ID(), received3.ID())
+		assert.Len(t, fxt.Harvester().Events(), 1)
+		assert.Equal(t, testEvent, fxt.Harvester().Events()[0])
 	})
-}
 
-func TestInmemoryBus_ConcurrentPublish(t *testing.T) {
 	t.Run("should handle concurrent publish without data races", func(t *testing.T) {
 		// Given
-		closeBus, bus := setupBus(t)
-		defer closeBus()
-
-		var received []event.Event
-		var mu sync.Mutex
+		fxt := setupBusFixture(t)
 
 		numEvents := 100
 		var wg sync.WaitGroup
 		wg.Add(numEvents)
 
-		sub := bus.Subscribe().On(event.IsAny(), func(evt event.Event) {
-			mu.Lock()
-			received = append(received, evt)
-			mu.Unlock()
-			wg.Done()
+		sub := fxt.Bus().Subscribe().On(event.IsAny(), func(evt event.Event) {
+			defer wg.Done()
 		})
 		sub.ListenWithWorkers(16)
-		defer sub.Detach()
 
 		// When
 		for i := 0; i < numEvents; i++ {
 			go func(idx int) {
 				evt := event.New(testPayload2{Value: "event"})
-				bus.Publish(evt)
+				fxt.Bus().Publish(evt)
 			}(i)
 		}
 
 		// Then
 		eventest.Wait(t, &wg, 2*time.Second)
-		mu.Lock()
-		defer mu.Unlock()
-
-		require.Len(t, received, numEvents)
+		require.Len(t, fxt.Harvester().Events(), numEvents)
 
 		idSet := make(map[string]struct{})
-		for _, evt := range received {
+		for _, evt := range fxt.Harvester().Events() {
 			idSet[evt.ID()] = struct{}{}
 		}
 		assert.Len(t, idSet, numEvents, "all events should have unique IDs")
 	})
-}
 
-func TestInmemoryBus_EventMatching(t *testing.T) {
 	t.Run("should deliver events only to subscribers with matching criteria", func(t *testing.T) {
 		// Given
-		closeBus, bus := setupBus(t)
-		defer closeBus()
-
-		var received1, received2, received3 event.Event
-		var mutex1, mutex2, mutex3 sync.Mutex
-
-		// Subscriber for type "test.payload"
-		var wg1 sync.WaitGroup
-		wg1.Add(1)
-		sub1 := bus.Subscribe().On(event.Is("test.payload"), func(evt event.Event) {
-			defer wg1.Done()
-			mutex1.Lock()
-			received1 = evt
-			mutex1.Unlock()
-		})
-		sub1.ListenWithWorkers(1)
-		defer sub1.Detach()
-
-		// Subscriber for type "test.payload.2"
-		var wg2 sync.WaitGroup
-		wg2.Add(1)
-		sub2 := bus.Subscribe().On(event.Is("test.payload.2"), func(evt event.Event) {
-			defer wg2.Done()
-			mutex2.Lock()
-			received2 = evt
-			mutex2.Unlock()
-		})
-		sub2.ListenWithWorkers(1)
-		defer sub2.Detach()
-
-		// Subscriber for all events
-		var wg3 sync.WaitGroup
-		wg3.Add(1)
-		sub3 := bus.Subscribe().On(event.IsAny(), func(evt event.Event) {
-			defer wg3.Done()
-			mutex3.Lock()
-			received3 = evt
-			mutex3.Unlock()
-		})
-		sub3.ListenWithWorkers(1)
-		defer sub3.Detach()
+		fxt := setupBusFixture(t)
 
 		event1 := event.New(testPayload("test1"))
-		event2 := event.New(testPayload2{Value: "test2"})
 
-		// When - publish event1 (type: test.payload)
-		bus.Publish(event1)
+		var wg sync.WaitGroup
+		wg.Add(2)
+		sub1 := fxt.Bus().Subscribe().On(event.Is(testType), func(evt event.Event) {
+			defer wg.Done()
+			assert.Equal(t, event1, evt)
+		})
+		sub1.ListenWithWorkers(1)
 
-		// Then - verify event1 delivery
-		eventest.Wait(t, &wg1, time.Second)
-		mutex1.Lock()
-		assert.Equal(t, event1.ID(), received1.ID())
-		mutex1.Unlock()
+		sub2 := fxt.Bus().Subscribe().On(event.Is(testType2), func(evt event.Event) {
+			assert.Failf(t, "subscriber2", "%s is not supposed to be received", testType2)
+		})
+		sub2.ListenWithWorkers(1)
 
-		eventest.Wait(t, &wg3, time.Second)
-		mutex3.Lock()
-		assert.Equal(t, event1.ID(), received3.ID())
-		mutex3.Unlock()
-
-		// Verify subscriber2 did NOT receive event1
-		time.Sleep(100 * time.Millisecond)
-		mutex2.Lock()
-		assert.Nil(t, received2, "subscriber2 should not receive test.payload events")
-		mutex2.Unlock()
-
-		// When - publish event2 (type: test.payload.2)
-		wg3 = sync.WaitGroup{}
-		wg3.Add(1)
-		bus.Publish(event2)
-
-		// Then - verify event2 delivery
-		eventest.Wait(t, &wg2, time.Second)
-		mutex2.Lock()
-		assert.Equal(t, event2.ID(), received2.ID())
-		mutex2.Unlock()
-
-		eventest.Wait(t, &wg3, time.Second)
-		mutex3.Lock()
-		assert.Equal(t, event2.ID(), received3.ID())
-		mutex3.Unlock()
-
-		// Verify subscriber1 did NOT receive event2
-		time.Sleep(100 * time.Millisecond)
-		mutex1.Lock()
-		assert.Equal(t, event1.ID(), received1.ID(), "subscriber1 should still have event1")
-		mutex1.Unlock()
-	})
-}
-
-func TestInmemoryBus_Subscribe(t *testing.T) {
-	t.Run("should return a valid subscriber", func(t *testing.T) {
-		// Given
-		closeBus, bus := setupBus(t)
-		defer closeBus()
+		sub3 := fxt.Bus().Subscribe().On(event.IsAny(), func(evt event.Event) {
+			defer wg.Done()
+			assert.Equal(t, event1, evt)
+		})
+		sub3.ListenWithWorkers(1)
 
 		// When
-		sub := bus.Subscribe()
+		fxt.Bus().Publish(event1)
 
 		// Then
-		require.NotNil(t, sub)
-		assert.NotNil(t, sub)
+		eventest.Wait(t, &wg, time.Second)
+		assert.Len(t, fxt.Harvester().Events(), 1)
+		assert.Equal(t, event1, fxt.Harvester().Events()[0])
 	})
-}
 
-func TestInmemoryBus_ThreadSafety(t *testing.T) {
 	t.Run("should handle concurrent publish and subscribe without race conditions", func(t *testing.T) {
 		// Given
 		closeBus, bus := setupBus(t)
@@ -299,19 +216,12 @@ func TestInmemoryBus_ThreadSafety(t *testing.T) {
 		numEventsPerPublisher := 10
 		totalEvents := numPublishers * numEventsPerPublisher
 
-		var received []event.Event
-		var mu sync.Mutex
+		hh := event.HarvesterHandler{}
 		var wg sync.WaitGroup
 		wg.Add(totalEvents)
 
-		sub := bus.Subscribe().On(event.IsAny(), func(evt event.Event) {
-			mu.Lock()
-			received = append(received, evt)
-			mu.Unlock()
-			wg.Done()
-		})
+		sub := bus.Subscribe().On(event.IsAny(), hh.HandleWithWaitGroup(&wg))
 		sub.ListenWithWorkers(16)
-		defer sub.Detach()
 
 		var opWg sync.WaitGroup
 
@@ -321,9 +231,7 @@ func TestInmemoryBus_ThreadSafety(t *testing.T) {
 			go func(publisherID int) {
 				defer opWg.Done()
 				for j := 0; j < numEventsPerPublisher; j++ {
-					payload := testPayload2{Value: "event"}
-					evt := event.New(payload)
-					bus.Publish(evt)
+					bus.Publish(event.New(testPayload2{Value: "event"}))
 				}
 			}(i)
 		}
@@ -333,7 +241,9 @@ func TestInmemoryBus_ThreadSafety(t *testing.T) {
 			opWg.Add(1)
 			go func() {
 				defer opWg.Done()
-				_ = bus.Subscribe()
+				bus.Subscribe().
+					On(event.IsAny(), func(evt event.Event) {}).
+					ListenWithWorkers(1)
 			}()
 		}
 
@@ -341,74 +251,60 @@ func TestInmemoryBus_ThreadSafety(t *testing.T) {
 
 		// Then
 		eventest.Wait(t, &wg, 2*time.Second)
-		mu.Lock()
-		defer mu.Unlock()
-
-		require.Len(t, received, totalEvents)
+		require.Len(t, hh.Events(), totalEvents)
 
 		idSet := make(map[string]struct{})
-		for _, evt := range received {
+		for _, evt := range hh.Events() {
 			idSet[evt.ID()] = struct{}{}
 		}
 		assert.Len(t, idSet, totalEvents, "all events should have unique IDs")
 	})
 }
 
-func TestInmemoryBus_WithCustomNotifier(t *testing.T) {
-	t.Run("should call custom notifier when event is published", func(t *testing.T) {
-		// Given
+func TestInmemoryBus_Notifier(t *testing.T) {
+	t.Run("should notify notifier when configured", func(t *testing.T) {
+		// Given & Then
+		ctrl := goMock.NewController(t)
+		mockNotifier := mocks_events.NewMockNotifier(ctrl)
+
+		evt := event.New(testPayload("test"))
+
+		var mu sync.Mutex
+		var sub *event.Subscriber
+
+		mockNotifier.EXPECT().
+			NotifyPublished(goMock.Eq(evt)).
+			Times(1)
+
+		mockNotifier.EXPECT().
+			NotifySubscribed(goMock.Cond(func(s *event.Subscriber) bool {
+				mu.Lock()
+				defer mu.Unlock()
+				sub = s
+				return true
+			})).
+			Times(1)
+
+		mockNotifier.EXPECT().
+			NotifyUnsubscribed(goMock.Cond(func(s *event.Subscriber) bool {
+				mu.Lock()
+				defer mu.Unlock()
+				return assert.Equal(t, sub, s)
+			})).
+			Times(1)
+
 		ctx, cancel := context.WithCancel(context.Background())
+		bus := inmemory.NewBus(ctx, inmemory.WithNotifier(mockNotifier))
 		defer cancel()
 
-		mockCtrl := goMock.NewController(t)
-
-		mockNotifier := mocks_events.NewMockNotifier(mockCtrl)
-
-		testEvent := event.New(testPayload("test"))
-		mockNotifier.EXPECT().NotifyPublished(testEvent)
-
-		bus := inmemory.NewBus(ctx, inmemory.WithNotifier(mockNotifier))
-
 		// When
-		bus.Publish(testEvent)
-	})
-
-	t.Run("should call custom notifier when subscriber is created", func(t *testing.T) {
-		// Given
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-
-		mockCtrl := goMock.NewController(t)
-
-		mockNotifier := mocks_events.NewMockNotifier(mockCtrl)
-
-		bus := inmemory.NewBus(ctx, inmemory.WithNotifier(mockNotifier))
-
-		mockNotifier.EXPECT().NotifySubscribed(goMock.Any()).Times(1)
-
-		// When
-		bus.Subscribe()
-	})
-
-	t.Run("should call custom notifier when subscriber is unsubscribed", func(t *testing.T) {
-		// Given
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-
-		mockCtrl := goMock.NewController(t)
-
-		mockNotifier := mocks_events.NewMockNotifier(mockCtrl)
-
-		bus := inmemory.NewBus(ctx, inmemory.WithNotifier(mockNotifier))
-
-		mockNotifier.EXPECT().NotifySubscribed(goMock.Any()).Times(1)
-
-		sub := bus.Subscribe()
-
-		mockNotifier.EXPECT().NotifyUnsubscribed(goMock.Any()).Times(1)
-
-		// When
+		bus.Publish(evt)
+		res := bus.Subscribe()
 		bus.Unsubscribe(sub)
+
+		mu.Lock()
+		assert.Equal(t, res, sub)
+		mu.Unlock()
 	})
 
 	t.Run("should work with multiple events and notifications", func(t *testing.T) {

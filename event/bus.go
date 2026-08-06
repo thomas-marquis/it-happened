@@ -9,7 +9,7 @@ type Bus interface {
 	Publish(evt Event)
 
 	// Subscribe creates a new subscriber for this bus.
-	// The subscriber can register callbacks for specific event matchers.
+	// The subscriber can register handlers for specific event matchers.
 	// To be processed, the event must match at least one of the default matchers, if any.
 	Subscribe(defaultMatchers ...Matcher) *Subscriber
 

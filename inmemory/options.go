@@ -35,3 +35,10 @@ func WithNotifier(notifier event.Notifier) BusOption {
 		b.notifier = notifier
 	}
 }
+
+// WithReadiness sets an optional user-defined chanel that is closed by the bus when it is ready to publish/receive events.
+func WithReadiness(ready chan struct{}) BusOption {
+	return func(b *inMemoryBus) {
+		b.ready = ready
+	}
+}
