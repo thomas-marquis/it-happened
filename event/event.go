@@ -7,6 +7,10 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	NothingHappenedType Type = "nothing.happened"
+)
+
 // Type represents the category or kind of an event.
 // It is used to identify and classify different types of events in the system.
 type Type string
@@ -29,6 +33,14 @@ type ItHappened struct{}
 
 func (ItHappened) EventType() Type {
 	return "it.happened"
+}
+
+// NothingHappened is a sentinel event you can use to represent an event that doesn't matter.
+// This event is ignored by the event bus (at least, for the Bus implementation provided by this library).
+type NothingHappened struct{}
+
+func (NothingHappened) EventType() Type {
+	return NothingHappenedType
 }
 
 // Event is the interface representing a domain event.
