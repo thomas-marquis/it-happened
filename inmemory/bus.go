@@ -131,6 +131,9 @@ func (b *inMemoryBus) Unsubscribe(sub *event.Subscriber) {
 //
 //	evt - The event to publish
 func (b *inMemoryBus) Publish(evt event.Event) {
+	if evt.Type() == event.NothingHappenedType {
+		return
+	}
 	b.notifier.NotifyPublished(evt)
 	if c, ok := evt.Payload().(carrier.Carrier); ok {
 		go c.Dispatch(b)

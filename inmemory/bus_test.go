@@ -259,6 +259,22 @@ func TestInmemoryBus(t *testing.T) {
 		}
 		assert.Len(t, idSet, totalEvents, "all events should have unique IDs")
 	})
+
+	t.Run("should ignore NotingHappened event", func(t *testing.T) {
+		// Given
+		fxt := setupBusFixture(t)
+
+		sub := fxt.Bus().Subscribe().On(event.IsAny(), func(evt event.Event) {
+			assert.Fail(t, "should not receive NotingHappened event")
+		})
+		sub.ListenWithWorkers(1)
+
+		// When
+		fxt.Bus().Publish(event.New(event.NothingHappened{}))
+
+		// Then
+		assert.Empty(t, fxt.Harvester().Events())
+	})
 }
 
 func TestInmemoryBus_Notifier(t *testing.T) {
