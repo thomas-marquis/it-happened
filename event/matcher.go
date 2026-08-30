@@ -120,3 +120,14 @@ func (m *isFollowup) Match(evt Event) bool {
 	}
 	return false
 }
+
+type isPayloadImplements[T any] struct{}
+
+func IsPayloadImplements[T any]() Matcher {
+	return &isPayloadImplements[T]{}
+}
+
+func (m *isPayloadImplements[T]) Match(evt Event) bool {
+	_, ok := evt.Payload().(T)
+	return ok
+}

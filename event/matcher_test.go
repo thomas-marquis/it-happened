@@ -121,3 +121,45 @@ func TestIsAny(t *testing.T) {
 		assert.True(t, m.Match(event.New(fakePayload2{})))
 	})
 }
+
+type doer interface {
+	Do()
+}
+
+type doerImpl struct{}
+
+func (doerImpl) EventType() event.Type {
+	return "fake.doer"
+}
+
+func (doerImpl) Do() {}
+
+type notDoer struct{}
+
+func (notDoer) EventType() event.Type {
+	return "fake.not.doer"
+}
+
+func TestIsPayloadImplements(t *testing.T) {
+	t.Run("should return true when the actual payload implements the given interface", func(t *testing.T) {
+		// Given
+		m := event.IsPayloadImplements[doer]()
+
+		// When
+		res := m.Match(event.New(doerImpl{}))
+
+		// Then
+		assert.True(t, res)
+	})
+
+	t.Run("should return false when the actual payload does not implements the given interface", func(t *testing.T) {
+		// Given
+		m := event.IsPayloadImplements[doer]()
+
+		// When
+		res := m.Match(event.New(notDoer{}))
+
+		// Then
+		assert.False(t, res)
+	})
+}
