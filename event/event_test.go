@@ -8,6 +8,8 @@ import (
 	"github.com/thomas-marquis/it-happened/event"
 )
 
+type fakeKeyType int
+
 func TestType_String(t *testing.T) {
 	t.Run("Given event Type, When String is called, Then it returns the string representation", func(t *testing.T) {
 		// Given
@@ -54,30 +56,32 @@ func TestEvent_NewFollowup(t *testing.T) {
 	t.Run("should inherit context from parent event", func(t *testing.T) {
 		// Given
 		parentCtx := context.Background()
-		parentCtx = context.WithValue(parentCtx, "key", "value")
+		var key fakeKeyType
+		parentCtx = context.WithValue(parentCtx, key, "value")
 		parent := event.New(fakePayload("parent"), event.WithContext(parentCtx))
 
 		child := parent.NewFollowup(fakePayload("child"))
 
 		// Then
 		assert.Equal(t, parent.Context(), child.Context())
-		assert.Equal(t, "value", child.Context().Value("key").(string))
+		assert.Equal(t, "value", child.Context().Value(key).(string))
 	})
 
 	t.Run("should override context if provided in options", func(t *testing.T) {
 		// Given
 		parentCtx := context.Background()
-		parentCtx = context.WithValue(parentCtx, "key", "oldValue")
+		var key fakeKeyType
+		parentCtx = context.WithValue(parentCtx, key, "oldValue")
 		parent := event.New(fakePayload("parent"), event.WithContext(parentCtx))
 
 		newCtx := context.Background()
-		newCtx = context.WithValue(newCtx, "key", "newValue")
+		newCtx = context.WithValue(newCtx, key, "newValue")
 
 		child := parent.NewFollowup(fakePayload("child"), event.WithContext(newCtx))
 
 		// Then
 		assert.Equal(t, newCtx, child.Context())
-		assert.Equal(t, "newValue", child.Context().Value("key").(string))
+		assert.Equal(t, "newValue", child.Context().Value(key).(string))
 	})
 }
 
