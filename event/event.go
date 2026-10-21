@@ -124,12 +124,16 @@ func (e *impl) MarshalJSON() ([]byte, error) {
 // A chain can be longer than two events.
 // Each event in a chain shares the same ChainRef -- which is basically the ID of the first event in the chain.
 // The position is incremented for each new event in the chain.
+// The new event's context is inherited from the parent event, unless overridden by options.
 func (e *impl) NewFollowup(newPayload Payload, opts ...Option) Event {
 	prevRef := e.ref
 	if prevRef == "" {
 		prevRef = uuid.New().String()
 	}
-	ne := newEventImpl(newPayload, opts...)
+	options := append([]Option{}, WithContext(e.Context()))
+	options = append(options, opts...)
+
+	ne := newEventImpl(newPayload, options...)
 	ne.ref = prevRef
 	ne.position = e.position + 1
 	return ne
