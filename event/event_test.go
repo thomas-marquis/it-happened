@@ -1,6 +1,7 @@
 package event_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -48,6 +49,35 @@ func TestEvent_NewFollowup(t *testing.T) {
 		assert.Equal(t, uint(1), followup.ChainPosition())
 		assert.NotEqual(t, parent.ID(), followup.ID())
 		assert.Equal(t, parent.ID(), followup.ChainRef())
+	})
+
+	t.Run("should inherit context from parent event", func(t *testing.T) {
+		// Given
+		parentCtx := context.Background()
+		parentCtx = context.WithValue(parentCtx, "key", "value")
+		parent := event.New(fakePayload("parent"), event.WithContext(parentCtx))
+
+		child := parent.NewFollowup(fakePayload("child"))
+
+		// Then
+		assert.Equal(t, parent.Context(), child.Context())
+		assert.Equal(t, "value", child.Context().Value("key").(string))
+	})
+
+	t.Run("should override context if provided in options", func(t *testing.T) {
+		// Given
+		parentCtx := context.Background()
+		parentCtx = context.WithValue(parentCtx, "key", "oldValue")
+		parent := event.New(fakePayload("parent"), event.WithContext(parentCtx))
+
+		newCtx := context.Background()
+		newCtx = context.WithValue(newCtx, "key", "newValue")
+
+		child := parent.NewFollowup(fakePayload("child"), event.WithContext(newCtx))
+
+		// Then
+		assert.Equal(t, newCtx, child.Context())
+		assert.Equal(t, "newValue", child.Context().Value("key").(string))
 	})
 }
 
